@@ -13,7 +13,7 @@ export type AiSupportProvider = (typeof AI_SUPPORT_PROVIDERS)[number]['id'];
 export const AI_SUPPORT_QUESTION_MAX_LENGTH = 160;
 const AI_SUPPORT_PROMPT_MAX_LENGTH = 2_000;
 const AI_SUPPORT_URL_MAX_LENGTH = 7_000;
-const PROMPT_START = '[QuickMail-ja Support v1]';
+const PROMPT_START = '[QuickMail-ja Support v2]';
 const PROMPT_END = '[/QuickMail-ja Support]';
 
 export type AiSupportDestination = {
@@ -61,7 +61,8 @@ const PRIVATE_KEY = /-----BEGIN [A-Z ]*PRIVATE KEY-----/u;
 const GENERIC_TOKEN = /(?:^|[^A-Za-z0-9_-])[A-Za-z0-9_-]{32,256}(?=$|[^A-Za-z0-9_-])/u;
 const ISO_CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/u;
 const SYSTEM_CLOCK: AiSupportClock = () => new Date();
-const EXPIRED_KNOWLEDGE_MESSAGE = '外部変更せず公式一次資料を再確認してください。';
+const EXPIRED_KNOWLEDGE_MESSAGE =
+	'登録時の確認期限を過ぎています。下記URLを起点に、公式サイト内の現行ページを探し直してください。';
 
 function codePointLength(value: string): number {
 	return [...value].length;
@@ -111,22 +112,21 @@ export function validateAiSupportQuestion(value: string): string {
 
 function promptPrefix(stage: AiSupportStage, today: string): string {
 	const knowledge = AI_SUPPORT_KNOWLEDGE[stage];
-	const supportLines = isKnowledgeCurrent(knowledge.reviewBy, today)
-		? [
-				'確認済みサポート要点:',
-				...knowledge.safeSteps.map((step) => `- ${step}`),
-				'確認できる状態:',
-				...knowledge.expectedEvidence.map((evidence) => `- ${evidence}`)
-			]
-		: ['確認期限を過ぎたサポート要点:', `- ${EXPIRED_KNOWLEDGE_MESSAGE}`];
+	const sourceStatus = isKnowledgeCurrent(knowledge.reviewBy, today)
+		? '公式ドキュメント（回答前に再確認）:'
+		: `公式ドキュメント候補:\n- ${EXPIRED_KNOWLEDGE_MESSAGE}`;
 	return [
 		PROMPT_START,
 		'この文章はQuickMail-jaが画面に表示した内容です。AIの公式サポートではありません。',
 		`手順ID: ${stage}`,
 		`現在の手順: ${STAGE_COPY[stage]}`,
 		'前提: 受信はCloudflare Email Routing、送信はResendです。Resend Receivingやapexの受信用MXは使いません。',
-		'公式情報を優先し、非エンジニアにも分かるよう一度に一つずつ説明してください。秘密情報や個人情報の入力を求めないでください。ログイン、MFA、規約同意、課金、デプロイ、DNS変更は利用者本人が内容を確認して操作します。',
-		...supportLines,
+		'回答前に、下記の公式ドキュメントを実際に開いて最新内容を確認してください。AIの記憶や検索結果の要約だけで回答しないでください。',
+		sourceStatus,
+		...knowledge.officialDocs.map((doc) => `- ${doc.label}: ${doc.url}`),
+		`回答には確認日（${today}）と、実際に確認した公式URLを記載してください。リンクが変わっていたら、同じ公式サイト内で現行ページを探してください。`,
+		'利用者は非エンジニアです。現在の公式画面に合わせて、次に行う操作を短く順番に説明してください。公式資料と画面が一致しない場合は、その差を先に説明してください。',
+		'APIキー、パスワード、メール本文などの秘密情報や個人情報は入力させないでください。',
 		'質問: '
 	].join('\n');
 }

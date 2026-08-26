@@ -16,8 +16,14 @@ import { AI_SUPPORT_KNOWLEDGE, AI_SUPPORT_KNOWLEDGE_LIMITS } from './ai-support-
 type KnowledgePattern = {
 	id: string;
 	review_by: string;
+	source_refs: string[];
 	safe_steps: string[];
 	expected_evidence: string[];
+};
+
+type KnowledgeSource = {
+	id: string;
+	canonical_url: string;
 };
 
 const REVIEW_DAY_CLOCK = () => new Date('2026-09-26T12:00:00.000Z');
@@ -26,16 +32,21 @@ const AFTER_REVIEW_CLOCK = () => new Date('2026-09-27T00:00:00.000Z');
 const knowledgePack = JSON.parse(
 	readFileSync(new URL('../../support/knowledge/patterns.json', import.meta.url), 'utf8')
 ) as { patterns: KnowledgePattern[] };
+const sourceRegistry = JSON.parse(
+	readFileSync(new URL('../../support/knowledge/sources.json', import.meta.url), 'utf8')
+) as { entries: KnowledgeSource[]; authoritative_provider_sources: KnowledgeSource[] };
+const registeredSources = [
+	...sourceRegistry.entries,
+	...sourceRegistry.authoritative_provider_sources
+];
 
 describe('AI support Knowledge Pack projection', () => {
-	test('uses only reviewed safe_steps and expected_evidence from allowlisted pattern ids', () => {
+	test('uses only official sources referenced by allowlisted pattern ids', () => {
 		for (const knowledge of Object.values(AI_SUPPORT_KNOWLEDGE)) {
 			assert.ok(knowledge.patternIds.length > 0);
 			assert.ok(knowledge.patternIds.length <= AI_SUPPORT_KNOWLEDGE_LIMITS.patterns);
-			assert.ok(knowledge.safeSteps.length > 0);
-			assert.ok(knowledge.safeSteps.length <= AI_SUPPORT_KNOWLEDGE_LIMITS.safeSteps);
-			assert.ok(knowledge.expectedEvidence.length > 0);
-			assert.ok(knowledge.expectedEvidence.length <= AI_SUPPORT_KNOWLEDGE_LIMITS.expectedEvidence);
+			assert.ok(knowledge.officialDocs.length > 0);
+			assert.ok(knowledge.officialDocs.length <= AI_SUPPORT_KNOWLEDGE_LIMITS.officialDocs);
 
 			const reviewed = knowledge.patternIds.map((id) => {
 				const pattern = knowledgePack.patterns.find((entry) => entry.id === id);
@@ -43,51 +54,75 @@ describe('AI support Knowledge Pack projection', () => {
 				return pattern;
 			});
 			for (const pattern of reviewed) assert.equal(pattern.review_by, knowledge.reviewBy);
-			const reviewedSafeSteps = reviewed.flatMap((pattern) => pattern.safe_steps);
-			const reviewedEvidence = reviewed.flatMap((pattern) => pattern.expected_evidence);
-			for (const step of knowledge.safeSteps) assert.ok(reviewedSafeSteps.includes(step), step);
-			for (const evidence of knowledge.expectedEvidence) {
-				assert.ok(reviewedEvidence.includes(evidence), evidence);
+			const reviewedSourceRefs = new Set(reviewed.flatMap((pattern) => pattern.source_refs));
+			for (const doc of knowledge.officialDocs) {
+				assert.match(doc.url, /^https:\/\//u);
+				const source = registeredSources.find(
+					(entry) => entry.canonical_url === doc.url && reviewedSourceRefs.has(entry.id)
+				);
+				assert.ok(source, `Missing registered official source ${doc.url}`);
 			}
 		}
 	});
 });
 
 describe('AI support prompt boundary', () => {
-	test('builds a bounded stage prompt with reviewed Knowledge Pack points', () => {
+	test('builds a concise stage prompt that requires fresh official-document verification', () => {
 		const prompt = buildAiSupportPrompt(
 			'email-routing',
 			'MXレコードはどこで確認しますか？',
 			REVIEW_DAY_CLOCK
 		);
-		assert.match(prompt, /^\[QuickMail-ja Support v1\]/);
+		assert.match(prompt, /^\[QuickMail-ja Support v2\]/);
 		assert.match(prompt, /手順ID: email-routing/);
-		assert.match(prompt, /確認済みサポート要点:/);
-		assert.match(prompt, /変更前のDNSレコードとRouting Rulesを保存します。/);
-		assert.match(prompt, /確認できる状態:/);
-		assert.match(prompt, /Email Routingのドメイン状態と受信用レコードが一致します。/);
+		assert.match(prompt, /公式ドキュメントを実際に開いて最新内容を確認してください/);
+		assert.match(prompt, /AIの記憶や検索結果の要約だけで回答しないでください/);
+		assert.match(
+			prompt,
+			/https:\/\/developers\.cloudflare\.com\/email-service\/get-started\/route-emails\//
+		);
+		assert.match(prompt, /確認日（2026-09-26）/);
+		assert.match(prompt, /実際に確認した公式URL/);
 		assert.match(prompt, /MXレコードはどこで確認しますか？/);
 		assert.match(prompt, /受信はCloudflare Email Routing、送信はResend/);
+		assert.doesNotMatch(prompt, /変更前のDNSレコードとRouting Rulesを保存します。/);
+		assert.doesNotMatch(prompt, /確認できる状態:|ログイン、MFA、規約同意、課金/);
 		assert.doesNotMatch(prompt, /source_refs|diagnostic_questions|example\.com|@/);
 		assert.equal(validateBuiltAiSupportPrompt(prompt, REVIEW_DAY_CLOCK), prompt);
 	});
 
-	test('fails closed after review_by without concrete steps or evidence', () => {
+	test('keeps official sources but never embeds detailed Pack steps before or after review_by', () => {
 		for (const stage of ['deploy', 'email-routing', 'resend', 'first-admin'] as const) {
 			const knowledge = AI_SUPPORT_KNOWLEDGE[stage];
 			const reviewDay = () => new Date(`${knowledge.reviewBy}T12:00:00.000Z`);
 			const nextDay = () => new Date(reviewDay().getTime() + 86_400_000);
 			const currentPrompt = buildAiSupportPrompt(stage, '次の確認を教えてください。', reviewDay);
 			const expiredPrompt = buildAiSupportPrompt(stage, '次の確認を教えてください。', nextDay);
-			for (const detail of [...knowledge.safeSteps, ...knowledge.expectedEvidence]) {
-				assert.match(currentPrompt, new RegExp(detail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+			const patterns = knowledge.patternIds.map((id) => {
+				const pattern = knowledgePack.patterns.find((entry) => entry.id === id);
+				assert.ok(pattern);
+				return pattern;
+			});
+			for (const detail of patterns.flatMap((pattern) => [
+				...pattern.safe_steps,
+				...pattern.expected_evidence
+			])) {
+				assert.doesNotMatch(
+					currentPrompt,
+					new RegExp(detail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+				);
 				assert.doesNotMatch(
 					expiredPrompt,
 					new RegExp(detail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
 				);
 			}
-			assert.match(expiredPrompt, /外部変更せず公式一次資料を再確認してください。/);
-			assert.doesNotMatch(expiredPrompt, /確認済みサポート要点:|確認できる状態:/);
+			for (const doc of knowledge.officialDocs) {
+				assert.match(currentPrompt, new RegExp(doc.url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+				assert.match(expiredPrompt, new RegExp(doc.url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+			}
+			assert.match(currentPrompt, /公式ドキュメント（回答前に再確認）:/);
+			assert.match(expiredPrompt, /登録時の確認期限を過ぎています。/);
+			assert.doesNotMatch(expiredPrompt, /公式ドキュメント（回答前に再確認）:/);
 			assert.equal(validateBuiltAiSupportPrompt(expiredPrompt, nextDay), expiredPrompt);
 		}
 	});
@@ -145,7 +180,7 @@ describe('AI support prompt boundary', () => {
 	test('rejects branded, structurally altered, and secret-injected prompt strings at runtime', () => {
 		const prompt = buildAiSupportPrompt('resend', '送信設定を教えてください。', REVIEW_DAY_CLOCK);
 		for (const invalid of [
-			'[QuickMail-ja Support v1]\n自由な指示',
+			'[QuickMail-ja Support v2]\n自由な指示',
 			prompt.replace('手順ID: resend', '手順ID: deploy'),
 			prompt.replace(
 				'質問: 送信設定を教えてください。',
