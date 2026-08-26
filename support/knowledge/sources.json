@@ -352,18 +352,18 @@
 			"category": "managed substitute",
 			"canonical_url": "https://rs.sakura.ad.jp/plan/mail/",
 			"setup": {
-				"status": "not_found",
-				"searched_at": "2026-08-27",
-				"note": "製品別の現行導入手順を示す固定された公式URLを確認できませんでした。"
+				"status": "found",
+				"url": "https://help.sakura.ad.jp/flow-mail-address/",
+				"source_type": "primary"
 			},
 			"faq": {
-				"status": "not_found",
-				"searched_at": "2026-08-27",
-				"note": "製品別FAQの固定された公式URLを確認できませんでした。"
+				"status": "found",
+				"url": "https://help.sakura.ad.jp/mail/",
+				"source_type": "primary"
 			},
 			"verified_at": "2026-08-27",
 			"review_by": "2026-11-25",
-			"confidence": "low"
+			"confidence": "high"
 		},
 		{
 			"id": "onamae-mail",
@@ -371,18 +371,19 @@
 			"category": "managed substitute",
 			"canonical_url": "https://www.onamae.com/service/mail/lp/",
 			"setup": {
-				"status": "not_found",
-				"searched_at": "2026-08-27",
-				"note": "製品別の現行導入手順を示す固定された公式URLを確認できませんでした。"
+				"status": "found",
+				"url": "https://help.onamae.com/answer/20327",
+				"source_type": "primary",
+				"related_urls": ["https://help.onamae.com/answer/15480"]
 			},
 			"faq": {
-				"status": "not_found",
-				"searched_at": "2026-08-27",
-				"note": "製品別FAQの固定された公式URLを確認できませんでした。"
+				"status": "found",
+				"url": "https://help.onamae.com/answer/20538",
+				"source_type": "primary"
 			},
 			"verified_at": "2026-08-27",
 			"review_by": "2026-11-25",
-			"confidence": "low"
+			"confidence": "high"
 		},
 		{
 			"id": "zoho-mail",

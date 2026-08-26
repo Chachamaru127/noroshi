@@ -4,8 +4,9 @@
 	"title": "QuickMail-ja Japanese support patterns",
 	"type": "object",
 	"additionalProperties": false,
-	"required": ["version", "verified_at", "review_by", "patterns"],
+	"required": ["$schema", "version", "verified_at", "review_by", "patterns"],
 	"properties": {
+		"$schema": { "const": "./support-patterns.schema.json" },
 		"version": { "type": "integer", "const": 1 },
 		"verified_at": { "$ref": "#/$defs/date" },
 		"review_by": { "$ref": "#/$defs/date" },

@@ -1,12 +1,35 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
+import Ajv2020 from 'ajv/dist/2020.js';
+import addFormats from 'ajv-formats';
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 const parse = (path) => JSON.parse(read(path));
 
 const sources = () => parse('support/knowledge/sources.json');
 const patterns = () => parse('support/knowledge/patterns.json');
+
+function compileKnowledgeSchemas() {
+	const ajv = new Ajv2020({ allErrors: true, strict: true });
+	addFormats(ajv);
+	return {
+		validateSources: ajv.compile(parse('support/knowledge/source-registry.schema.json')),
+		validatePatterns: ajv.compile(parse('support/knowledge/support-patterns.schema.json'))
+	};
+}
+
+function assertSchemaValid(validate, document) {
+	assert.equal(validate(document), true, JSON.stringify(validate.errors, null, 2));
+}
+
+function assertSchemaInvalid(validate, document, expectedKeyword) {
+	assert.equal(validate(document), false, 'negative fixture unexpectedly passed schema validation');
+	assert.ok(
+		validate.errors?.some(({ keyword }) => keyword === expectedKeyword),
+		`expected ${expectedKeyword}: ${JSON.stringify(validate.errors, null, 2)}`
+	);
+}
 
 function daysBetween(start, end) {
 	return (Date.parse(end) - Date.parse(start)) / 86_400_000;
@@ -39,6 +62,31 @@ test('source registry maps the 24 researched products and configurations one-to-
 		researched
 	);
 	assert.equal(new Set(registry.entries.map(({ id }) => id)).size, 24);
+});
+
+test('domestic managed alternatives use the verified primary setup and FAQ sources', () => {
+	const byId = new Map(sources().entries.map((entry) => [entry.id, entry]));
+	assert.deepEqual(byId.get('sakura-mailbox')?.setup, {
+		status: 'found',
+		url: 'https://help.sakura.ad.jp/flow-mail-address/',
+		source_type: 'primary'
+	});
+	assert.deepEqual(byId.get('sakura-mailbox')?.faq, {
+		status: 'found',
+		url: 'https://help.sakura.ad.jp/mail/',
+		source_type: 'primary'
+	});
+	assert.deepEqual(byId.get('onamae-mail')?.setup, {
+		status: 'found',
+		url: 'https://help.onamae.com/answer/20327',
+		source_type: 'primary',
+		related_urls: ['https://help.onamae.com/answer/15480']
+	});
+	assert.deepEqual(byId.get('onamae-mail')?.faq, {
+		status: 'found',
+		url: 'https://help.onamae.com/answer/20538',
+		source_type: 'primary'
+	});
 });
 
 test('every source is primary, dated and explicit about setup and FAQ discovery', () => {
@@ -161,6 +209,34 @@ test('schemas require provenance, applicability, safety and evidence fields', ()
 	]) {
 		assert.ok(patternRequired.includes(field), `pattern schema must require ${field}`);
 	}
+});
+
+test('Draft 2020-12 schemas validate the actual source and support pattern documents', () => {
+	const { validateSources, validatePatterns } = compileKnowledgeSchemas();
+	assertSchemaValid(validateSources, sources());
+	assertSchemaValid(validatePatterns, patterns());
+});
+
+test('Draft 2020-12 schema validators are direct exact development dependencies', () => {
+	const devDependencies = parse('package.json').devDependencies;
+	assert.equal(devDependencies.ajv, '8.20.0');
+	assert.equal(devDependencies['ajv-formats'], '3.0.1');
+});
+
+test('Draft 2020-12 schemas reject additional properties, wrong enums and invalid dates', () => {
+	const { validateSources, validatePatterns } = compileKnowledgeSchemas();
+
+	const additionalProperty = structuredClone(sources());
+	additionalProperty.entries[0].unreviewed_hint = true;
+	assertSchemaInvalid(validateSources, additionalProperty, 'additionalProperties');
+
+	const wrongEnum = structuredClone(patterns());
+	wrongEnum.patterns[0].category = 'unknown';
+	assertSchemaInvalid(validatePatterns, wrongEnum, 'enum');
+
+	const invalidDate = structuredClone(patterns());
+	invalidDate.patterns[0].verified_at = '2026-02-30';
+	assertSchemaInvalid(validatePatterns, invalidDate, 'format');
 });
 
 test('knowledge files contain no raw source body, HTML, secrets, customer values or local paths', () => {

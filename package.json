@@ -36,6 +36,8 @@
 		"@tailwindcss/vite": "^4.2.2",
 		"@types/node": "^24.10.1",
 		"@types/web-push": "^3.6.4",
+		"ajv": "8.20.0",
+		"ajv-formats": "3.0.1",
 		"prettier": "^3.9.6",
 		"prettier-plugin-svelte": "^4.1.1",
 		"svelte": "^5.55.2",
