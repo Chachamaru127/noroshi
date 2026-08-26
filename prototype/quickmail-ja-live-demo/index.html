@@ -1,0 +1,1118 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive,nosnippet,noimageindex">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-7HT4B+o3TdwfiE17CReEBge6MgOrPKnSwD4qGVvnvAU='; img-src data:; connect-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="color-scheme" content="light dark">
+  <title>QuickMail-ja 操作可能デモ</title>
+  <style>
+    :root {
+      --bg:#f7f8f7; --surface:#fff; --surface-2:#f2f4f3; --surface-3:#e8eeea;
+      --text:#262b28; --sub:#68716c; --muted:#89918c; --line:#dfe4e1;
+      --accent:#789a88; --accent-2:#527461; --on-accent:#fff;
+      --danger:#b55353; --warn:#7b5a20; --warn-bg:#fff5d7; --good:#4f7c62;
+      --shadow:0 14px 38px rgba(38,59,47,.08); --sidebar:236px;
+    }
+    [data-theme="dark"] {
+      --bg:#121513; --surface:#1b201d; --surface-2:#242a27; --surface-3:#2b3931;
+      --text:#edf2ef; --sub:#b2bcb6; --muted:#8d9891; --line:#303934;
+      --accent:#88ad99; --accent-2:#6f9a82; --on-accent:#0f1813;
+      --danger:#e28282; --warn:#e2bd73; --warn-bg:#352d19; --good:#87bd9b;
+      --shadow:0 18px 46px rgba(0,0,0,.25);
+    }
+    * { box-sizing:border-box; }
+    html, body { margin:0; min-height:100%; }
+    body {
+      color:var(--text); background:var(--bg);
+      font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic UI","Yu Gothic",sans-serif;
+      line-height:1.55; -webkit-font-smoothing:antialiased;
+    }
+    button,input,textarea,select { font:inherit; color:inherit; }
+    button { cursor:pointer; }
+    button:disabled { cursor:not-allowed; opacity:.5; }
+    a { color:inherit; text-decoration:none; }
+    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+    .demo-banner {
+      position:fixed; inset:0 0 auto; z-index:100; height:42px;
+      display:flex; align-items:center; justify-content:center; gap:.55rem;
+      padding:0 1rem; color:#385346; background:#e2ece6; border-bottom:1px solid #ccdcd2;
+      font-size:.76rem; font-weight:600;
+    }
+    [data-theme="dark"] .demo-banner { color:#c7ddd0; background:#203128; border-color:#35493e; }
+    .demo-dot { width:.5rem; height:.5rem; border-radius:50%; background:var(--accent-2); }
+    .app { min-height:100vh; padding-top:42px; }
+    .sidebar {
+      position:fixed; top:42px; left:0; bottom:0; z-index:40; width:var(--sidebar);
+      display:flex; flex-direction:column; padding:.9rem .75rem .75rem;
+      background:var(--surface); border-right:1px solid var(--line); overflow:auto;
+    }
+    .brand { display:flex; align-items:center; gap:.55rem; padding:0 .25rem .9rem; font-weight:700; }
+    .brand-mark { display:grid; place-items:center; width:32px; height:32px; border-radius:9px; color:#315242; background:#bed0c5; }
+    .compose-new {
+      display:flex; align-items:center; justify-content:center; gap:.45rem; min-height:42px;
+      margin-bottom:1rem; color:var(--on-accent); background:var(--accent); border:0; border-radius:12px; font-weight:600;
+    }
+    .nav { display:grid; gap:.15rem; }
+    .nav-btn {
+      display:flex; align-items:center; gap:.65rem; min-height:38px; width:100%; padding:0 .65rem;
+      color:var(--sub); background:transparent; border:0; border-radius:10px; text-align:left;
+    }
+    .nav-btn:hover,.nav-btn.active { color:var(--text); background:var(--surface-2); }
+    .nav-btn.active { font-weight:600; }
+    .nav-icon { width:1.2rem; text-align:center; }
+    .count { margin-left:auto; min-width:20px; padding:1px 6px; color:var(--on-accent); background:var(--accent); border-radius:999px; font-size:.68rem; text-align:center; }
+    .section-label { display:flex; align-items:center; justify-content:space-between; margin:1rem .6rem .3rem; color:var(--muted); font-size:.68rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+    .icon-button { display:grid; place-items:center; width:34px; height:34px; padding:0; color:var(--sub); background:transparent; border:0; border-radius:9px; }
+    .icon-button:hover { color:var(--text); background:var(--surface-2); }
+    .folder-add { width:26px; height:26px; }
+    .folder-row { display:grid; grid-template-columns:minmax(0,1fr) 30px; gap:.15rem; align-items:center; }
+    .folder-row .folder-tools { width:30px; height:30px; }
+    .sidebar-foot { margin-top:auto; padding-top:1rem; }
+    .content-shell { margin-left:var(--sidebar); min-height:calc(100vh - 42px); }
+    .topbar {
+      position:sticky; top:42px; z-index:30; height:66px; display:flex; align-items:center; gap:.8rem;
+      padding:0 1.25rem; background:rgba(255,255,255,.94); border-bottom:1px solid var(--line); backdrop-filter:blur(14px);
+    }
+    [data-theme="dark"] .topbar { background:rgba(27,32,29,.94); }
+    .search-wrap { position:relative; flex:1; max-width:540px; }
+    .search-input {
+      width:100%; height:38px; padding:0 2.6rem 0 2.25rem; background:var(--surface-2); border:1px solid transparent; border-radius:12px; outline:none;
+    }
+    .search-input:focus { background:var(--surface); border-color:var(--accent); box-shadow:0 0 0 3px rgba(120,154,136,.14); }
+    .search-symbol { position:absolute; left:.8rem; top:.45rem; color:var(--muted); }
+    .search-go { position:absolute; right:.25rem; top:.2rem; width:34px; height:34px; color:var(--muted); background:transparent; border:0; border-radius:9px; }
+    .search-go:hover { color:var(--text); background:var(--surface-3); }
+    .account { position:relative; margin-left:auto; }
+    .account-button { display:flex; align-items:center; gap:.55rem; padding:.25rem; background:transparent; border:0; border-radius:999px; }
+    .account-button:hover { background:var(--surface-2); }
+    .account-copy { display:grid; text-align:right; line-height:1.25; font-size:.72rem; }
+    .account-copy strong { font-size:.8rem; }
+    .account-copy span { color:var(--muted); }
+    .avatar { display:grid; place-items:center; width:34px; height:34px; border-radius:50%; background:var(--surface-3); font-size:.72rem; font-weight:700; }
+    .account-menu {
+      position:absolute; top:45px; right:0; width:210px; padding:.45rem; background:var(--surface); border:1px solid var(--line); border-radius:13px; box-shadow:var(--shadow);
+    }
+    .account-menu button { width:100%; padding:.65rem .7rem; background:transparent; border:0; border-radius:8px; text-align:left; }
+    .account-menu button:hover { background:var(--surface-2); }
+    main { min-height:calc(100vh - 108px); }
+    .page { width:min(1060px,calc(100% - 2.5rem)); margin:0 auto; padding:1.5rem 0 4rem; }
+    .page.narrow { width:min(820px,calc(100% - 2.5rem)); }
+    .page-head { display:flex; align-items:center; gap:.75rem; min-height:46px; margin-bottom:.65rem; }
+    .page-head h1 { margin:0; font-size:1.25rem; letter-spacing:-.02em; }
+    .page-head .total { color:var(--muted); font-size:.76rem; }
+    .head-actions { display:flex; align-items:center; gap:.45rem; margin-left:auto; }
+    .button,.button-primary,.button-danger {
+      min-height:40px; padding:0 .9rem; border-radius:10px; border:1px solid var(--line); font-size:.82rem; font-weight:600;
+    }
+    .button { color:var(--text); background:var(--surface); }
+    .button:hover { background:var(--surface-2); }
+    .button-primary { color:var(--on-accent); background:var(--accent-2); border-color:var(--accent-2); }
+    .button-danger { color:#fff; background:var(--danger); border-color:var(--danger); }
+    .button.small,.button-primary.small { min-height:34px; padding:0 .65rem; font-size:.75rem; }
+    .toolbar {
+      display:flex; align-items:center; gap:.6rem; min-height:50px; padding:.45rem .65rem;
+      background:var(--surface); border:1px solid var(--line); border-radius:14px 14px 0 0;
+    }
+    .toolbar .spacer { flex:1; }
+    .filter-pill { min-height:34px; padding:0 .7rem; color:var(--sub); background:var(--surface-2); border:1px solid transparent; border-radius:999px; font-size:.75rem; }
+    .filter-pill.active { color:var(--text); background:var(--surface-3); border-color:var(--accent); }
+    .mail-list { margin:0; padding:0; list-style:none; background:var(--surface); border:1px solid var(--line); border-top:0; border-radius:0 0 14px 14px; overflow:hidden; }
+    .mail-row {
+      display:grid; grid-template-columns:34px 30px 42px 170px minmax(0,1fr) auto; align-items:center; gap:.5rem;
+      min-height:72px; padding:.6rem .75rem; border-top:1px solid var(--line);
+    }
+    .mail-row:first-child { border-top:0; }
+    .mail-row.unread { background:color-mix(in srgb,var(--accent) 7%,var(--surface)); }
+    .mail-row:hover { background:var(--surface-2); }
+    .select-box { width:17px; height:17px; accent-color:var(--accent-2); }
+    .star { color:#aeb5b1; background:transparent; border:0; font-size:1rem; }
+    .star.on { color:#d5a82d; }
+    .row-avatar { display:grid; place-items:center; width:36px; height:36px; padding:0; border:0; border-radius:50%; color:#365143; background:var(--surface-3); font-weight:700; }
+    .sender,.subject { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .sender { padding:0; color:inherit; background:transparent; border:0; font-size:.82rem; text-align:left; }
+    .unread .sender,.unread .subject-main { font-weight:700; }
+    .subject { display:flex; min-width:0; gap:.45rem; font-size:.82rem; }
+    .preview { color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .row-date { color:var(--muted); font-size:.72rem; white-space:nowrap; }
+    .mail-open { display:flex; align-items:center; min-width:0; padding:.25rem 0; color:inherit; background:transparent; border:0; text-align:left; cursor:pointer; }
+    .tag { display:inline-flex; align-items:center; min-height:20px; padding:0 .4rem; color:var(--sub); background:var(--surface-2); border-radius:999px; font-size:.65rem; }
+    .empty { display:grid; place-items:center; min-height:360px; color:var(--muted); background:var(--surface); border:1px solid var(--line); border-radius:14px; }
+    .card { padding:1.25rem; background:var(--surface); border:1px solid var(--line); border-radius:18px; box-shadow:var(--shadow); }
+    .card + .card { margin-top:1rem; }
+    .card h2 { display:flex; align-items:center; gap:.45rem; margin:0; font-size:1rem; }
+    .hint { margin:.35rem 0 0; color:var(--muted); font-size:.75rem; }
+    .mail-detail-head { display:flex; align-items:flex-start; gap:.8rem; }
+    .mail-detail-head h1 { flex:1; margin:0; font-size:1.25rem; }
+    .message-meta { display:flex; align-items:center; gap:.75rem; margin-top:1rem; padding-top:1rem; border-top:1px solid var(--line); }
+    .meta-copy { display:grid; gap:.1rem; font-size:.8rem; }
+    .meta-copy span { color:var(--muted); font-size:.72rem; }
+    .message-body { min-height:180px; padding:1.5rem .2rem; white-space:pre-wrap; font-size:.88rem; }
+    .attachments { display:flex; gap:.5rem; flex-wrap:wrap; padding-top:1rem; border-top:1px solid var(--line); }
+    .attachment { padding:.55rem .7rem; color:var(--sub); background:var(--surface-2); border:1px solid var(--line); border-radius:10px; font-size:.75rem; }
+    .reply-actions { display:flex; gap:.55rem; margin-top:1rem; }
+    .field-grid { display:grid; gap:.75rem; }
+    .field-row { display:grid; grid-template-columns:86px minmax(0,1fr); align-items:center; min-height:48px; border-bottom:1px solid var(--line); }
+    .field-row:last-child { border-bottom:0; }
+    .field-row label,.field-label { color:var(--muted); font-size:.76rem; }
+    .field-row input,.field-row select { width:100%; min-height:42px; padding:.4rem 0; background:transparent; border:0; outline:none; }
+    .composer { margin-top:1rem; }
+    .composer textarea { width:100%; min-height:260px; padding:1rem; color:var(--text); background:var(--surface); border:1px solid var(--line); border-radius:14px; resize:vertical; outline:none; }
+    .composer textarea:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(120,154,136,.14); }
+    .compose-foot { display:flex; align-items:center; gap:.55rem; margin-top:.75rem; }
+    .compose-foot .spacer { flex:1; }
+    .demo-notice { padding:.7rem .85rem; color:var(--warn); background:var(--warn-bg); border-radius:11px; font-size:.76rem; }
+    .form-error { margin:.65rem 0 0; color:var(--danger); font-size:.78rem; font-weight:600; }
+    .flow { display:flex; align-items:center; gap:.35rem; margin:.85rem 0; overflow:auto; }
+    .flow-step { flex:1; min-width:102px; padding:.48rem .6rem; color:var(--muted); background:var(--surface-2); border:1px solid var(--line); border-radius:9px; font-size:.7rem; text-align:center; white-space:nowrap; }
+    .flow-step.done { color:var(--good); border-color:var(--accent); font-weight:700; }
+    .acknowledge { display:flex; align-items:flex-start; gap:.5rem; margin-top:.75rem; color:var(--sub); font-size:.78rem; }
+    .acknowledge input { margin-top:.22rem; accent-color:var(--accent-2); }
+    .ai-provider-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:.65rem; margin-top:.8rem; }
+    .ai-provider { display:grid; gap:.3rem; align-content:start; min-height:112px; padding:.75rem; color:var(--text); background:var(--surface-2); border:1px solid var(--line); border-radius:12px; text-align:left; }
+    .ai-provider.active { border-color:var(--accent); box-shadow:0 0 0 3px rgba(120,154,136,.12); }
+    .ai-provider strong { font-size:.8rem; }
+    .ai-provider span { color:var(--muted); font-size:.7rem; line-height:1.45; }
+    .prompt-preview { min-height:132px; margin-top:.8rem; padding:.8rem; white-space:pre-wrap; color:var(--sub); background:var(--surface-2); border:1px solid var(--line); border-radius:11px; font-size:.75rem; }
+    .settings-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+    .settings-grid .wide { grid-column:1/-1; }
+    .segmented { display:flex; gap:.45rem; margin-top:.8rem; flex-wrap:wrap; }
+    .segmented button.active { color:var(--on-accent); background:var(--accent-2); border-color:var(--accent-2); }
+    .text-input,.text-area,.select-input {
+      width:100%; margin-top:.5rem; padding:.7rem .75rem; color:var(--text); background:var(--surface-2); border:1px solid var(--line); border-radius:10px; outline:none;
+    }
+    .text-area { min-height:100px; resize:vertical; }
+    .text-input:focus,.text-area:focus,.select-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(120,154,136,.14); }
+    .card-actions { display:flex; align-items:center; gap:.55rem; margin-top:.8rem; flex-wrap:wrap; }
+    .status-row { display:flex; align-items:center; justify-content:space-between; gap:.7rem; margin-top:.8rem; padding:.75rem; background:var(--surface-2); border-radius:11px; font-size:.78rem; }
+    .status-good { color:var(--good); font-weight:700; }
+    .toggle { position:relative; width:46px; height:26px; padding:0; background:#c9cfcc; border:0; border-radius:999px; }
+    .toggle::after { content:""; position:absolute; top:3px; left:3px; width:20px; height:20px; background:#fff; border-radius:50%; box-shadow:0 2px 5px rgba(0,0,0,.2); transition:.15s; }
+    .toggle.on { background:var(--accent-2); }
+    .toggle.on::after { left:23px; }
+    .item-list { display:grid; gap:.55rem; margin-top:.8rem; }
+    .item { display:flex; align-items:center; gap:.7rem; padding:.7rem .75rem; background:var(--surface-2); border-radius:11px; font-size:.78rem; }
+    .item-copy { flex:1; min-width:0; }
+    .item-copy strong,.item-copy span { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .item-copy span { color:var(--muted); font-size:.7rem; }
+    .inline-form { display:grid; grid-template-columns:1fr 1fr auto; gap:.55rem; margin-top:.8rem; }
+    .inline-form.one { grid-template-columns:1fr auto; }
+    .inline-form .text-input,.inline-form .select-input { margin:0; }
+    .admin-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+    .admin-grid .wide { grid-column:1/-1; }
+    .progress { height:8px; margin-top:.7rem; overflow:hidden; background:var(--surface-2); border-radius:999px; }
+    .progress span { display:block; height:100%; width:var(--progress,0%); background:var(--accent); }
+    .modal-backdrop { position:fixed; inset:0; z-index:110; display:grid; place-items:center; padding:1rem; background:rgba(15,20,17,.46); }
+    .modal { width:min(480px,100%); padding:1.25rem; background:var(--surface); border:1px solid var(--line); border-radius:18px; box-shadow:0 28px 80px rgba(0,0,0,.28); }
+    .modal h2 { margin:0; font-size:1.05rem; }
+    .modal p { color:var(--sub); font-size:.82rem; }
+    .modal-actions { display:flex; justify-content:flex-end; gap:.55rem; margin-top:1rem; }
+    .toast { position:fixed; right:1rem; bottom:1rem; z-index:120; max-width:390px; padding:.8rem 1rem; color:#fff; background:#29352f; border-radius:12px; box-shadow:var(--shadow); font-size:.78rem; }
+    .mobile-nav { display:none; }
+    .mobile-drawer-backdrop,.mobile-drawer { display:none; }
+    @media (max-width:900px) {
+      .sidebar { display:none; }
+      .content-shell { margin-left:0; }
+      .account-copy { display:none; }
+      .page,.page.narrow { width:calc(100% - 1.25rem); padding-top:.85rem; padding-bottom:5.5rem; }
+      .topbar { padding:0 .65rem; }
+      .mail-row { grid-template-columns:28px 32px minmax(0,1fr) auto; min-height:78px; }
+      .mail-row .select-wrap,.mail-row .sender { display:none; }
+      .subject { display:grid; gap:.15rem; }
+      .subject-main::before { content:attr(data-sender); display:block; color:var(--text); font-size:.8rem; }
+      .settings-grid,.admin-grid { grid-template-columns:1fr; }
+      .settings-grid .wide,.admin-grid .wide { grid-column:auto; }
+      .inline-form { grid-template-columns:1fr; }
+      .field-row { grid-template-columns:70px minmax(0,1fr); }
+      .head-actions .button-label { display:none; }
+      .mobile-nav {
+        position:fixed; left:0; right:0; bottom:0; z-index:80; display:grid; grid-template-columns:repeat(5,1fr);
+        min-height:62px; padding:.35rem .3rem calc(.3rem + env(safe-area-inset-bottom));
+        background:var(--surface); border-top:1px solid var(--line);
+      }
+      .mobile-nav button { display:grid; place-items:center; gap:.05rem; color:var(--muted); background:transparent; border:0; font-size:.64rem; }
+      .mobile-nav button.active { color:var(--accent-2); font-weight:700; }
+      .mobile-nav .mobile-icon { font-size:1.05rem; }
+      .mobile-drawer-backdrop { position:fixed; inset:42px 0 0; z-index:85; display:block; background:rgba(15,20,17,.38); border:0; }
+      .mobile-drawer {
+        position:fixed; left:.55rem; right:.55rem; bottom:calc(66px + env(safe-area-inset-bottom)); z-index:90;
+        display:block; max-height:min(68vh,560px); padding:.75rem; overflow:auto;
+        background:var(--surface); border:1px solid var(--line); border-radius:16px; box-shadow:0 24px 70px rgba(0,0,0,.25);
+      }
+      .mobile-drawer h2 { margin:.15rem .4rem .55rem; font-size:.85rem; }
+      .mobile-drawer .nav + h2 { margin-top:1rem; }
+      .ai-provider-grid { grid-template-columns:1fr; }
+    }
+    @media (max-width:520px) {
+      .demo-banner { justify-content:flex-start; font-size:.68rem; }
+      .page-head { align-items:flex-start; }
+      .toolbar { flex-wrap:wrap; }
+      .toolbar .spacer { display:none; }
+      .mail-row { padding:.55rem .45rem; gap:.35rem; }
+      .row-avatar { width:32px; height:32px; }
+      .reply-actions,.compose-foot { flex-wrap:wrap; }
+      .compose-foot .spacer { display:none; }
+      .compose-foot .button-primary { width:100%; order:-1; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    "use strict";
+
+    /*
+      Question answered by this prototype:
+      Can a non-technical user explore QuickMail-ja's major screens and state
+      changes without triggering mail delivery, Cloudflare, Resend, D1 or R2?
+      All transitions are handled by this pure reducer and exist in memory only.
+    */
+    const INITIAL_STATE = {
+      view: "inbox",
+      previousView: "inbox",
+      activeMailId: null,
+      search: "",
+      filter: "all",
+      selected: [],
+      accountOpen: false,
+      mobileMenuOpen: false,
+      toast: "",
+      modal: null,
+      theme: "light",
+      composeError: "",
+      ai: {
+        question:"Cloudflareの画面で次に何を確認しますか？",
+        provider:""
+      },
+      messages: [
+        {id:"m1",folder:"inbox",from:"田中 彩",fromAddress:"aya@sender.invalid",to:"info@quickmail.invalid",subject:"次回イベントの登壇について",preview:"来月開催予定のイベントについてご相談があります。",body:"QuickMail-ja ご担当者様\n\n来月開催予定のオンラインイベントについて、登壇をご相談したくご連絡しました。\n候補日は9月18日または25日です。\n\nご確認をお願いいたします。",date:"今日 10:24",unread:true,starred:true,attachment:"イベント概要.pdf",folderName:""},
+        {id:"m2",folder:"inbox",from:"佐藤 健",fromAddress:"ken@sender.invalid",to:"info@quickmail.invalid",subject:"資料送付のお礼",preview:"先ほどはありがとうございました。資料も確認できました。",body:"ご担当者様\n\n先ほどはお打ち合わせありがとうございました。\n送付いただいた資料も確認できました。\n\n引き続きよろしくお願いいたします。",date:"昨日 17:08",unread:true,starred:false,attachment:"",folderName:""},
+        {id:"m3",folder:"inbox",from:"運営チーム",fromAddress:"office@sender.invalid",to:"support@quickmail.invalid",subject:"会員情報の更新依頼",preview:"登録情報を更新しましたので、ご確認ください。",body:"サポートご担当者様\n\n会員情報の更新をお願いいたします。\n詳細は添付の一覧をご確認ください。",date:"8月25日",unread:false,starred:false,attachment:"会員情報.xlsx",folderName:""},
+        {id:"m4",folder:"sent",from:"自分",fromAddress:"info@quickmail.invalid",to:"partner@recipient.invalid",subject:"Re: 連携のご相談",preview:"ご提案ありがとうございます。社内で確認します。",body:"ご提案ありがとうございます。\n内容を社内で確認し、今週中にご連絡します。",date:"8月24日",unread:false,starred:false,attachment:"",folderName:""},
+        {id:"m5",folder:"drafts",from:"自分",fromAddress:"info@quickmail.invalid",to:"member@recipient.invalid",subject:"会員向けお知らせ",preview:"次回の定例会についてお知らせします。",body:"次回の定例会についてお知らせします。\n\n日時：",date:"8月24日",unread:false,starred:false,attachment:"",folderName:"",draft:true},
+        {id:"m6",folder:"archive",from:"山田 花",fromAddress:"hana@sender.invalid",to:"info@quickmail.invalid",subject:"2025年度の活動報告",preview:"昨年度の活動報告書を送付します。",body:"昨年度の活動報告書を送付します。\nご査収ください。",date:"8月20日",unread:false,starred:true,attachment:"活動報告書.pdf",folderName:"archive"},
+        {id:"m7",folder:"trash",from:"配信サービス",fromAddress:"news@sender.invalid",to:"info@quickmail.invalid",subject:"サービス更新のお知らせ",preview:"新機能が追加されました。",body:"新機能のお知らせです。",date:"8月18日",unread:false,starred:false,attachment:"",folderName:""}
+      ],
+      folders: [
+        {id:"archive",name:"アーカイブ"},
+        {id:"members",name:"会員対応"}
+      ],
+      compose: {mode:"new",from:"info@quickmail.invalid",to:"",cc:"",bcc:"",subject:"",body:"",attachment:"",draftId:null},
+      settings: {
+        signature:"QuickMailデモ事務局",
+        forwardingDestination:"archive@recipient.invalid",
+        forwardingStatus:"pending",
+        forwardingAcknowledged:false,
+        addresses:[
+          {id:"a1",address:"info@quickmail.invalid",name:"事務局",isDefault:true},
+          {id:"a2",address:"support@quickmail.invalid",name:"サポート",isDefault:false}
+        ],
+        rules:[
+          {id:"r1",sender:"office@",subject:"",folder:"members",enabled:true},
+          {id:"r2",sender:"",subject:"活動報告",folder:"archive",enabled:true}
+        ],
+        apiKeys:[{id:"k1",name:"バックアップ連携",scope:"読み取り",created:"2026/08/20"}],
+        demoKey:""
+      },
+      admin: {
+        domains:[
+          {id:"d1",name:"quickmail.invalid",status:"接続済み",connected:true},
+          {id:"d2",name:"example.invalid",status:"未接続",connected:false}
+        ],
+        users:[
+          {id:"u1",name:"管理者",address:"info@quickmail.invalid",role:"管理者"},
+          {id:"u2",name:"サポート担当",address:"support@quickmail.invalid",role:"メンバー"}
+        ],
+        importStatus:"未実行"
+      }
+    };
+
+    function clone(value) { return JSON.parse(JSON.stringify(value)); }
+
+    function isDemoAddress(value) {
+      return /^[^\s@,]+@[^\s@,]+\.invalid$/i.test(String(value || "").trim());
+    }
+
+    function composeValidation(compose, signature) {
+      if (!isDemoAddress(compose.to)) return "宛先は .invalid で終わるデモ用メールアドレスを入力してください。";
+      if (!String(compose.subject || "").trim()) return "件名を入力してください。";
+      const body = String(compose.body || "").trim();
+      const signatureOnly = ("--\n" + String(signature || "").trim()).trim();
+      if (!body || body === signatureOnly) return "署名以外のメール本文を入力してください。";
+      return "";
+    }
+
+    function aiPrompt(question, provider) {
+      const service = provider || "選択したAIサービス";
+      const handoff = provider === "Gemini"
+        ? "通常版では質問文をコピーして貼り付けます。このデモではクリップボードを使いません。"
+        : "通常版では質問文を新規チャットへ受け渡します。このデモでは外部画面を開きません。";
+      return "QuickMail-jaの導入を支援してください。\n" +
+        "回答前にCloudflareとResendの最新の公式ドキュメントを確認し、画面名は日本語で説明してください。\n" +
+        "秘密情報やメール本文は求めないでください。\n\n" +
+        "質問: " + String(question || "（質問を入力してください）").trim() + "\n\n" +
+        "選択先: " + service + "\n" + handoff;
+    }
+
+    function reducer(state, action) {
+      const next = clone(state);
+      const message = action.id ? next.messages.find(function(item){ return item.id === action.id; }) : null;
+      switch (action.type) {
+        case "NAVIGATE":
+          next.previousView = next.view === "mail" || next.view === "compose" ? next.previousView : next.view;
+          next.view = action.view;
+          next.activeMailId = action.id || null;
+          next.selected = [];
+          next.accountOpen = false;
+          next.mobileMenuOpen = false;
+          next.filter = action.keepFilter ? next.filter : "all";
+          return next;
+        case "OPEN_MAIL":
+          if (message) {
+            next.previousView = next.view;
+            next.view = "mail";
+            next.activeMailId = action.id;
+            message.unread = false;
+          }
+          return next;
+        case "SEARCH": next.search = action.value; return next;
+        case "SEARCH_SUBMIT":
+          next.search = action.value;
+          if (!["inbox","drafts","sent","starred","trash","folder"].includes(next.view)) {
+            next.previousView = next.view;
+            next.view = "inbox";
+            next.activeMailId = null;
+            next.selected = [];
+            next.accountOpen = false;
+            next.mobileMenuOpen = false;
+          }
+          return next;
+        case "FILTER": next.filter = action.value; return next;
+        case "TOGGLE_SELECT":
+          next.selected = next.selected.includes(action.id)
+            ? next.selected.filter(function(id){ return id !== action.id; })
+            : next.selected.concat(action.id);
+          return next;
+        case "SELECT_ALL": next.selected = action.ids; return next;
+        case "TOGGLE_STAR":
+          if (message) message.starred = !message.starred;
+          return next;
+        case "SET_READ":
+          next.messages.forEach(function(item){ if (action.ids.includes(item.id)) item.unread = !action.read; });
+          next.selected = [];
+          return next;
+        case "BULK_STAR":
+          next.messages.forEach(function(item){ if (action.ids.includes(item.id)) item.starred = true; });
+          next.selected = [];
+          return next;
+        case "MOVE":
+          next.messages.forEach(function(item){
+            if (action.ids.includes(item.id)) {
+              item.folder = action.folder;
+              item.folderName = action.folder;
+            }
+          });
+          next.selected = [];
+          next.toast = action.label + "へ移動しました（デモ内のみ）";
+          if (next.view === "mail") next.view = next.previousView || "inbox";
+          return next;
+        case "RESTORE":
+          if (message) { message.folder = "inbox"; message.folderName = ""; }
+          next.view = "trash";
+          next.toast = "受信トレイへ復元しました（デモ内のみ）";
+          return next;
+        case "DELETE_FOREVER":
+          next.messages = next.messages.filter(function(item){ return item.id !== action.id; });
+          next.view = "trash";
+          next.toast = "デモデータから削除しました。再読み込みで元に戻ります";
+          return next;
+        case "EMPTY_TRASH":
+          next.messages = next.messages.filter(function(item){ return item.folder !== "trash"; });
+          next.toast = "ゴミ箱を空にしました（デモ内のみ）";
+          return next;
+        case "OPEN_COMPOSE":
+          next.previousView = next.view === "mail" ? next.previousView : next.view;
+          next.view = "compose";
+          next.activeMailId = null;
+          next.composeError = "";
+          const composeMode = action.mode || "new";
+          const defaultAddress = next.settings.addresses.find(function(item){ return item.isDefault; }) || next.settings.addresses[0];
+          const initialBody = action.body !== undefined
+            ? action.body
+            : composeMode === "new" && !action.draftId && next.settings.signature.trim()
+              ? "\n\n--\n" + next.settings.signature.trim()
+              : "";
+          next.compose = {
+            mode:composeMode,
+            from:action.from || (defaultAddress ? defaultAddress.address : "info@quickmail.invalid"),
+            to:action.to || "",
+            cc:"",
+            bcc:"",
+            subject:action.subject || "",
+            body:initialBody,
+            attachment:action.attachment || "",
+            draftId:action.draftId || null
+          };
+          return next;
+        case "COMPOSE_FIELD": next.compose[action.field] = action.value; next.composeError = ""; return next;
+        case "REQUEST_SEND": {
+          const validationError = composeValidation(next.compose, next.settings.signature);
+          next.composeError = validationError;
+          if (!validationError) next.modal = {type:"send"};
+          return next;
+        }
+        case "ADD_ATTACHMENT": next.compose.attachment = "参考資料.pdf（デモ）"; return next;
+        case "REMOVE_ATTACHMENT": next.compose.attachment = ""; return next;
+        case "SAVE_DRAFT": {
+          const existing = next.compose.draftId
+            ? next.messages.find(function(item){ return item.id === next.compose.draftId; })
+            : null;
+          if (existing) {
+            existing.fromAddress = next.compose.from;
+            existing.to = next.compose.to;
+            existing.subject = next.compose.subject || "（件名なし）";
+            existing.body = next.compose.body;
+            existing.preview = next.compose.body.slice(0,60);
+          } else {
+            const id = "draft-" + String(next.messages.length + 1);
+            next.messages.unshift({
+              id:id,folder:"drafts",from:"自分",fromAddress:next.compose.from,to:next.compose.to,
+              subject:next.compose.subject || "（件名なし）",preview:next.compose.body.slice(0,60),
+              body:next.compose.body,date:"たった今",unread:false,starred:false,
+              attachment:next.compose.attachment,folderName:"",draft:true
+            });
+            next.compose.draftId = id;
+          }
+          next.toast = "下書きを保存しました（デモ内のみ）";
+          return next;
+        }
+        case "SEND_DEMO": {
+          const id = "sent-" + String(next.messages.length + 1);
+          next.messages.unshift({
+            id:id,folder:"sent",from:"自分",fromAddress:next.compose.from,to:next.compose.to,
+            subject:next.compose.subject || "（件名なし）",preview:next.compose.body.slice(0,60),
+            body:next.compose.body,date:"たった今",unread:false,starred:false,
+            attachment:next.compose.attachment,folderName:""
+          });
+          if (next.compose.draftId) {
+            next.messages = next.messages.filter(function(item){ return item.id !== next.compose.draftId; });
+          }
+          next.view = "sent";
+          next.modal = null;
+          next.composeError = "";
+          next.toast = "送信画面の動作を再現しました。実際のメールは送信していません";
+          return next;
+        }
+        case "OPEN_MODAL": next.modal = action.modal; return next;
+        case "CLOSE_MODAL": next.modal = null; return next;
+        case "TOAST": next.toast = action.message; return next;
+        case "CLEAR_TOAST": next.toast = ""; return next;
+        case "ACCOUNT": next.accountOpen = !next.accountOpen; return next;
+        case "MOBILE_MENU": next.mobileMenuOpen = !next.mobileMenuOpen; return next;
+        case "MOBILE_CLOSE": next.mobileMenuOpen = false; return next;
+        case "THEME": next.theme = action.value; return next;
+        case "SIGNATURE": next.settings.signature = action.value; return next;
+        case "FORWARD_DEST":
+          if (next.settings.forwardingDestination.toLowerCase() !== action.value.toLowerCase()) {
+            next.settings.forwardingDestination = action.value;
+            next.settings.forwardingStatus = "pending";
+            next.settings.forwardingAcknowledged = false;
+            next.toast = "宛先を変更したため、自動転送を無効にして確認待ちへ戻しました（デモ内のみ）";
+          } else {
+            next.toast = "転送先は変更されていません（デモ内のみ）";
+          }
+          return next;
+        case "VERIFY_FORWARD":
+          if (next.settings.forwardingStatus === "pending") next.settings.forwardingStatus = "verified";
+          next.settings.forwardingAcknowledged = false;
+          next.toast = "宛先確認済みの状態を画面内で再現しました。確認メールは送信していません";
+          return next;
+        case "FORWARD_ACK":
+          if (next.settings.forwardingStatus === "verified") next.settings.forwardingAcknowledged = action.value;
+          return next;
+        case "FORWARD_ENABLE":
+          if (next.settings.forwardingStatus === "verified" && next.settings.forwardingAcknowledged) {
+            next.settings.forwardingStatus = "enabled";
+            next.toast = "自動転送を有効にしました（デモ内のみ。転送は実行しません）";
+          } else {
+            next.toast = "宛先確認と外部転送への同意を完了してください。";
+          }
+          return next;
+        case "FORWARD_DISABLE":
+          if (next.settings.forwardingStatus === "enabled") next.settings.forwardingStatus = "verified";
+          next.settings.forwardingAcknowledged = false;
+          next.toast = "自動転送を無効にしました（デモ内のみ）";
+          return next;
+        case "ADD_FOLDER":
+          next.folders.push({id:"folder-" + String(next.folders.length + 1),name:action.name});
+          next.modal = null;
+          next.toast = "フォルダを追加しました（デモ内のみ）";
+          return next;
+        case "RENAME_FOLDER": {
+          const folder = next.folders.find(function(item){ return item.id === action.id; });
+          if (folder) folder.name = action.name;
+          next.modal = null;
+          return next;
+        }
+        case "DELETE_FOLDER":
+          const movedCount = next.messages.filter(function(item){ return item.folder === action.id; }).length;
+          const removedRuleCount = next.settings.rules.filter(function(item){ return item.folder === action.id; }).length;
+          next.messages.forEach(function(item){ if (item.folder === action.id) { item.folder = "inbox"; item.folderName = ""; } });
+          next.folders = next.folders.filter(function(item){ return item.id !== action.id; });
+          next.settings.rules = next.settings.rules.filter(function(item){ return item.folder !== action.id; });
+          next.modal = null;
+          next.view = "inbox";
+          next.activeMailId = null;
+          next.toast = "フォルダを削除し、" + movedCount + "件を受信トレイへ戻し、関連ルール" + removedRuleCount + "件を削除しました（デモ内のみ）";
+          return next;
+        case "ADD_RULE":
+          next.settings.rules.push({id:"r" + String(next.settings.rules.length + 1),sender:action.sender,subject:action.subject,folder:action.folder,enabled:true});
+          next.toast = "振り分けルールを追加しました（デモ内のみ）";
+          return next;
+        case "TOGGLE_RULE": {
+          const rule = next.settings.rules.find(function(item){ return item.id === action.id; });
+          if (rule) rule.enabled = !rule.enabled;
+          return next;
+        }
+        case "DELETE_RULE": next.settings.rules = next.settings.rules.filter(function(item){ return item.id !== action.id; }); return next;
+        case "ADD_ADDRESS":
+          next.settings.addresses.push({id:"a" + String(next.settings.addresses.length + 1),address:action.address,name:action.name,isDefault:false});
+          next.toast = "アドレスを追加しました（デモ内のみ）";
+          return next;
+        case "DEFAULT_ADDRESS":
+          next.settings.addresses.forEach(function(item){ item.isDefault = item.id === action.id; });
+          return next;
+        case "REMOVE_ADDRESS": next.settings.addresses = next.settings.addresses.filter(function(item){ return item.id !== action.id || item.isDefault; }); return next;
+        case "CREATE_KEY":
+          next.settings.demoKey = "DEMO-KEY-NOT-VALID";
+          next.settings.apiKeys.push({id:"k" + String(next.settings.apiKeys.length + 1),name:action.name,scope:action.scope,created:"たった今"});
+          next.toast = "デモ用キーを表示しました。実際のAPIキーは作成していません";
+          return next;
+        case "REVOKE_KEY": next.settings.apiKeys = next.settings.apiKeys.filter(function(item){ return item.id !== action.id; }); return next;
+        case "ADD_USER":
+          next.admin.users.push({id:"u" + String(next.admin.users.length + 1),name:action.name,address:action.address,role:"メンバー"});
+          next.toast = "ユーザー追加を再現しました。招待メールは送信していません";
+          return next;
+        case "DOMAIN_REFRESH":
+          const refreshedDomain = next.admin.domains.find(function(item){ return item.id === action.id; });
+          if (refreshedDomain && refreshedDomain.connected) refreshedDomain.status = "確認済み（デモ）";
+          next.toast = "状態更新を再現しました。Cloudflareへ接続していません";
+          return next;
+        case "DOMAIN_CONNECT": {
+          const connectedDomain = next.admin.domains.find(function(item){ return item.id === action.id; });
+          if (connectedDomain) { connectedDomain.connected = true; connectedDomain.status = "接続済み（デモ）"; }
+          next.toast = "ドメイン接続を画面内だけで再現しました。外部設定は変更していません";
+          return next;
+        }
+        case "DOMAIN_DISCONNECT": {
+          const disconnectedDomain = next.admin.domains.find(function(item){ return item.id === action.id; });
+          if (disconnectedDomain) { disconnectedDomain.connected = false; disconnectedDomain.status = "未接続"; }
+          next.toast = "ドメイン切断を画面内だけで再現しました。外部設定は変更していません";
+          return next;
+        }
+        case "EDIT_USER": {
+          const user = next.admin.users.find(function(item){ return item.id === action.id; });
+          if (user) { user.name = action.name; user.role = action.role; }
+          next.modal = null;
+          next.toast = "ユーザー情報を更新しました（デモ内のみ）";
+          return next;
+        }
+        case "AI_QUESTION": next.ai.question = action.value; next.ai.provider = ""; return next;
+        case "AI_PREVIEW":
+          next.ai.provider = action.provider;
+          next.toast = action.provider + "向けの質問文を画面内に準備しました。外部画面やクリップボードは使っていません";
+          return next;
+        case "IMPORT_DEMO":
+          next.admin.importStatus = "128件を検出・取り込み準備完了（デモ）";
+          next.toast = "インポート画面を再現しました。ファイルは読み込んでいません";
+          return next;
+        case "RESET": return clone(INITIAL_STATE);
+        default: return next;
+      }
+    }
+
+    let state = clone(INITIAL_STATE);
+    const root = document.getElementById("app");
+
+    function esc(value) {
+      return String(value == null ? "" : value)
+        .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+        .replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+    }
+    function folderName(id) {
+      const folder = state.folders.find(function(item){ return item.id === id; });
+      return folder ? folder.name : id;
+    }
+    function dispatch(action) {
+      state = reducer(state, action);
+      render();
+      if (state.toast) {
+        window.clearTimeout(dispatch.toastTimer);
+        dispatch.toastTimer = window.setTimeout(function(){ dispatch({type:"CLEAR_TOAST"}); }, 3600);
+      }
+    }
+
+    function navButton(view,label,icon,count) {
+      const active = state.view === view || (view === "inbox" && state.view === "mail" && state.previousView === "inbox");
+      return '<button class="nav-btn' + (active ? ' active' : '') + '" data-action="navigate" data-view="' + esc(view) + '"><span class="nav-icon">' + icon + '</span><span>' + esc(label) + '</span>' + (count ? '<span class="count">' + count + '</span>' : '') + '</button>';
+    }
+    function visibleMessages() {
+      let items = state.messages.filter(function(item){
+        if (state.view === "starred") return item.starred && item.folder !== "trash";
+        if (state.view === "folder") return item.folder === state.activeMailId;
+        return item.folder === state.view;
+      });
+      const q = state.search.trim().toLowerCase();
+      if (q) items = items.filter(function(item){
+        return [item.from,item.fromAddress,item.to,item.subject,item.preview,item.body].join(" ").toLowerCase().includes(q);
+      });
+      if (state.filter === "unread") items = items.filter(function(item){ return item.unread; });
+      if (state.filter === "starred") items = items.filter(function(item){ return item.starred; });
+      if (state.filter === "attachments") items = items.filter(function(item){ return item.attachment; });
+      return items;
+    }
+    function viewTitle() {
+      const titles = {inbox:"受信トレイ",drafts:"下書き",sent:"送信済み",starred:"スター付き",trash:"ゴミ箱"};
+      if (state.view === "folder") return folderName(state.activeMailId);
+      return titles[state.view] || "";
+    }
+
+    function renderShell() {
+      const inboxUnread = state.messages.filter(function(item){ return item.folder === "inbox" && item.unread; }).length;
+      const drafts = state.messages.filter(function(item){ return item.folder === "drafts"; }).length;
+      const starred = state.messages.filter(function(item){ return item.starred && item.folder !== "trash"; }).length;
+      const trash = state.messages.filter(function(item){ return item.folder === "trash"; }).length;
+      const folderButtons = state.folders.map(function(folder){
+        const count = state.messages.filter(function(item){ return item.folder === folder.id; }).length;
+        const active = state.view === "folder" && state.activeMailId === folder.id;
+        return '<div class="folder-row"><button class="nav-btn' + (active ? ' active' : '') + '" data-action="folder-open" data-id="' + esc(folder.id) + '"><span class="nav-icon">▰</span><span>' + esc(folder.name) + '</span>' + (count ? '<span class="count">' + count + '</span>' : '') + '</button><button class="icon-button folder-tools" data-action="folder-menu" data-id="' + esc(folder.id) + '" aria-label="' + esc(folder.name) + 'を編集">•••</button></div>';
+      }).join("");
+      return '<div class="demo-banner"><span class="demo-dot"></span><span>操作可能デモ — 送信・外部接続・保存処理は実行しません</span></div>' +
+        '<div class="app" data-theme="' + esc(state.theme === "system" ? "light" : state.theme) + '">' +
+        '<aside class="sidebar" aria-label="メールメニュー">' +
+          '<div class="brand"><span class="brand-mark">✉</span><span>QuickMail-ja</span></div>' +
+          '<button class="compose-new" data-action="compose-new">✎ 新規メール</button>' +
+          '<nav class="nav">' +
+            navButton("inbox","受信トレイ","▣",inboxUnread) +
+            navButton("drafts","下書き","▤",drafts) +
+            navButton("sent","送信済み","➤",0) +
+            navButton("starred","スター付き","☆",starred) +
+            navButton("trash","ゴミ箱","♲",trash) +
+          '</nav>' +
+          '<div class="section-label"><span>フォルダ</span><button class="icon-button folder-add" data-action="folder-modal" aria-label="フォルダを追加">＋</button></div>' +
+          '<nav class="nav">' + folderButtons + '</nav>' +
+          '<div class="sidebar-foot"><nav class="nav">' +
+            navButton("settings","設定","⚙",0) +
+            navButton("admin","管理","⌘",0) +
+          '</nav></div>' +
+        '</aside>' +
+        '<div class="content-shell">' +
+          '<header class="topbar">' +
+            '<form class="search-wrap" data-form="search"><span class="search-symbol">⌕</span><input class="search-input" data-input="search" name="query" type="search" value="' + esc(state.search) + '" placeholder="メールを検索" aria-label="メールを検索"><button class="search-go" aria-label="検索">↵</button></form>' +
+            '<button class="icon-button" data-action="theme-cycle" aria-label="テーマを切り替える">' + (state.theme === "dark" ? "☾" : "☼") + '</button>' +
+            '<div class="account"><button class="account-button" data-action="account"><span class="account-copy"><strong>デモ管理者</strong><span>info@quickmail.invalid</span></span><span class="avatar">D</span></button>' +
+            (state.accountOpen ? '<div class="account-menu"><button data-action="navigate" data-view="settings">設定</button><button data-action="demo-logout">ログアウト</button><button data-action="reset">デモを初期状態に戻す</button></div>' : '') +
+            '</div>' +
+          '</header>' +
+          '<main>' + renderPage() + '</main>' +
+        '</div>' +
+        renderMobileNav() +
+        renderMobileDrawer() +
+        renderModal() +
+        (state.toast ? '<div class="toast" role="status">' + esc(state.toast) + '</div>' : '') +
+        '</div>';
+    }
+
+    function renderMobileNav() {
+      const item = function(view,label,icon) {
+        return '<button class="' + (state.view === view ? 'active' : '') + '" data-action="navigate" data-view="' + view + '"><span class="mobile-icon">' + icon + '</span><span>' + label + '</span></button>';
+      };
+      return '<nav class="mobile-nav" aria-label="モバイルメニュー">' +
+        item("inbox","受信","▣") + item("starred","スター","☆") +
+        '<button data-action="compose-new"><span class="mobile-icon">✎</span><span>作成</span></button>' +
+        item("sent","送信済み","➤") +
+        '<button class="' + (state.mobileMenuOpen ? 'active' : '') + '" data-action="mobile-more" aria-expanded="' + String(state.mobileMenuOpen) + '"><span class="mobile-icon">•••</span><span>その他</span></button>' +
+        '</nav>';
+    }
+
+    function renderMobileDrawer() {
+      if (!state.mobileMenuOpen) return "";
+      const folders = state.folders.map(function(folder){
+        return '<button class="nav-btn" data-action="folder-open" data-id="' + esc(folder.id) + '"><span class="nav-icon">▰</span><span>' + esc(folder.name) + '</span></button>';
+      }).join("");
+      return '<button class="mobile-drawer-backdrop" data-action="mobile-close" aria-label="その他のメニューを閉じる"></button>' +
+        '<section class="mobile-drawer" aria-label="その他のメールメニュー">' +
+          '<h2>メールボックス</h2><nav class="nav">' +
+            navButton("drafts","下書き","▤",0) +
+            navButton("trash","ゴミ箱","♲",0) +
+          '</nav>' +
+          '<h2>フォルダ</h2><nav class="nav">' + (folders || '<span class="hint">フォルダはありません</span>') + '</nav>' +
+          '<h2>設定</h2><nav class="nav">' +
+            navButton("settings","設定","⚙",0) +
+            navButton("admin","管理","⌘",0) +
+          '</nav>' +
+        '</section>';
+    }
+
+    function renderPage() {
+      if (["inbox","drafts","sent","starred","trash","folder"].includes(state.view)) return renderMailbox();
+      if (state.view === "mail") return renderMail();
+      if (state.view === "compose") return renderCompose();
+      if (state.view === "settings") return renderSettings();
+      if (state.view === "admin") return renderAdmin();
+      return renderMailbox();
+    }
+
+    function renderMailbox() {
+      const items = visibleMessages();
+      const selected = state.selected;
+      const allSelected = items.length > 0 && selected.length === items.length;
+      const rows = items.map(function(item){
+        const sender = item.folder === "sent" || item.folder === "drafts" ? (item.to || "宛先なし") : item.from;
+        return '<li class="mail-row' + (item.unread ? ' unread' : '') + '">' +
+          '<span class="select-wrap"><input class="select-box" data-change="select" data-id="' + esc(item.id) + '" type="checkbox" ' + (selected.includes(item.id) ? 'checked' : '') + ' aria-label="' + esc(sender) + 'のメールを選択"></span>' +
+          '<button class="star' + (item.starred ? ' on' : '') + '" data-action="star" data-id="' + esc(item.id) + '" aria-label="' + (item.starred ? 'スターを外す' : 'スターを付ける') + '">' + (item.starred ? '★' : '☆') + '</button>' +
+          '<button class="row-avatar" data-action="' + (item.draft ? 'open-draft' : 'open-mail') + '" data-id="' + esc(item.id) + '">' + esc(sender.slice(0,1).toUpperCase()) + '</button>' +
+          '<button class="sender" data-action="' + (item.draft ? 'open-draft' : 'open-mail') + '" data-id="' + esc(item.id) + '">' + esc(sender) + '</button>' +
+          '<button class="subject mail-open" data-action="' + (item.draft ? 'open-draft' : 'open-mail') + '" data-id="' + esc(item.id) + '"><span class="subject-main" data-sender="' + esc(sender) + '">' + esc(item.subject) + '</span><span class="preview">— ' + esc(item.preview) + '</span>' + (item.attachment ? '<span class="tag">添付</span>' : '') + '</button>' +
+          '<span class="row-date">' + esc(item.date) + '</span>' +
+        '</li>';
+      }).join("");
+      let bulk = "";
+      if (selected.length) {
+        bulk = '<span>' + selected.length + '件選択</span>' +
+          '<button class="button small" data-action="bulk-read">既読</button>' +
+          '<button class="button small" data-action="bulk-star">スター</button>' +
+          '<button class="button small" data-action="bulk-archive">アーカイブ</button>' +
+          '<button class="button small" data-action="bulk-trash">ゴミ箱</button>';
+      } else {
+        bulk = '<span class="spacer"></span>' +
+          '<button class="filter-pill' + (state.filter === "unread" ? ' active' : '') + '" data-action="filter" data-filter="unread">未読</button>' +
+          '<button class="filter-pill' + (state.filter === "starred" ? ' active' : '') + '" data-action="filter" data-filter="starred">スター</button>' +
+          '<button class="filter-pill' + (state.filter === "attachments" ? ' active' : '') + '" data-action="filter" data-filter="attachments">添付</button>';
+      }
+      return '<section class="page">' +
+        '<div class="page-head"><h1>' + esc(viewTitle()) + '</h1><span class="total">' + items.length + '件</span>' +
+        (state.view === "trash" ? '<div class="head-actions"><button class="button-danger small" data-action="empty-trash">ゴミ箱を空にする</button></div>' : '') +
+        '</div>' +
+        '<div class="toolbar"><input class="select-box" data-change="select-all" type="checkbox" ' + (allSelected ? 'checked' : '') + ' aria-label="表示中のメールをすべて選択">' + bulk + '</div>' +
+        (items.length ? '<ul class="mail-list">' + rows + '</ul>' : '<div class="empty">条件に一致するメールはありません</div>') +
+      '</section>';
+    }
+
+    function renderMail() {
+      const mail = state.messages.find(function(item){ return item.id === state.activeMailId; });
+      if (!mail) return '<section class="page narrow"><div class="empty">メールが見つかりません</div></section>';
+      const inTrash = mail.folder === "trash";
+      return '<section class="page narrow">' +
+        '<div class="page-head"><button class="icon-button" data-action="back" aria-label="戻る">←</button><h1>メール</h1></div>' +
+        '<article class="card">' +
+          '<div class="mail-detail-head"><h1>' + esc(mail.subject) + '</h1>' +
+            '<button class="star' + (mail.starred ? ' on' : '') + '" data-action="star" data-id="' + esc(mail.id) + '">' + (mail.starred ? '★' : '☆') + '</button>' +
+            (inTrash ? '<button class="button small" data-action="restore" data-id="' + esc(mail.id) + '">復元</button><button class="button-danger small" data-action="delete-forever" data-id="' + esc(mail.id) + '">完全削除</button>' :
+              '<button class="button small" data-action="move-archive" data-id="' + esc(mail.id) + '">アーカイブ</button><button class="button small" data-action="trash-one" data-id="' + esc(mail.id) + '">ゴミ箱</button>') +
+          '</div>' +
+          '<div class="message-meta"><span class="row-avatar">' + esc(mail.from.slice(0,1)) + '</span><div class="meta-copy"><strong>' + esc(mail.from) + ' &lt;' + esc(mail.fromAddress) + '&gt;</strong><span>宛先: ' + esc(mail.to) + ' · ' + esc(mail.date) + '</span></div></div>' +
+          '<div class="message-body">' + esc(mail.body) + '</div>' +
+          (mail.attachment ? '<div class="attachments"><button class="attachment" data-action="attachment-demo">▧ ' + esc(mail.attachment) + '</button></div>' : '') +
+        '</article>' +
+        (!inTrash ? '<div class="reply-actions"><button class="button-primary" data-action="reply" data-id="' + esc(mail.id) + '">↩ 返信</button><button class="button" data-action="reply-all" data-id="' + esc(mail.id) + '">全員に返信</button><button class="button" data-action="forward" data-id="' + esc(mail.id) + '">→ 転送</button><button class="button" data-action="mark-unread" data-id="' + esc(mail.id) + '">未読にする</button></div>' : '') +
+      '</section>';
+    }
+
+    function renderCompose() {
+      const c = state.compose;
+      const title = c.mode === "reply" ? "返信" : c.mode === "forward" ? "メールを転送" : c.draftId ? "下書き" : "新規メール";
+      const fromOptions = state.settings.addresses.map(function(address){
+        return '<option value="' + esc(address.address) + '"' + (address.address === c.from ? ' selected' : '') + '>' + esc(address.name + " · " + address.address) + '</option>';
+      }).join("");
+      return '<section class="page narrow">' +
+        '<div class="page-head"><button class="icon-button" data-action="compose-close" aria-label="閉じる">×</button><h1>' + title + '</h1><div class="head-actions"><button class="button" data-action="save-draft">下書きを保存</button><button class="button-primary" data-action="send-modal">送信</button></div></div>' +
+        '<div class="demo-notice">「送信」を押してもResendや外部APIは呼びません。送信済みへの画面遷移だけを再現します。</div>' +
+        '<form data-form="compose" autocomplete="off">' +
+          '<div class="card field-grid">' +
+            '<div class="field-row"><span class="field-label">差出人</span><select data-compose="from" aria-label="差出人">' + fromOptions + '</select></div>' +
+            '<div class="field-row"><label for="demo-to">宛先</label><input id="demo-to" data-compose="to" value="' + esc(c.to) + '" placeholder="recipient@recipient.invalid"></div>' +
+            '<div class="field-row"><label for="demo-cc">Cc</label><input id="demo-cc" data-compose="cc" value="' + esc(c.cc) + '" placeholder="任意"></div>' +
+            '<div class="field-row"><label for="demo-bcc">Bcc</label><input id="demo-bcc" data-compose="bcc" value="' + esc(c.bcc) + '" placeholder="任意"></div>' +
+            '<div class="field-row"><label for="demo-subject">件名</label><input id="demo-subject" data-compose="subject" value="' + esc(c.subject) + '" placeholder="件名"></div>' +
+          '</div>' +
+          '<div class="composer"><textarea data-compose="body" placeholder="メール本文を入力…">' + esc(c.body) + '</textarea></div>' +
+          (state.composeError ? '<p class="form-error" role="alert">' + esc(state.composeError) + '</p>' : '') +
+          (c.attachment ? '<div class="attachments"><span class="attachment">' + esc(c.attachment) + ' <button type="button" data-action="remove-attachment" aria-label="添付を外す">×</button></span></div>' : '') +
+          '<div class="compose-foot"><button class="button" type="button" data-action="add-attachment">＋ 添付ファイル</button><span class="spacer"></span><button class="button" type="button" data-action="save-draft">下書きを保存</button><button class="button-primary" type="submit">送信</button></div>' +
+        '</form>' +
+      '</section>';
+    }
+
+    function renderSettings() {
+      const s = state.settings;
+      const rules = s.rules.map(function(rule){
+        return '<div class="item"><span>' + (rule.enabled ? '●' : '○') + '</span><div class="item-copy"><strong>' +
+          esc((rule.sender ? '差出人に「' + rule.sender + '」' : '') + (rule.sender && rule.subject ? ' / ' : '') + (rule.subject ? '件名に「' + rule.subject + '」' : '')) +
+          '</strong><span>移動先: ' + esc(folderName(rule.folder)) + '</span></div><button class="button small" data-action="rule-toggle" data-id="' + esc(rule.id) + '">' + (rule.enabled ? '無効' : '有効') + '</button><button class="icon-button" data-action="rule-delete" data-id="' + esc(rule.id) + '" aria-label="削除">×</button></div>';
+      }).join("");
+      const addresses = s.addresses.map(function(address){
+        return '<div class="item"><span class="row-avatar">@</span><div class="item-copy"><strong>' + esc(address.address) + (address.isDefault ? '（既定）' : '') + '</strong><span>差出人名: ' + esc(address.name) + '</span></div>' +
+          (!address.isDefault ? '<button class="button small" data-action="address-default" data-id="' + esc(address.id) + '">既定にする</button><button class="icon-button" data-action="address-remove" data-id="' + esc(address.id) + '">×</button>' : '') + '</div>';
+      }).join("");
+      const keys = s.apiKeys.map(function(key){
+        return '<div class="item"><span>⌘</span><div class="item-copy"><strong>' + esc(key.name) + '</strong><span>' + esc(key.scope) + ' · ' + esc(key.created) + '</span></div><button class="button small" data-action="key-revoke" data-id="' + esc(key.id) + '">無効化</button></div>';
+      }).join("");
+      const folderOptions = state.folders.map(function(folder){ return '<option value="' + esc(folder.id) + '">' + esc(folder.name) + '</option>'; }).join("");
+      const forwardingOrder = {pending:0,verified:1,enabled:3};
+      const forwardingStep = forwardingOrder[s.forwardingStatus];
+      const forwardingLabel = {pending:"確認待ち",verified:"確認済み・無効",enabled:"有効"}[s.forwardingStatus];
+      const prompt = aiPrompt(state.ai.question, state.ai.provider);
+      return '<section class="page">' +
+        '<div class="page-head"><h1>設定</h1></div>' +
+        '<div class="settings-grid">' +
+          '<section class="card"><h2>◐ 外観</h2><p class="hint">テーマはデモ画面内だけで切り替わります。システム設定は読み取りません。</p><div class="segmented">' +
+            ["light","dark","system"].map(function(theme){ const label={light:"ライト",dark:"ダーク",system:"システム（ライト固定デモ）"}[theme]; return '<button class="button small' + (state.theme === theme ? ' active' : '') + '" data-action="theme" data-theme="' + theme + '">' + label + '</button>'; }).join("") +
+          '</div></section>' +
+          '<section class="card"><h2>✎ 署名</h2><p class="hint">新規メールへ自動挿入する署名です。</p><textarea class="text-area" data-input="signature">' + esc(s.signature) + '</textarea><div class="card-actions"><button class="button-primary small" data-action="signature-save">保存</button></div></section>' +
+          '<section class="card wide"><h2>⇄ 自動転送</h2><p class="hint">受信後に別アドレスへ転送する設定です。デモでは確認メールも転送も行いません。</p>' +
+            '<div class="flow" aria-label="自動転送の安全な設定手順">' +
+              '<span class="flow-step done">1 宛先保存</span><span class="flow-step' + (forwardingStep >= 1 ? ' done' : '') + '">2 宛先確認</span><span class="flow-step' + (s.forwardingAcknowledged || s.forwardingStatus === 'enabled' ? ' done' : '') + '">3 動作確認</span><span class="flow-step' + (s.forwardingStatus === 'enabled' ? ' done' : '') + '">4 有効化</span>' +
+            '</div>' +
+            '<div class="status-row"><div><strong>' + esc(forwardingLabel) + '</strong><div class="hint">' + esc(s.forwardingDestination) + '</div></div>' +
+              (s.forwardingStatus === 'enabled'
+                ? '<button class="button small" data-action="forward-disable">無効にする</button>'
+                : '<span class="hint">外部送信なし</span>') +
+            '</div>' +
+            '<form class="inline-form one" data-form="forwarding"><input class="text-input" name="destination" value="' + esc(s.forwardingDestination) + '" placeholder="forward@recipient.invalid"><button class="button-primary">宛先を保存</button></form>' +
+            (s.forwardingStatus === 'pending'
+              ? '<div class="card-actions"><span>確認待ち</span><button class="button small" data-action="forward-verify">確認済み状態へ進む（デモ）</button></div>'
+              : s.forwardingStatus === 'verified'
+                ? '<label class="acknowledge"><input type="checkbox" data-change="forward-ack"' + (s.forwardingAcknowledged ? ' checked' : '') + '><span>この設定を有効にすると新着メールが外部へ転送されることを理解しました。デモでは実際の転送は行いません。</span></label><div class="card-actions"><button class="button-primary" data-action="forward-enable"' + (!s.forwardingAcknowledged ? ' disabled' : '') + '>自動転送を有効にする</button></div>'
+                : '') +
+          '</section>' +
+          '<section class="card wide"><h2>⌁ 自動振り分け</h2><p class="hint">差出人または件名でカスタムフォルダへ移動します。</p><div class="item-list">' + rules + '</div>' +
+            '<form class="inline-form" data-form="rule"><input class="text-input" name="sender" placeholder="差出人に含む文字"><input class="text-input" name="subject" placeholder="件名に含む文字"><select class="select-input" name="folder">' + folderOptions + '</select><button class="button-primary">ルールを追加</button></form>' +
+          '</section>' +
+          '<section class="card wide"><h2>@ アドレス</h2><p class="hint">差出人名と送信元アドレスを管理します。</p><div class="item-list">' + addresses + '</div>' +
+            '<form class="inline-form" data-form="address"><input class="text-input" name="name" placeholder="差出人名"><input class="text-input" name="address" placeholder="local@quickmail.invalid"><button class="button-primary">追加</button></form>' +
+          '</section>' +
+          '<section class="card"><h2>◎ 接続済みドメイン</h2><div class="status-row"><strong>quickmail.invalid</strong><span class="status-good">送信・受信・確認済み（デモ）</span></div></section>' +
+          '<section class="card"><h2>⌘ APIキー</h2><p class="hint">外部ツールからメール一覧などへアクセスするための鍵です。</p><div class="item-list">' + keys + '</div>' +
+            '<form class="inline-form one" data-form="key"><input class="text-input" name="name" placeholder="キーの名前"><select class="select-input" name="scope"><option>読み取り</option><option>読み書き</option></select><button class="button-primary">新規作成</button></form>' +
+            (s.demoKey ? '<div class="demo-notice" style="margin-top:.8rem">今回だけ表示: <strong>' + esc(s.demoKey) + '</strong><br>デモ文字列であり、APIでは使用できません。</div>' : '') +
+          '</section>' +
+          '<section class="card wide"><h2>◇ 導入についてAIに質問</h2><p class="hint">質問文はこの画面内だけで作成します。外部AIへの遷移やクリップボード操作は行いません。</p><label class="sr-only" for="ai-question">AIへの質問</label><input id="ai-question" class="text-input" data-input="ai-question" value="' + esc(state.ai.question) + '" placeholder="導入について聞きたいこと" aria-label="AIへの質問">' +
+            '<div class="ai-provider-grid" aria-label="質問先ごとの受け渡し方法">' +
+              '<button class="ai-provider' + (state.ai.provider === 'ChatGPT' ? ' active' : '') + '" data-action="ai-preview" data-provider="ChatGPT"><strong>ChatGPTに聞く</strong><span>通常版は質問を新規チャットへ受け渡します。デモでは画面内プレビューのみです。</span></button>' +
+              '<button class="ai-provider' + (state.ai.provider === 'Claude' ? ' active' : '') + '" data-action="ai-preview" data-provider="Claude"><strong>Claudeに聞く</strong><span>通常版は質問を新規チャットへ受け渡します。デモでは画面内プレビューのみです。</span></button>' +
+              '<button class="ai-provider' + (state.ai.provider === 'Gemini' ? ' active' : '') + '" data-action="ai-preview" data-provider="Gemini"><strong>Geminiに聞く</strong><span>通常版は質問文をコピーして貼り付けます。デモではクリップボードを使いません。</span></button>' +
+            '</div><div class="prompt-preview" data-ai-preview aria-live="polite">AIへ渡す質問文' + (state.ai.provider ? '（' + esc(state.ai.provider) + '向け）' : '') + '\n\n' + esc(prompt) + '</div></section>' +
+        '</div>' +
+      '</section>';
+    }
+
+    function renderAdmin() {
+      const domains = state.admin.domains.map(function(domain){
+        return '<div class="item"><span>◎</span><div class="item-copy"><strong>' + esc(domain.name) + '</strong><span>' + esc(domain.status) + '</span></div>' +
+          (domain.connected
+            ? '<button class="button small" data-action="domain-refresh" data-id="' + esc(domain.id) + '">状態を更新</button><button class="button small" data-action="domain-disconnect" data-id="' + esc(domain.id) + '">切断</button>'
+            : '<button class="button-primary small" data-action="domain-connect" data-id="' + esc(domain.id) + '">接続</button>') +
+          '</div>';
+      }).join("");
+      const users = state.admin.users.map(function(user){
+        return '<div class="item"><span class="row-avatar">' + esc(user.name.slice(0,1)) + '</span><div class="item-copy"><strong>' + esc(user.name) + '</strong><span>' + esc(user.address) + ' · ' + esc(user.role) + '</span></div><button class="button small" data-action="user-edit" data-id="' + esc(user.id) + '">編集</button></div>';
+      }).join("");
+      return '<section class="page">' +
+        '<div class="page-head"><h1>管理</h1></div>' +
+        '<div class="demo-notice" style="margin-bottom:1rem">管理操作も画面内の再現だけです。Cloudflare、Resend、ユーザー宛メールへ接続しません。</div>' +
+        '<div class="admin-grid">' +
+          '<section class="card"><h2>◎ ドメイン</h2><p class="hint">接続・状態更新・切断はデモ内の表示だけを変更します。</p><div class="item-list">' + domains + '</div></section>' +
+          '<section class="card"><h2>＋ 新しいユーザー</h2><p class="hint">ログイン利用者を追加します。招待は送信しません。</p><form class="field-grid" data-form="user"><input class="text-input" name="name" placeholder="表示名"><input class="text-input" name="address" placeholder="user@quickmail.invalid"><button class="button-primary">ユーザーを追加</button></form></section>' +
+          '<section class="card wide"><h2>人 ユーザー ' + state.admin.users.length + '人</h2><div class="item-list">' + users + '</div></section>' +
+          '<section class="card wide"><h2>▤ Outlookメール移行</h2><p class="hint">EMLの選択と取り込み結果を再現します。端末のファイルは読み取りません。</p><div class="status-row"><div><strong>' + esc(state.admin.importStatus) + '</strong><div class="hint">受信・アーカイブ・送信済みを選択できます</div></div><button class="button-primary" data-action="import-demo">EMLを選択して確認</button></div>' +
+            '<div class="progress" style="--progress:' + (state.admin.importStatus === "未実行" ? '0%' : '100%') + '"><span></span></div></section>' +
+          '<section class="card wide"><h2>? 未振り分けメール</h2><p class="hint">一致するアドレスやキャッチオールがないメールを確認します。</p><div class="empty" style="min-height:150px">現在、未振り分けメールはありません（デモ）</div></section>' +
+        '</div>' +
+      '</section>';
+    }
+
+    function renderModal() {
+      if (!state.modal) return "";
+      if (state.modal.type === "send") {
+        return '<div class="modal-backdrop"><div class="modal" role="dialog" aria-modal="true"><h2>送信画面を確認しますか？</h2><p>実際のメールは送信せず、入力内容をデモの「送信済み」へ追加します。</p><div class="modal-actions"><button class="button" data-action="modal-close">キャンセル</button><button class="button-primary" data-action="send-demo">デモ送信を実行</button></div></div></div>';
+      }
+      if (state.modal.type === "folder") {
+        return '<div class="modal-backdrop"><form class="modal" data-form="folder" role="dialog" aria-modal="true"><h2>フォルダを追加</h2><p>デモ内だけにフォルダを作成します。</p><input class="text-input" name="name" placeholder="フォルダ名" autofocus><div class="modal-actions"><button class="button" type="button" data-action="modal-close">キャンセル</button><button class="button-primary">追加</button></div></form></div>';
+      }
+      if (state.modal.type === "folder-menu") {
+        const id = state.modal.id;
+        return '<div class="modal-backdrop"><div class="modal" role="dialog" aria-modal="true"><h2>' + esc(folderName(id)) + '</h2><p>フォルダの名前変更または削除を試せます。</p><form class="inline-form one" data-form="folder-rename"><input type="hidden" name="id" value="' + esc(id) + '"><input class="text-input" name="name" value="' + esc(folderName(id)) + '"><button class="button-primary">名前を変更</button></form><div class="modal-actions"><button class="button" data-action="modal-close">閉じる</button><button class="button-danger" data-action="folder-delete-request" data-id="' + esc(id) + '">フォルダを削除</button></div></div></div>';
+      }
+      if (state.modal.type === "folder-delete") {
+        const id = state.modal.id;
+        const messageCount = state.messages.filter(function(item){ return item.folder === id; }).length;
+        const ruleCount = state.settings.rules.filter(function(item){ return item.folder === id; }).length;
+        return '<div class="modal-backdrop"><div class="modal" role="dialog" aria-modal="true"><h2>「' + esc(folderName(id)) + '」を削除しますか？</h2><p>メール' + messageCount + '件は受信トレイへ戻り、このフォルダを移動先にする自動振り分けルール' + ruleCount + '件も削除されます。デモ内だけの変更です。</p><div class="modal-actions"><button class="button" data-action="modal-close">キャンセル</button><button class="button-danger" data-action="folder-delete-confirm" data-id="' + esc(id) + '">削除する</button></div></div></div>';
+      }
+      if (state.modal.type === "user-edit") {
+        const user = state.admin.users.find(function(item){ return item.id === state.modal.id; });
+        if (!user) return "";
+        return '<div class="modal-backdrop"><form class="modal" data-form="user-edit" role="dialog" aria-modal="true"><h2>ユーザーを編集</h2><p>変更はデモ画面内だけに反映されます。</p><input type="hidden" name="id" value="' + esc(user.id) + '"><label class="hint" for="edit-user-name">表示名</label><input id="edit-user-name" class="text-input" name="name" value="' + esc(user.name) + '"><label class="hint" for="edit-user-role">権限</label><select id="edit-user-role" class="select-input" name="role"><option' + (user.role === '管理者' ? ' selected' : '') + '>管理者</option><option' + (user.role === 'メンバー' ? ' selected' : '') + '>メンバー</option></select><div class="modal-actions"><button class="button" type="button" data-action="modal-close">キャンセル</button><button class="button-primary">保存</button></div></form></div>';
+      }
+      if (state.modal.type === "empty-trash") {
+        return '<div class="modal-backdrop"><div class="modal" role="dialog" aria-modal="true"><h2>ゴミ箱を空にしますか？</h2><p>デモ内のゴミ箱だけを空にします。ページを再読み込みすると元に戻ります。</p><div class="modal-actions"><button class="button" data-action="modal-close">キャンセル</button><button class="button-danger" data-action="empty-trash-confirm">空にする</button></div></div></div>';
+      }
+      return "";
+    }
+
+    function render() {
+      root.innerHTML = renderShell();
+      document.documentElement.dataset.theme = state.theme === "dark" ? "dark" : "light";
+    }
+
+    root.addEventListener("click", function(event) {
+      const target = event.target.closest("[data-action]");
+      if (!target) return;
+      const action = target.dataset.action;
+      const id = target.dataset.id;
+      if (action === "navigate") dispatch({type:"NAVIGATE",view:target.dataset.view});
+      else if (action === "mobile-more") dispatch({type:"MOBILE_MENU"});
+      else if (action === "mobile-close") dispatch({type:"MOBILE_CLOSE"});
+      else if (action === "compose-new") dispatch({type:"OPEN_COMPOSE",mode:"new"});
+      else if (action === "open-mail") dispatch({type:"OPEN_MAIL",id:id});
+      else if (action === "open-draft") {
+        const draft = state.messages.find(function(item){ return item.id === id; });
+        if (draft) dispatch({type:"OPEN_COMPOSE",mode:"new",draftId:id,from:draft.fromAddress,to:draft.to,subject:draft.subject,body:draft.body,attachment:draft.attachment});
+      }
+      else if (action === "star") dispatch({type:"TOGGLE_STAR",id:id});
+      else if (action === "filter") dispatch({type:"FILTER",value:state.filter === target.dataset.filter ? "all" : target.dataset.filter});
+      else if (action === "bulk-read") dispatch({type:"SET_READ",ids:state.selected,read:true});
+      else if (action === "bulk-star") dispatch({type:"BULK_STAR",ids:state.selected});
+      else if (action === "bulk-archive") dispatch({type:"MOVE",ids:state.selected,folder:"archive",label:"アーカイブ"});
+      else if (action === "bulk-trash") dispatch({type:"MOVE",ids:state.selected,folder:"trash",label:"ゴミ箱"});
+      else if (action === "folder-open") dispatch({type:"NAVIGATE",view:"folder",id:id});
+      else if (action === "folder-modal") dispatch({type:"OPEN_MODAL",modal:{type:"folder"}});
+      else if (action === "folder-menu") dispatch({type:"OPEN_MODAL",modal:{type:"folder-menu",id:id}});
+      else if (action === "folder-delete-request") dispatch({type:"OPEN_MODAL",modal:{type:"folder-delete",id:id}});
+      else if (action === "folder-delete-confirm") dispatch({type:"DELETE_FOLDER",id:id});
+      else if (action === "empty-trash") dispatch({type:"OPEN_MODAL",modal:{type:"empty-trash"}});
+      else if (action === "empty-trash-confirm") { dispatch({type:"EMPTY_TRASH"}); dispatch({type:"CLOSE_MODAL"}); }
+      else if (action === "back") dispatch({type:"NAVIGATE",view:state.previousView || "inbox"});
+      else if (action === "move-archive") dispatch({type:"MOVE",ids:[id],folder:"archive",label:"アーカイブ"});
+      else if (action === "trash-one") dispatch({type:"MOVE",ids:[id],folder:"trash",label:"ゴミ箱"});
+      else if (action === "restore") dispatch({type:"RESTORE",id:id});
+      else if (action === "delete-forever") dispatch({type:"DELETE_FOREVER",id:id});
+      else if (action === "reply" || action === "reply-all") {
+        const mail = state.messages.find(function(item){ return item.id === id; });
+        if (mail) dispatch({type:"OPEN_COMPOSE",mode:"reply",to:mail.fromAddress,subject:"Re: " + mail.subject,body:"\n\n--- 元のメッセージ ---\n" + mail.body});
+      }
+      else if (action === "forward") {
+        const mail = state.messages.find(function(item){ return item.id === id; });
+        if (mail) dispatch({type:"OPEN_COMPOSE",mode:"forward",subject:"Fwd: " + mail.subject,body:"\n\n---------- 転送メッセージ ----------\nFrom: " + mail.from + "\nSubject: " + mail.subject + "\n\n" + mail.body,attachment:mail.attachment});
+      }
+      else if (action === "mark-unread") dispatch({type:"SET_READ",ids:[id],read:false});
+      else if (action === "compose-close") dispatch({type:"NAVIGATE",view:state.previousView || "inbox"});
+      else if (action === "save-draft") dispatch({type:"SAVE_DRAFT"});
+      else if (action === "send-modal") dispatch({type:"REQUEST_SEND"});
+      else if (action === "send-demo") dispatch({type:"SEND_DEMO"});
+      else if (action === "modal-close") dispatch({type:"CLOSE_MODAL"});
+      else if (action === "add-attachment") dispatch({type:"ADD_ATTACHMENT"});
+      else if (action === "remove-attachment") dispatch({type:"REMOVE_ATTACHMENT"});
+      else if (action === "attachment-demo") dispatch({type:"TOAST",message:"添付の表示を再現しています。ダウンロードは実行しません"});
+      else if (action === "account") dispatch({type:"ACCOUNT"});
+      else if (action === "demo-logout") dispatch({type:"TOAST",message:"ログアウト画面の動作確認です。セッション操作は行いません"});
+      else if (action === "reset") dispatch({type:"RESET"});
+      else if (action === "theme-cycle") dispatch({type:"THEME",value:state.theme === "dark" ? "light" : "dark"});
+      else if (action === "theme") dispatch({type:"THEME",value:target.dataset.theme});
+      else if (action === "signature-save") dispatch({type:"TOAST",message:"署名を保存しました（デモ内のみ）"});
+      else if (action === "forward-verify") dispatch({type:"VERIFY_FORWARD"});
+      else if (action === "forward-enable") dispatch({type:"FORWARD_ENABLE"});
+      else if (action === "forward-disable") dispatch({type:"FORWARD_DISABLE"});
+      else if (action === "rule-toggle") dispatch({type:"TOGGLE_RULE",id:id});
+      else if (action === "rule-delete") dispatch({type:"DELETE_RULE",id:id});
+      else if (action === "address-default") dispatch({type:"DEFAULT_ADDRESS",id:id});
+      else if (action === "address-remove") dispatch({type:"REMOVE_ADDRESS",id:id});
+      else if (action === "key-revoke") dispatch({type:"REVOKE_KEY",id:id});
+      else if (action === "ai-preview") dispatch({type:"AI_PREVIEW",provider:target.dataset.provider});
+      else if (action === "domain-refresh") dispatch({type:"DOMAIN_REFRESH",id:id});
+      else if (action === "domain-connect") dispatch({type:"DOMAIN_CONNECT",id:id});
+      else if (action === "domain-disconnect") dispatch({type:"DOMAIN_DISCONNECT",id:id});
+      else if (action === "user-edit") dispatch({type:"OPEN_MODAL",modal:{type:"user-edit",id:id}});
+      else if (action === "import-demo") dispatch({type:"IMPORT_DEMO"});
+    });
+
+    root.addEventListener("input", function(event) {
+      const target = event.target;
+      if (target.dataset.input === "search") state = reducer(state,{type:"SEARCH",value:target.value});
+      else if (target.dataset.input === "signature") state = reducer(state,{type:"SIGNATURE",value:target.value});
+      else if (target.dataset.input === "ai-question") {
+        state = reducer(state,{type:"AI_QUESTION",value:target.value});
+        const preview = root.querySelector("[data-ai-preview]");
+        if (preview) preview.textContent = "AIへ渡す質問文\n\n" + aiPrompt(state.ai.question, "");
+      }
+      else if (target.dataset.compose) state = reducer(state,{type:"COMPOSE_FIELD",field:target.dataset.compose,value:target.value});
+    });
+
+    root.addEventListener("change", function(event) {
+      const target = event.target;
+      if (target.dataset.change === "select") dispatch({type:"TOGGLE_SELECT",id:target.dataset.id});
+      else if (target.dataset.change === "select-all") dispatch({type:"SELECT_ALL",ids:target.checked ? visibleMessages().map(function(item){ return item.id; }) : []});
+      else if (target.dataset.change === "forward-ack") dispatch({type:"FORWARD_ACK",value:target.checked});
+      else if (target.dataset.compose) state = reducer(state,{type:"COMPOSE_FIELD",field:target.dataset.compose,value:target.value});
+    });
+
+    root.addEventListener("submit", function(event) {
+      event.preventDefault();
+      const form = event.target;
+      const data = new FormData(form);
+      const type = form.dataset.form;
+      if (type === "search") dispatch({type:"SEARCH_SUBMIT",value:String(data.get("query") || "")});
+      else if (type === "compose") dispatch({type:"REQUEST_SEND"});
+      else if (type === "folder") {
+        const name = String(data.get("name") || "").trim();
+        if (name) dispatch({type:"ADD_FOLDER",name:name});
+      }
+      else if (type === "folder-rename") {
+        const name = String(data.get("name") || "").trim();
+        if (name) dispatch({type:"RENAME_FOLDER",id:String(data.get("id")),name:name});
+      }
+      else if (type === "forwarding") {
+        const destination = String(data.get("destination") || "").trim();
+        if (isDemoAddress(destination)) dispatch({type:"FORWARD_DEST",value:destination});
+        else dispatch({type:"TOAST",message:"転送先は .invalid で終わるデモ用メールアドレスを入力してください"});
+      }
+      else if (type === "rule") {
+        const sender = String(data.get("sender") || "").trim();
+        const subject = String(data.get("subject") || "").trim();
+        if (sender || subject) dispatch({type:"ADD_RULE",sender:sender,subject:subject,folder:String(data.get("folder"))});
+      }
+      else if (type === "address") {
+        const name = String(data.get("name") || "").trim();
+        const address = String(data.get("address") || "").trim();
+        if (isDemoAddress(address)) dispatch({type:"ADD_ADDRESS",name:name || "名称未設定",address:address});
+        else dispatch({type:"TOAST",message:"アドレスは .invalid で終わるデモ用メールアドレスを入力してください"});
+      }
+      else if (type === "key") {
+        const name = String(data.get("name") || "").trim();
+        if (name) dispatch({type:"CREATE_KEY",name:name,scope:String(data.get("scope"))});
+      }
+      else if (type === "user") {
+        const name = String(data.get("name") || "").trim();
+        const address = String(data.get("address") || "").trim();
+        if (name && isDemoAddress(address)) dispatch({type:"ADD_USER",name:name,address:address});
+        else dispatch({type:"TOAST",message:"表示名と .invalid で終わるデモ用アドレスを入力してください"});
+      }
+      else if (type === "user-edit") {
+        const id = String(data.get("id") || "");
+        const name = String(data.get("name") || "").trim();
+        const role = String(data.get("role") || "メンバー");
+        if (id && name) dispatch({type:"EDIT_USER",id:id,name:name,role:role});
+      }
+    });
+
+    window.addEventListener("keydown", function(event) {
+      if (event.key === "Escape" && state.modal) dispatch({type:"CLOSE_MODAL"});
+    });
+
+    render();
+  </script>
+</body>
+</html>
