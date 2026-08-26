@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon from '$lib/components/Icon.svelte';
+	import AiSupportDock from '$lib/components/AiSupportDock.svelte';
 	import WizardShell from '$lib/components/WizardShell.svelte';
 	import DomainPicker from '$lib/components/DomainPicker.svelte';
 	import AddressField from '$lib/components/AddressField.svelte';
@@ -228,6 +229,8 @@
 			</div>
 		</form>
 	{/if}
+
+	<AiSupportDock stage={step === 1 ? 'resend' : 'first-admin'} />
 </WizardShell>
 
 <style>
