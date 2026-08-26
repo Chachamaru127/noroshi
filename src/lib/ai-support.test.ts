@@ -19,6 +19,7 @@ type KnowledgePattern = {
 	source_refs: string[];
 	safe_steps: string[];
 	expected_evidence: string[];
+	unsupported: string[];
 };
 
 type KnowledgeSource = {
@@ -47,6 +48,8 @@ describe('AI support Knowledge Pack projection', () => {
 			assert.ok(knowledge.patternIds.length <= AI_SUPPORT_KNOWLEDGE_LIMITS.patterns);
 			assert.ok(knowledge.officialDocs.length > 0);
 			assert.ok(knowledge.officialDocs.length <= AI_SUPPORT_KNOWLEDGE_LIMITS.officialDocs);
+			assert.ok(knowledge.stableTips.length > 0);
+			assert.ok(knowledge.stableTips.length <= AI_SUPPORT_KNOWLEDGE_LIMITS.stableTips);
 
 			const reviewed = knowledge.patternIds.map((id) => {
 				const pattern = knowledgePack.patterns.find((entry) => entry.id === id);
@@ -61,6 +64,13 @@ describe('AI support Knowledge Pack projection', () => {
 					(entry) => entry.canonical_url === doc.url && reviewedSourceRefs.has(entry.id)
 				);
 				assert.ok(source, `Missing registered official source ${doc.url}`);
+			}
+			const reviewedStableKnowledge = reviewed.flatMap((pattern) => [
+				...pattern.safe_steps,
+				...pattern.unsupported
+			]);
+			for (const tip of knowledge.stableTips) {
+				assert.ok(reviewedStableKnowledge.includes(tip), tip);
 			}
 		}
 	});
@@ -83,6 +93,8 @@ describe('AI support prompt boundary', () => {
 		);
 		assert.match(prompt, /確認日（2026-09-26）/);
 		assert.match(prompt, /実際に確認した公式URL/);
+		assert.match(prompt, /よくあるつまずき（固定の操作手順ではありません）:/);
+		assert.match(prompt, /Cloudflare以外が権威DNSのままではこの受信構成を利用できません。/);
 		assert.match(prompt, /MXレコードはどこで確認しますか？/);
 		assert.match(prompt, /受信はCloudflare Email Routing、送信はResend/);
 		assert.doesNotMatch(prompt, /変更前のDNSレコードとRouting Rulesを保存します。/);
@@ -91,7 +103,7 @@ describe('AI support prompt boundary', () => {
 		assert.equal(validateBuiltAiSupportPrompt(prompt, REVIEW_DAY_CLOCK), prompt);
 	});
 
-	test('keeps official sources but never embeds detailed Pack steps before or after review_by', () => {
+	test('keeps official sources and bounded stable tips before and after review_by', () => {
 		for (const stage of ['deploy', 'email-routing', 'resend', 'first-admin'] as const) {
 			const knowledge = AI_SUPPORT_KNOWLEDGE[stage];
 			const reviewDay = () => new Date(`${knowledge.reviewBy}T12:00:00.000Z`);
@@ -103,18 +115,20 @@ describe('AI support prompt boundary', () => {
 				assert.ok(pattern);
 				return pattern;
 			});
+			const selectedTips = new Set(knowledge.stableTips);
 			for (const detail of patterns.flatMap((pattern) => [
 				...pattern.safe_steps,
-				...pattern.expected_evidence
+				...pattern.expected_evidence,
+				...pattern.unsupported
 			])) {
-				assert.doesNotMatch(
-					currentPrompt,
-					new RegExp(detail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-				);
-				assert.doesNotMatch(
-					expiredPrompt,
-					new RegExp(detail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-				);
+				const matcher = new RegExp(detail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+				if (selectedTips.has(detail)) {
+					assert.match(currentPrompt, matcher);
+					assert.match(expiredPrompt, matcher);
+				} else {
+					assert.doesNotMatch(currentPrompt, matcher);
+					assert.doesNotMatch(expiredPrompt, matcher);
+				}
 			}
 			for (const doc of knowledge.officialDocs) {
 				assert.match(currentPrompt, new RegExp(doc.url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));

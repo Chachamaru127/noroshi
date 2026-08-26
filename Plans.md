@@ -268,7 +268,7 @@ Binary DoD:
 Evidence:
 
 - `src/lib/components/AiSupportDock.svelte` and `src/lib/ai-support.ts` implement the visible prompt, copy fallback, and fixed three-provider handoff.
-- The handoff prompt supplies a bounded list of official sources and requires fresh source verification, verification date, and the URLs actually used; detailed Knowledge Pack operations are not embedded.
+- The handoff prompt supplies a bounded list of official sources and no more than two stable, high-frequency pitfalls per stage. It requires fresh source verification, verification date, and the URLs actually used; detailed Knowledge Pack operations are not embedded.
 - `README.md` contains an intentionally inactive Cloudflare Deploy banner and the post-deploy mail-readiness boundary.
 - `bun test src/lib/ai-support.test.ts src/lib/ai-support-a11y.test.ts scripts/deploy-banner.test.mjs`, `bun run check`, and `bun run check:clean` pass without provider calls.
 

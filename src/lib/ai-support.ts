@@ -125,6 +125,8 @@ function promptPrefix(stage: AiSupportStage, today: string): string {
 		sourceStatus,
 		...knowledge.officialDocs.map((doc) => `- ${doc.label}: ${doc.url}`),
 		`回答には確認日（${today}）と、実際に確認した公式URLを記載してください。リンクが変わっていたら、同じ公式サイト内で現行ページを探してください。`,
+		'よくあるつまずき（固定の操作手順ではありません）:',
+		...knowledge.stableTips.map((tip) => `- ${tip}`),
 		'利用者は非エンジニアです。現在の公式画面に合わせて、次に行う操作を短く順番に説明してください。公式資料と画面が一致しない場合は、その差を先に説明してください。',
 		'APIキー、パスワード、メール本文などの秘密情報や個人情報は入力させないでください。',
 		'質問: '
