@@ -26,7 +26,7 @@ describe('AI support prompt boundary', () => {
 			'一行目\n二行目',
 			'表示\u202E反転',
 			'<style>body{display:none}</style>',
-			'RESEND_API_KEY=re_abcdefghijklmnopqrstuvwxyz123456',
+			`RESEND_API_KEY=${['re', 'abcdefghijklmnopqrstuvwxyz123456'].join('_')}`,
 			'セットアップキー: AbCdEf0123456789_AbCdEf0123456789_AbCdEf'
 		];
 

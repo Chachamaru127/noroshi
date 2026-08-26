@@ -135,7 +135,7 @@ After: the existing deployment remains the production downstream. QuickMail-ja c
 
 ## Next roadmap — Japanese setup distribution, Agent Plugin, and UI direction
 
-Status: QMJ-6 and QMJ-7 are complete. QMJ-6A and QMJ-6B are approved for local implementation; QMJ-8 onward are not implemented. Public release remains HOLD.
+Status: QMJ-6, QMJ-6A, QMJ-6B, and QMJ-7 are complete locally. QMJ-8 onward are not implemented. Public release remains HOLD.
 
 ### Product decision
 
@@ -177,7 +177,7 @@ Reject for first release:
 
 ### Pre-approval and Risk Gates for this roadmap
 
-Approval state: planning plus local implementation of QMJ-6A/QMJ-6B was requested. QMJ-8 onward and every external mutation remain pending.
+Approval state: planning plus local implementation of QMJ-6A/QMJ-6B was requested and completed. QMJ-8 onward and every external mutation remain pending.
 
 - Secret reads for local implementation and automated tests: none. Tests use canaries and FakeProvider only.
 - Locally safe for QMJ-6A/QMJ-6B: edit generic source/docs/tests, create public-only fixtures, run local checks/builds, and create local commits. No new dependency is required for this slice.
@@ -223,7 +223,7 @@ Binary DoD:
 
 Priority: Required
 Depends on: QMJ-6 and QMJ-7
-Status: Approved for local implementation
+Status: Completed locally on 2026-08-27
 
 - Register all 24 products/configurations in the dated competition report without copying their documentation. Record primary setup/FAQ sources when present, or `not_found` with the observation date.
 - Normalize the highest-value setup and recovery lessons into Japanese intent-based Support Patterns covering pre-deploy, Cloudflare deployment, Email Routing/MX/Catch-all, Resend outbound verification, D1/R2 bindings, first admin/setup key, Outlook/EML import, backup, recovery, and Gmail limitations.
@@ -238,11 +238,17 @@ Binary DoD:
 - Stale, missing-source, or unsupported entries fail closed to primary-source re-verification instead of concrete mutation instructions.
 - Knowledge tests perform 0 Cloudflare, Resend, DNS, SMTP, AI-service, or external-email calls.
 
+Evidence:
+
+- `support/knowledge/sources.json` registers the 24 researched products/configurations and 12 authoritative provider references with dated provenance.
+- `support/knowledge/patterns.json` contains 15 schema-validated Japanese setup, limitation, and recovery patterns.
+- `bun test scripts/support-knowledge.test.mjs` and `bun run check:clean` pass without external calls.
+
 #### QMJ-6B — AI consultation dock and dormant Cloudflare Deploy banner
 
 Priority: Required
 Depends on: QMJ-6A and QMJ-7
-Status: Approved for local implementation
+Status: Completed locally on 2026-08-27
 
 - Add a reusable Japanese consultation component with a visible prompt preview, explicit copy action, and text-only `ChatGPTに聞く`, `Claudeに聞く`, and `Geminiに聞く` controls.
 - Use a pure prompt/link module with fixed provider origins and paths, an allowlisted setup-stage enum, conservative length limit, control/bidi/HTML rejection, and secret-pattern blocking. Do not read the page, forms, mailbox, current URL, provider error, domain, DNS, account, or secret state.
@@ -258,6 +264,12 @@ Binary DoD:
 - ChatGPT/Gemini limitations and external-provider data handling are disclosed; no button claims setup automation or official support.
 - While the public repository URL is absent or release status is HOLD, active Cloudflare Deploy links are 0. The banner states `deploy != mail ready` and lists the remaining setup classes.
 - Unit, Japanese-copy, accessibility, distribution-contract, clean-template, build, archive, and diff checks pass with 0 external network call from tests.
+
+Evidence:
+
+- `src/lib/components/AiSupportDock.svelte` and `src/lib/ai-support.ts` implement the visible prompt, copy fallback, and fixed three-provider handoff.
+- `README.md` contains an intentionally inactive Cloudflare Deploy banner and the post-deploy mail-readiness boundary.
+- `bun test src/lib/ai-support.test.ts src/lib/ai-support-a11y.test.ts scripts/deploy-banner.test.mjs`, `bun run check`, and `bun run check:clean` pass without provider calls.
 
 #### QMJ-8 — Upstream reconciliation and setup threat model
 
