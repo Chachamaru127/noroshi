@@ -55,7 +55,7 @@ The setup assistant is separate from the mailbox MCP. Installing it grants zero 
 - Support Patterns are organized by user intent and setup stage rather than competitor. Every pattern records applicability, diagnostic questions, safe steps, human-only work, prohibited actions, Risk Gate, rollback, expected evidence, unsupported cases, source references, verification date, and confidence.
 - Answer precedence is: this product contract and QuickMail-ja documentation; current Cloudflare and Resend primary documentation; competitor primary documentation; official issues and releases. Community material may discover a candidate but cannot authorize a concrete provider change.
 - Cloudflare/Resend operational instructions expire after 30 days unless re-verified. Stale or unsupported patterns stop at current-state inspection and point to the primary source; they do not provide concrete mutation steps.
-- The Knowledge Pack contains zero customer names, domains, email content, provider IDs, DNS values, secrets, local paths, or copied third-party FAQ bodies. UI, Setup Skill, and future Setup MCP consume the same reviewed Pack.
+- The Knowledge Pack contains zero customer names, domains, email content, provider IDs, DNS values, secrets, local paths, or copied third-party FAQ bodies. The current AI consultation UI consumes a bounded projection of the reviewed Pack. The not-yet-provided Setup Skill and Setup MCP must consume the same Pack when implemented.
 
 ## AI consultation contract
 
