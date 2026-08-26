@@ -1,0 +1,86 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://quickmail-ja.example/schemas/support-patterns.schema.json",
+	"title": "QuickMail-ja Japanese support patterns",
+	"type": "object",
+	"additionalProperties": false,
+	"required": ["version", "verified_at", "review_by", "patterns"],
+	"properties": {
+		"version": { "type": "integer", "const": 1 },
+		"verified_at": { "$ref": "#/$defs/date" },
+		"review_by": { "$ref": "#/$defs/date" },
+		"patterns": {
+			"type": "array",
+			"minItems": 10,
+			"maxItems": 15,
+			"items": { "$ref": "#/$defs/pattern" }
+		}
+	},
+	"$defs": {
+		"date": { "type": "string", "format": "date" },
+		"strings": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+		"pattern": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": [
+				"id",
+				"title_ja",
+				"category",
+				"stage",
+				"applicability",
+				"diagnostic_questions",
+				"safe_steps",
+				"human_only",
+				"prohibited",
+				"risk_gate",
+				"rollback",
+				"expected_evidence",
+				"unsupported",
+				"source_refs",
+				"verified_at",
+				"review_by",
+				"confidence"
+			],
+			"properties": {
+				"id": { "type": "string", "pattern": "^[a-z0-9]+(?:\\.[a-z0-9]+)*$" },
+				"title_ja": { "type": "string", "minLength": 1 },
+				"category": {
+					"enum": [
+						"deployment",
+						"cloudflare",
+						"dns",
+						"storage",
+						"resend",
+						"onboarding",
+						"delivery",
+						"backup",
+						"migration"
+					]
+				},
+				"stage": { "type": "string", "minLength": 1 },
+				"applicability": { "$ref": "#/$defs/strings" },
+				"diagnostic_questions": { "$ref": "#/$defs/strings" },
+				"safe_steps": { "$ref": "#/$defs/strings" },
+				"human_only": { "$ref": "#/$defs/strings" },
+				"prohibited": { "$ref": "#/$defs/strings" },
+				"risk_gate": {
+					"type": "object",
+					"additionalProperties": false,
+					"required": ["class", "trigger", "approval_required"],
+					"properties": {
+						"class": { "type": "string", "minLength": 1 },
+						"trigger": { "type": "string", "minLength": 1 },
+						"approval_required": { "type": "boolean" }
+					}
+				},
+				"rollback": { "$ref": "#/$defs/strings" },
+				"expected_evidence": { "$ref": "#/$defs/strings" },
+				"unsupported": { "$ref": "#/$defs/strings" },
+				"source_refs": { "$ref": "#/$defs/strings" },
+				"verified_at": { "$ref": "#/$defs/date" },
+				"review_by": { "$ref": "#/$defs/date" },
+				"confidence": { "enum": ["high", "medium", "low"] }
+			}
+		}
+	}
+}

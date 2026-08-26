@@ -1,0 +1,653 @@
+{
+	"$schema": "./support-patterns.schema.json",
+	"version": 1,
+	"verified_at": "2026-08-27",
+	"review_by": "2026-09-26",
+	"patterns": [
+		{
+			"id": "deploy.banner.boundary",
+			"title_ja": "Cloudflareへ配置できたがメールが使えない",
+			"category": "deployment",
+			"stage": "Cloudflareへのデプロイ直後",
+			"applicability": [
+				"公開されたQuickMail-jaリポジトリからDeployボタンを使った場合",
+				"Workerのビルド自体は完了している場合"
+			],
+			"diagnostic_questions": [
+				"Worker、D1、R2が同じCloudflareアカウントに作成されていますか。",
+				"Email Routing、Resend、初回管理者の設定は別に完了していますか。"
+			],
+			"safe_steps": [
+				"デプロイ完了とメール開通を分けて確認します。",
+				"作成されたWorker、D1、R2の名前とBindingsだけを読み取ります。",
+				"未完了の設定を受信、送信、初回管理者の順に一覧化します。"
+			],
+			"human_only": ["Cloudflareへのログイン、利用規約、MFA、課金判断は利用者が行います。"],
+			"prohibited": [
+				"デプロイ成功だけを根拠に受信・送信可能と案内しません。",
+				"公開URLが未設定のリポジトリを別製品へ向けません。"
+			],
+			"risk_gate": {
+				"class": "deployment",
+				"trigger": "再デプロイ、リソース作成、シークレット登録を行う前",
+				"approval_required": true
+			},
+			"rollback": [
+				"新しい変更を加えず、現行デプロイと作成済みリソースを保持して不足設定を確認します。"
+			],
+			"expected_evidence": [
+				"Workerのデプロイ状態、D1とR2のBinding、未完了設定の一覧が確認できます。"
+			],
+			"unsupported": [
+				"DeployボタンだけでDNS、Email Routing、Resend、初回管理者まで自動設定する保証はありません。"
+			],
+			"source_refs": ["cloudflare-deploy-buttons", "quickmail-upstream", "agentmail"],
+			"verified_at": "2026-08-27",
+			"review_by": "2026-09-26",
+			"confidence": "high"
+		},
+		{
+			"id": "cloudflare.account.preflight",
+			"title_ja": "Cloudflareの対象アカウントとドメインを確認する",
+			"category": "cloudflare",
+			"stage": "外部設定を変更する前",
+			"applicability": [
+				"複数のCloudflareアカウントまたは複数ドメインを管理している場合",
+				"セットアップ支援を開始する場合"
+			],
+			"diagnostic_questions": [
+				"対象ドメインの権威DNSはどのCloudflareアカウントにありますか。",
+				"同名のWorker、D1、R2がすでに存在しますか。"
+			],
+			"safe_steps": [
+				"アカウント、ゾーン、既存リソースを読み取り専用で列挙します。",
+				"対象をIDと表示名の両方で利用者に示します。",
+				"同名リソースは自動採用せず衝突として止めます。"
+			],
+			"human_only": ["対象アカウントの選択と権限付与は利用者が確認します。"],
+			"prohibited": ["一覧の先頭を自動選択しません。", "読み取り失敗を未作成と扱いません。"],
+			"risk_gate": {
+				"class": "account-selection",
+				"trigger": "アカウント、ゾーン、既存リソースを確定する前",
+				"approval_required": true
+			},
+			"rollback": ["読み取りだけで停止し、選択状態を破棄します。"],
+			"expected_evidence": ["選択したアカウントとゾーン、同名リソースの有無が明示されます。"],
+			"unsupported": ["対象が一意でない状態での自動セットアップは対応しません。"],
+			"source_refs": [
+				"cloudflare-deploy-buttons",
+				"cloudflare-route-emails",
+				"agentmail",
+				"mailflare"
+			],
+			"verified_at": "2026-08-27",
+			"review_by": "2026-09-26",
+			"confidence": "high"
+		},
+		{
+			"id": "cloudflare.email.routing",
+			"title_ja": "Cloudflare Email Routingで受信ドメインを有効にする",
+			"category": "cloudflare",
+			"stage": "受信設定",
+			"applicability": [
+				"対象ドメインのDNSをCloudflareで管理している場合",
+				"QuickMail-jaへ受信メールを保存する場合"
+			],
+			"diagnostic_questions": [
+				"Email Routingのドメイン状態は有効ですか。",
+				"Cloudflareが示すMX、SPF、DKIMの状態は確認済みですか。"
+			],
+			"safe_steps": [
+				"変更前のDNSレコードとRouting Rulesを保存します。",
+				"Cloudflare公式画面が示す受信用レコードとの差分を作ります。",
+				"反映後は権威DNSと画面の両方で状態を確認します。"
+			],
+			"human_only": ["MX切替と既存メールサービス停止の判断は利用者が行います。"],
+			"prohibited": [
+				"Cloudflare DNSを使っていないドメインへEmail Routingを設定しません。",
+				"既存MXを推測値で置き換えません。"
+			],
+			"risk_gate": {
+				"class": "dns-email-routing",
+				"trigger": "Email Routing有効化またはDNSレコード変更の前",
+				"approval_required": true
+			},
+			"rollback": [
+				"保存した変更前のMX、SPF、DKIMとRouting Rulesへ戻します。",
+				"D1、R2、Workerは原因確認が終わるまで削除しません。"
+			],
+			"expected_evidence": ["Email Routingのドメイン状態と受信用レコードが一致します。"],
+			"unsupported": ["Cloudflare以外が権威DNSのままではこの受信構成を利用できません。"],
+			"source_refs": [
+				"cloudflare-route-emails",
+				"cloudflare-email-domain-configuration",
+				"cloudflare-agentic-inbox",
+				"cf-mail"
+			],
+			"verified_at": "2026-08-27",
+			"review_by": "2026-09-26",
+			"confidence": "high"
+		},
+		{
+			"id": "cloudflare.worker.route",
+			"title_ja": "受信ルールをQuickMail-ja Workerへ接続する",
+			"category": "cloudflare",
+			"stage": "受信ルール設定",
+			"applicability": [
+				"Email Routingのドメイン設定が完了している場合",
+				"受信をQuickMail-jaのemailハンドラーで処理する場合"
+			],
+			"diagnostic_questions": [
+				"対象アドレスまたはCatch-allのActionはSend to a Workerですか。",
+				"選択されたWorkerは現在のQuickMail-ja Workerですか。"
+			],
+			"safe_steps": [
+				"現在のRouting RulesとWorker名を読み取ります。",
+				"意図するアドレス範囲とCatch-allの重複を確認します。",
+				"保存後にルールの有効状態を読み返します。"
+			],
+			"human_only": ["Catch-allの対象範囲と未知アドレスの扱いは利用者が決めます。"],
+			"prohibited": [
+				"既存の転送ルールを無断で削除しません。",
+				"別Workerを同名だけで置き換えません。"
+			],
+			"risk_gate": {
+				"class": "routing-rule",
+				"trigger": "Routing RuleまたはCatch-allを追加・変更する前",
+				"approval_required": true
+			},
+			"rollback": ["新規ルールを無効化し、保存済みの旧ルールを復元します。"],
+			"expected_evidence": ["対象ルールが有効で、ActionとWorkerが意図した値です。"],
+			"unsupported": ["Worker名の変更後も既存ルールが自動追従する保証はありません。"],
+			"source_refs": [
+				"cloudflare-routing-rules",
+				"cloudflare-route-emails",
+				"cloudflare-email-community"
+			],
+			"verified_at": "2026-08-27",
+			"review_by": "2026-09-26",
+			"confidence": "high"
+		},
+		{
+			"id": "dns.mx.cutover",
+			"title_ja": "既存メールから受信先を切り替える",
+			"category": "dns",
+			"stage": "MX切替",
+			"applicability": [
+				"既存のメールサービスからCloudflare Email Routingへ切り替える場合",
+				"受信停止時間と復旧手順を管理する場合"
+			],
+			"diagnostic_questions": [
+				"現在の権威DNSとapex MXを保存しましたか。",
+				"旧メールボックスの最終受信とQuickMail-jaの最初の受信を記録できますか。"
+			],
+			"safe_steps": [
+				"権威DNS、MX、TXT、Routing Rulesを変更前に保存します。",
+				"新旧の差分とロールバック値を利用者へ示します。",
+				"切替後は権威DNSと公開リゾルバでMXを確認します。"
+			],
+			"human_only": ["業務影響を伴う切替日時と旧サービスの停止時期は利用者が決定します。"],
+			"prohibited": [
+				"新旧MXの混在を二重配信として案内しません。",
+				"同優先度MXで両方へ届くと保証しません。"
+			],
+			"risk_gate": {
+				"class": "dns-cutover",
+				"trigger": "apex MXまたは関連TXTを変更する直前",
+				"approval_required": true
+			},
+			"rollback": [
+				"保存した旧MXと関連TXTを完全一致で復元します。",
+				"復元後に旧メールボックスへの制御済み受信を確認します。"
+			],
+			"expected_evidence": [
+				"権威DNSと公開リゾルバが同じMXを返し、制御済み受信結果が記録されます。"
+			],
+			"unsupported": ["MX混在によるミラー受信や無損失の二重配信は保証しません。"],
+			"source_refs": [
+				"cloudflare-email-domain-configuration",
+				"cloudflare-email-troubleshooting",
+				"resend-mx-conflicts",
+				"microsoft-365-outlook",
+				"google-workspace-gmail"
+			],
+			"verified_at": "2026-08-27",
+			"review_by": "2026-09-26",
+			"confidence": "high"
+		},
+		{
+			"id": "storage.bindings.migrations",
+			"title_ja": "D1とR2の作成・Bindings・マイグレーションを確認する",
+			"category": "storage",
+			"stage": "データ保存先の設定",
+			"applicability": [
+				"Workerが起動しても保存や添付取得に失敗する場合",
+				"初回デプロイまたは更新を行う場合"
+			],
+			"diagnostic_questions": [
+				"DB Bindingは意図したD1へ接続されていますか。",
+				"ATTACHMENTS Bindingは意図したR2へ接続されていますか。",
+				"対象D1へ必要なマイグレーションが適用されていますか。"
+			],
+			"safe_steps": [
+				"BindingsとリソースIDを読み取り専用で比較します。",
+				"同名リソースを自動採用せず所有関係を確認します。",
+				"適用予定マイグレーションを変更前に一覧化します。"
+			],
+			"human_only": ["既存データを持つD1やR2の採用、移行、削除は利用者が判断します。"],
+			"prohibited": [
+				"同名だけを理由に既存D1やR2へ接続しません。",
+				"バックアップなしでリモートマイグレーションを実行しません。"
+			],
+			"risk_gate": {
+				"class": "remote-storage",
+				"trigger": "リソース作成、Binding変更、リモートマイグレーションの前",
+				"approval_required": true
+			},
+			"rollback": [
+				"Workerを直前デプロイへ戻し、追加型マイグレーションは破壊的に巻き戻しません。",
+				"誤接続時は変更前のBindingへ戻します。"
+			],
+			"expected_evidence": [
+				"WorkerのBindings、D1マイグレーション状態、R2バケットが意図した対象と一致します。"
+			],
+			"unsupported": ["既存の未知データを自動削除・上書きする復旧は対応しません。"],
+			"source_refs": [
+				"cloudflare-deploy-buttons",
+				"cloudflare-d1-export",
+				"cloudflare-r2-s3",
+				"mailflare",
+				"cloud-mail"
+			],
+			"verified_at": "2026-08-27",
+			"review_by": "2026-09-26",
+			"confidence": "high"
+		},
+		{
+			"id": "resend.domain.verification",
+			"title_ja": "Resendの送信ドメインを確認する",
+			"category": "resend",
+			"stage": "送信ドメイン認証",
+			"applicability": [
+				"QuickMail-jaからResendで送信する場合",
+				"Resendのドメイン状態が未確認または失敗の場合"
+			],
+			"diagnostic_questions": [
+				"Resendが示すSPFとDKIMは権威DNSへ完全一致で登録されていますか。",
+				"Return-Path用MXはResendが示す送信用サブドメインにありますか。",
+				"送信元のドメインはResendで確認済みの範囲と一致しますか。"
+			],
+			"safe_steps": [
+				"Resend画面の現在値と権威DNSの差分を作ります。",
+				"ホスト名、値、リージョン、余分な引用符を確認します。",
+				"変更後はResendの確認状態を読み返します。"
+			],
+			"human_only": ["DNSレコード変更とドメイン所有確認は利用者が行います。"],
+			"prohibited": [
+				"Resend画面と異なる値を推測して登録しません。",
+				"確認前に外部宛てテスト送信を実行しません。"
+			],
+			"risk_gate": {
+				"class": "dns-sending",
+				"trigger": "Resend用DNSレコードを追加・変更する前",
+				"approval_required": true
+			},
+			"rollback": [
+				"追加したResend送信用レコードだけを変更前の状態へ戻します。",
+				"Cloudflareのapex受信MXは変更しません。"
+			],
+			"expected_evidence": ["Resendの送信ドメインがverifiedで、Fromドメインと一致します。"],
+			"unsupported": ["共有ドメインや所有していないドメインの認証は対応しません。"],
+			"source_refs": [
+				"resend-domains",
+				"resend-domain-verification-troubleshooting",
+				"quickmail-upstream",
+				"agentmail"
+			],
+			"verified_at": "2026-08-27",
+			"review_by": "2026-09-26",
+			"confidence": "high"
+		},
+		{
+			"id": "resend.receiving.conflict",
+			"title_ja": "Resend ReceivingとCloudflare受信を混在させない",
+			"category": "resend",
+			"stage": "送受信構成の確認",
+			"applicability": [
+				"Cloudflare Email Routingで受信しResendで送信する標準構成",
+				"Resend画面にReceiving設定が表示される場合"
+			],
+			"diagnostic_questions": [
+				"Resend Receivingを有効にしていませんか。",
+				"Resendの受信用MXをapexへ追加していませんか。",
+				"Resendの送信用Return-Path MXと受信用MXを区別できていますか。"
+			],
+			"safe_steps": [
+				"apex MXと送信用サブドメインのMXを別々に一覧化します。",
+				"Cloudflareを受信、Resendを送信として役割を表示します。",
+				"競合があれば変更前DNSを保存して是正計画だけを作ります。"
+			],
+			"human_only": ["既存受信経路を止める変更は利用者が影響を確認して承認します。"],
+			"prohibited": [
+				"Resend ReceivingをQuickMail-ja標準構成で有効にしません。",
+				"Resendの受信用MXをapexへ追加しません。",
+				"同優先度MXを二重配信として使いません。"
+			],
+			"risk_gate": {
+				"class": "mx-conflict",
+				"trigger": "apex MXまたはResend Receivingを変更する前",
+				"approval_required": true
+			},
+			"rollback": [
+				"新たに追加したResend受信用MXだけを除去し、保存済みCloudflare受信MXへ戻します。"
+			],
+			"expected_evidence": [
+				"apex MXはCloudflare受信用、Resend MXは送信用サブドメインに限定されています。"
+			],
+			"unsupported": [
+				"Resend ReceivingをQuickMail-jaの受信Providerとして使う構成は初回版の対象外です。"
+			],
+			"source_refs": [
+				"resend-mx-conflicts",
+				"resend-domains",
+				"cloudflare-route-emails",
+				"cloudflare-agentic-inbox"
+			],
+			"verified_at": "2026-08-27",
+			"review_by": "2026-09-26",
+			"confidence": "high"
+		},
+		{
+			"id": "resend.api.key",
+			"title_ja": "Resend APIキーを最小権限で分ける",
+			"category": "resend",
+			"stage": "送信シークレット設定",
+			"applicability": [
+				"セットアップ時にResendのドメインやWebhookを確認する場合",
+				"Workerへ本番送信用キーを登録する場合"
+			],
+			"diagnostic_questions": [
+				"セットアップ用とWorker送信用のキーは分離されていますか。",
+				"Worker用キーはSending accessで対象ドメインに制限されていますか。"
+			],
+			"safe_steps": [
+				"必要権限と保存先だけを計画に表示します。",
+				"Workerへは対象ドメインに制限したSending accessキーだけを登録します。",
+				"セットアップ用キーは作業後に失効手順を案内します。"
+			],
+			"human_only": ["キーの作成、表示、入力、失効は利用者本人がResendと秘密入力画面で行います。"],
+			"prohibited": [
+				"APIキーをチャット、URL、ログ、スクリーンショット、設定ファイルへ出しません。",
+				"Full accessキーをWorkerへ登録しません。"
+			],
+			"risk_gate": {
+				"class": "secret",
+				"trigger": "キー作成、Worker secret登録、セットアップ用キー失効の前",
+				"approval_required": true
+			},
+			"rollback": [
+				"誤登録したキーをWorker secretから置換し、Resend側で失効します。",
+				"キー値は記録せずキーIDと状態だけを確認します。"
+			],
+			"expected_evidence": [
+				"Worker用キーがSending accessかつ対象ドメイン制限付きで、セットアップ用キーはWorkerに存在しません。"
+			],
+			"unsupported": ["秘密値をAI会話へ貼り付けて設定する方式は対応しません。"],
+			"source_refs": ["resend-api-keys", "resend-domains", "saasmail"],
+			"verified_at": "2026-08-27",
+			"review_by": "2026-09-26",
+			"confidence": "high"
+		},
+		{
+			"id": "resend.webhook.status",
+			"title_ja": "Resend Webhookで配信状態を受け取る",
+			"category": "resend",
+			"stage": "配信結果の設定",
+			"applicability": [
+				"QuickMail-jaの送信済みに配信状態を表示する場合",
+				"Webhookが届かず状態が更新されない場合"
+			],
+			"diagnostic_questions": [
+				"Webhook URLは現在のQuickMail-ja Workerですか。",
+				"必要な送信イベントを選択していますか。",
+				"Webhook署名シークレットはWorker secretに登録されていますか。"
+			],
+			"safe_steps": [
+				"WebhookのURL、イベント、状態を秘密値なしで確認します。",
+				"署名検証の設定有無を確認します。",
+				"失敗イベントとWorker応答状態を照合します。"
+			],
+			"human_only": ["Webhook作成と署名シークレットの一回限りの入力は利用者が行います。"],
+			"prohibited": [
+				"署名検証を無効にしません。",
+				"Webhook確認のために無断で外部メールを送信しません。"
+			],
+			"risk_gate": {
+				"class": "webhook",
+				"trigger": "Webhook作成、変更、削除または外部テスト送信の前",
+				"approval_required": true
+			},
+			"rollback": [
+				"新規Webhookを無効化し、保存した旧設定へ戻します。",
+				"署名シークレットを変更した場合はWorker側も一致する状態へ戻します。"
+			],
+			"expected_evidence": ["対象イベントが有効で、署名検証済みWebhookが成功応答を返します。"],
+			"unsupported": ["Webhook未設定時の完全な配信状態追跡はできません。"],
+			"source_refs": ["resend-webhooks", "quickmail-upstream", "clawpost"],
+			"verified_at": "2026-08-27",
+			"review_by": "2026-09-26",
+			"confidence": "high"
+		},
+		{
+			"id": "onboarding.setup.key",
+			"title_ja": "初回管理者用セットアップキーを扱う",
+			"category": "onboarding",
+			"stage": "初回ログイン",
+			"applicability": ["最初の管理者を作成する場合", "セットアップキーが無効と表示される場合"],
+			"diagnostic_questions": [
+				"WorkerにBOOTSTRAP_SECRETが登録されていますか。",
+				"入力した値はセットアップ時に一回表示された値と一致しますか。",
+				"すでに初回管理者が作成済みではありませんか。"
+			],
+			"safe_steps": [
+				"秘密値を表示せず、設定有無と初回管理者の有無だけを確認します。",
+				"未設定なら新しい一回限りの値を秘密入力経路で登録する計画を作ります。"
+			],
+			"human_only": ["セットアップキーの生成、保存、入力、破棄は利用者が行います。"],
+			"prohibited": [
+				"セットアップキーをチャット、URL、ログ、画面共有へ出しません。",
+				"値を推測したり既知の固定値を使ったりしません。"
+			],
+			"risk_gate": {
+				"class": "secret-onboarding",
+				"trigger": "Worker secret登録または最初の管理者作成の前",
+				"approval_required": true
+			},
+			"rollback": ["誤った値を新しい一回限りの値へ置換し、古い値を破棄します。"],
+			"expected_evidence": [
+				"秘密値を露出せずに初回管理者作成が成功し、その後セットアップ画面へ戻れません。"
+			],
+			"unsupported": ["管理者作成後の通常ログインにセットアップキーは使いません。"],
+			"source_refs": ["quickmail-upstream", "saasmail"],
+			"verified_at": "2026-08-27",
+			"review_by": "2026-11-25",
+			"confidence": "high"
+		},
+		{
+			"id": "delivery.inbound.missing",
+			"title_ja": "受信メールがQuickMail-jaに届かない",
+			"category": "delivery",
+			"stage": "受信トラブル診断",
+			"applicability": [
+				"外部送信者には成功または不明と見えるが受信トレイにない場合",
+				"Email Routing導入後の受信確認"
+			],
+			"diagnostic_questions": [
+				"権威DNSのMXはCloudflare公式画面と一致しますか。",
+				"対象Routing RuleまたはCatch-allは有効ですか。",
+				"Actionは現在のQuickMail-ja Workerですか。",
+				"Workerログに受信処理または保存エラーがありますか。"
+			],
+			"safe_steps": [
+				"DNS、Email Routing activity、ルール、Worker、D1の順に読み取り確認します。",
+				"テスト識別子と時刻だけで経路を照合します。",
+				"保存失敗とルーティング未到達を区別します。"
+			],
+			"human_only": ["新しい外部テストメールの送信は、宛先と本文を利用者が確認してから行います。"],
+			"prohibited": [
+				"メール本文や送信者情報をAIへ自動送信しません。",
+				"原因不明のままMXやルールを連続変更しません。"
+			],
+			"risk_gate": {
+				"class": "external-send",
+				"trigger": "外部テスト送信またはDNS・Routing Rule変更の前",
+				"approval_required": true
+			},
+			"rollback": ["診断中の変更を一つずつ戻し、変更前スナップショットとの差分を0にします。"],
+			"expected_evidence": ["同じテスト識別子でEmail Routing、Worker、D1の到達点が特定されます。"],
+			"unsupported": [
+				"送信者側サーバーの未提供ログや、切替前に相手側で破棄されたメールの復元はできません。"
+			],
+			"source_refs": [
+				"cloudflare-email-troubleshooting",
+				"cloudflare-routing-rules",
+				"cloudflare-route-emails",
+				"cloudflare-email-community"
+			],
+			"verified_at": "2026-08-27",
+			"review_by": "2026-09-26",
+			"confidence": "high"
+		},
+		{
+			"id": "delivery.outbound.failure",
+			"title_ja": "送信メールが失敗または未配信になる",
+			"category": "delivery",
+			"stage": "送信トラブル診断",
+			"applicability": [
+				"QuickMail-jaからResend送信が失敗する場合",
+				"送信済みの配信状態がfailed、bounced、delayedの場合"
+			],
+			"diagnostic_questions": [
+				"Resendドメインはverifiedですか。",
+				"Fromドメインは確認済みドメインと一致しますか。",
+				"Worker用キーの権限とドメイン制限は一致しますか。",
+				"Webhookに対象イベントがありますか。"
+			],
+			"safe_steps": [
+				"Resendの状態、Fromドメイン、キー権限、Webhookイベントを秘密値なしで照合します。",
+				"エラー種別を認証、宛先、抑制、遅延に分けます。",
+				"再送の前に既存送信の状態とidempotency keyを確認します。"
+			],
+			"human_only": ["再送または別宛先へのテスト送信は利用者が内容と宛先を確認します。"],
+			"prohibited": [
+				"失敗理由が不明なまま自動再送しません。",
+				"APIキーやメール本文を診断プロンプトへ入れません。"
+			],
+			"risk_gate": {
+				"class": "external-send",
+				"trigger": "再送または制御済み外部テスト送信の前",
+				"approval_required": true
+			},
+			"rollback": ["設定変更を行った場合は変更前のドメイン、キー、Webhook状態へ戻します。"],
+			"expected_evidence": ["ResendイベントとQuickMail-jaの配信状態が同じ送信識別子で対応します。"],
+			"unsupported": ["受信者側の迷惑メール判定や到達を保証しません。"],
+			"source_refs": [
+				"resend-domains",
+				"resend-domain-verification-troubleshooting",
+				"resend-api-keys",
+				"resend-webhooks",
+				"postern"
+			],
+			"verified_at": "2026-08-27",
+			"review_by": "2026-09-26",
+			"confidence": "high"
+		},
+		{
+			"id": "backup.d1.r2",
+			"title_ja": "D1とR2を同じ復旧点として保全する",
+			"category": "backup",
+			"stage": "バックアップと復旧",
+			"applicability": ["メール本文・索引と添付を復旧可能にする場合", "更新、移行、DNS切替の前"],
+			"diagnostic_questions": [
+				"D1のエクスポートとR2全オブジェクトのコピーがありますか。",
+				"取得時刻、対象リソース、件数、保管先を記録しましたか。",
+				"シークレットを別経路で再設定できますか。"
+			],
+			"safe_steps": [
+				"D1とR2の対象、取得時刻、件数を計画します。",
+				"Cloudflareアカウント外の暗号化保管先を利用します。",
+				"復旧先で件数と添付取得を確認してからメール経路を切り替えます。"
+			],
+			"human_only": [
+				"バックアップの保管先、暗号化鍵、保持期間、個人情報の取扱いは利用者が決定します。"
+			],
+			"prohibited": [
+				"D1だけを完全バックアップと案内しません。",
+				"バックアップへAPIキーやセットアップキーを平文保存しません。",
+				"復旧確認前に本番メール経路を切り替えません。"
+			],
+			"risk_gate": {
+				"class": "customer-data",
+				"trigger": "リモートデータ取得、復旧、保管先変更の前",
+				"approval_required": true
+			},
+			"rollback": ["復旧先を切り離し、元のWorker、D1、R2、メール経路を維持します。"],
+			"expected_evidence": [
+				"D1件数、R2件数、サンプル添付取得、取得時刻、対象リソースが記録されます。"
+			],
+			"unsupported": [
+				"単一ファイルだけで本文、索引、添付、シークレットを完全復旧する方式はありません。"
+			],
+			"source_refs": ["cloudflare-d1-export", "cloudflare-r2-s3", "hqbase", "mailcow"],
+			"verified_at": "2026-08-27",
+			"review_by": "2026-09-26",
+			"confidence": "high"
+		},
+		{
+			"id": "migration.eml.boundary",
+			"title_ja": "過去メールをEMLで取り込む",
+			"category": "migration",
+			"stage": "過去メール移行",
+			"applicability": [
+				"既存サービスからEMLを取得できる場合",
+				"QuickMail-jaの管理画面へ過去メールを表示する場合"
+			],
+			"diagnostic_questions": [
+				"対象メールボックス、ドメイン、受信・アーカイブ・送信済みの区分を確認しましたか。",
+				"元データと取り込み先を別の場所として指定していますか。",
+				"件数、重複、添付を事前に確認できますか。"
+			],
+			"safe_steps": [
+				"コピーしたEMLを読み取り専用の入力として走査します。",
+				"取り込み計画で件数、区分、重複候補、添付を表示します。",
+				"外部送信、自動転送、通知を無効にした取り込み経路を使います。"
+			],
+			"human_only": [
+				"メールデータの取得権限、個人情報の移行範囲、保管・廃棄は利用者が確認します。"
+			],
+			"prohibited": [
+				"元メールフォルダを取り込み処理で削除・移動しません。",
+				"取り込み中に外部送信、自動転送、通知を行いません。",
+				"IMAP同期として案内しません。"
+			],
+			"risk_gate": {
+				"class": "customer-data-import",
+				"trigger": "EMLの読み取りまたはD1・R2への取り込み開始前",
+				"approval_required": true
+			},
+			"rollback": ["取り込み識別子で追加分だけを隔離し、元EMLは変更せず保持します。"],
+			"expected_evidence": ["区分別件数、重複数、添付数、外部送信0件が記録されます。"],
+			"unsupported": ["GmailやOutlookとの継続的な双方向同期、IMAP、POPは初回版の対象外です。"],
+			"source_refs": [
+				"roundcube",
+				"snappymail",
+				"google-workspace-gmail",
+				"microsoft-365-outlook",
+				"zoho-mail"
+			],
+			"verified_at": "2026-08-27",
+			"review_by": "2026-11-25",
+			"confidence": "high"
+		}
+	]
+}
