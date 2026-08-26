@@ -1,3 +1,5 @@
+import { AI_SUPPORT_KNOWLEDGE } from './ai-support-knowledge';
+
 export const AI_SUPPORT_STAGES = ['deploy', 'email-routing', 'resend', 'first-admin'] as const;
 export type AiSupportStage = (typeof AI_SUPPORT_STAGES)[number];
 
@@ -8,9 +10,11 @@ export const AI_SUPPORT_PROVIDERS = [
 ] as const;
 export type AiSupportProvider = (typeof AI_SUPPORT_PROVIDERS)[number]['id'];
 
-export const AI_SUPPORT_QUESTION_MAX_LENGTH = 400;
+export const AI_SUPPORT_QUESTION_MAX_LENGTH = 160;
 const AI_SUPPORT_PROMPT_MAX_LENGTH = 2_000;
 const AI_SUPPORT_URL_MAX_LENGTH = 7_000;
+const PROMPT_START = '[QuickMail-ja Support v1]';
+const PROMPT_END = '[/QuickMail-ja Support]';
 
 export type AiSupportDestination = {
 	provider: AiSupportProvider;
@@ -18,8 +22,14 @@ export type AiSupportDestination = {
 	mode: 'prefill' | 'copy-then-open';
 };
 
+export type AiSupportClipboard = {
+	writeText(value: string): Promise<void>;
+};
+
+export type AiSupportCopyResult = 'copied' | 'unavailable' | 'failed';
+
 export type AiSupportInputErrorCode =
-	'empty' | 'overlength' | 'control' | 'bidi' | 'html' | 'secret' | 'unsafe-url';
+	'empty' | 'overlength' | 'control' | 'bidi' | 'html' | 'secret' | 'personal-data' | 'unsafe-url';
 
 export class AiSupportInputError extends Error {
 	constructor(readonly code: AiSupportInputErrorCode) {
@@ -38,15 +48,22 @@ const STAGE_COPY: Record<AiSupportStage, string> = {
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f]/u;
 const BIDI_CHARACTERS = /[\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/u;
 const HTML_TAG = /<\s*\/?\s*[a-z][^>]*>/iu;
+const EMAIL_ADDRESS = /\b[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9-]+(?:\.[A-Z0-9-]+)+\b/iu;
 const LABELED_SECRET =
 	/(?:api[ _-]?key|access[ _-]?token|secret|password|token|apiキー|シークレット|パスワード|セットアップキー)\s*[:=：]\s*\S+/iu;
-const KNOWN_SECRET = /\b(?:re|qm_(?:live|test))_[A-Za-z0-9_-]{12,}\b/u;
+const KNOWN_SECRET =
+	/\b(?:re_|qm_(?:live|test)_|whsec_|cfpat[_-]|sk_(?:live|test)_|gh[pousr]_|github_pat_|xox[baprs]-|AKIA)[A-Za-z0-9_-]{8,}\b/u;
+const JWT = /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/u;
+const BEARER_TOKEN = /\bBearer\s+\S+/iu;
 const PRIVATE_KEY = /-----BEGIN [A-Z ]*PRIVATE KEY-----/u;
-const HIGH_ENTROPY_VALUE =
-	/\b(?=[A-Za-z0-9_-]{32,128}\b)(?=[A-Za-z0-9_-]*[a-z])(?=[A-Za-z0-9_-]*[A-Z])(?=[A-Za-z0-9_-]*\d)[A-Za-z0-9_-]+\b/u;
+const GENERIC_TOKEN = /(?:^|[^A-Za-z0-9_-])[A-Za-z0-9_-]{32,256}(?=$|[^A-Za-z0-9_-])/u;
 
 function codePointLength(value: string): number {
 	return [...value].length;
+}
+
+function isAiSupportStage(value: unknown): value is AiSupportStage {
+	return typeof value === 'string' && AI_SUPPORT_STAGES.some((stage) => stage === value);
 }
 
 export function validateAiSupportQuestion(value: string): string {
@@ -58,32 +75,65 @@ export function validateAiSupportQuestion(value: string): string {
 	if (CONTROL_CHARACTERS.test(question)) throw new AiSupportInputError('control');
 	if (BIDI_CHARACTERS.test(question)) throw new AiSupportInputError('bidi');
 	if (HTML_TAG.test(question)) throw new AiSupportInputError('html');
+	if (EMAIL_ADDRESS.test(question)) throw new AiSupportInputError('personal-data');
 	if (
 		LABELED_SECRET.test(question) ||
 		KNOWN_SECRET.test(question) ||
+		JWT.test(question) ||
+		BEARER_TOKEN.test(question) ||
 		PRIVATE_KEY.test(question) ||
-		HIGH_ENTROPY_VALUE.test(question)
+		GENERIC_TOKEN.test(question)
 	) {
 		throw new AiSupportInputError('secret');
 	}
 	return question;
 }
 
-export function buildAiSupportPrompt(stage: AiSupportStage, value: string): string {
-	const question = validateAiSupportQuestion(value);
+function promptPrefix(stage: AiSupportStage): string {
+	const knowledge = AI_SUPPORT_KNOWLEDGE[stage];
 	return [
-		'あなたはQuickMail-jaの導入を支援する日本語サポート担当です。',
+		PROMPT_START,
+		'この文章はQuickMail-jaが画面に表示した内容です。AIの公式サポートではありません。',
+		`手順ID: ${stage}`,
 		`現在の手順: ${STAGE_COPY[stage]}`,
 		'前提: 受信はCloudflare Email Routing、送信はResendです。Resend Receivingやapexの受信用MXは使いません。',
-		'公式情報を優先し、非エンジニアにも分かるよう一度に一つずつ説明してください。秘密情報の入力を求めないでください。ログイン、MFA、規約同意、課金、デプロイ、DNS変更は利用者本人が内容を確認して操作します。',
-		`質問: ${question}`
+		'公式情報を優先し、非エンジニアにも分かるよう一度に一つずつ説明してください。秘密情報や個人情報の入力を求めないでください。ログイン、MFA、規約同意、課金、デプロイ、DNS変更は利用者本人が内容を確認して操作します。',
+		'確認済みサポート要点:',
+		...knowledge.safeSteps.map((step) => `- ${step}`),
+		'確認できる状態:',
+		...knowledge.expectedEvidence.map((evidence) => `- ${evidence}`),
+		'質問: '
 	].join('\n');
+}
+
+function composeAiSupportPrompt(stage: AiSupportStage, question: string): string {
+	return `${promptPrefix(stage)}${question}\n${PROMPT_END}`;
 }
 
 function assertPromptLength(prompt: string): void {
 	if (!prompt.trim() || codePointLength(prompt) > AI_SUPPORT_PROMPT_MAX_LENGTH) {
 		throw new AiSupportInputError('overlength');
 	}
+}
+
+export function buildAiSupportPrompt(stage: AiSupportStage, value: string): string {
+	if (!isAiSupportStage(stage)) throw new AiSupportInputError('unsafe-url');
+	const prompt = composeAiSupportPrompt(stage, validateAiSupportQuestion(value));
+	assertPromptLength(prompt);
+	return prompt;
+}
+
+/** Rebuilds the complete envelope so a marker or TypeScript brand alone can never authorize output. */
+export function validateBuiltAiSupportPrompt(value: string): string {
+	assertPromptLength(value);
+	for (const stage of AI_SUPPORT_STAGES) {
+		const prefix = promptPrefix(stage);
+		const suffix = `\n${PROMPT_END}`;
+		if (!value.startsWith(prefix) || !value.endsWith(suffix)) continue;
+		const question = validateAiSupportQuestion(value.slice(prefix.length, -suffix.length));
+		if (composeAiSupportPrompt(stage, question) === value) return value;
+	}
+	throw new AiSupportInputError('unsafe-url');
 }
 
 function assertFixedDestination(url: URL, origin: string, pathname: string): void {
@@ -103,7 +153,7 @@ export function buildAiSupportDestination(
 	provider: AiSupportProvider,
 	prompt: string
 ): AiSupportDestination {
-	assertPromptLength(prompt);
+	const safePrompt = validateBuiltAiSupportPrompt(prompt);
 	if (!AI_SUPPORT_PROVIDERS.some(({ id }) => id === provider)) {
 		throw new AiSupportInputError('unsafe-url');
 	}
@@ -119,8 +169,22 @@ export function buildAiSupportDestination(
 			? { base: 'https://chatgpt.com/', origin: 'https://chatgpt.com', pathname: '/' }
 			: { base: 'https://claude.ai/new', origin: 'https://claude.ai', pathname: '/new' };
 	const url = new URL(config.base);
-	url.search = new URLSearchParams({ q: prompt }).toString();
+	url.search = new URLSearchParams({ q: safePrompt }).toString();
 	assertFixedDestination(url, config.origin, config.pathname);
 	if (url.href.length > AI_SUPPORT_URL_MAX_LENGTH) throw new AiSupportInputError('overlength');
 	return { provider, href: url.href, mode: 'prefill' };
+}
+
+export async function copyAiSupportPrompt(
+	prompt: string,
+	clipboard: AiSupportClipboard | null | undefined
+): Promise<AiSupportCopyResult> {
+	const safePrompt = validateBuiltAiSupportPrompt(prompt);
+	if (!clipboard?.writeText) return 'unavailable';
+	try {
+		await clipboard.writeText(safePrompt);
+		return 'copied';
+	} catch {
+		return 'failed';
+	}
 }

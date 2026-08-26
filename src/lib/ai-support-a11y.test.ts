@@ -17,8 +17,10 @@ describe('AI support dock accessibility and privacy boundary', () => {
 		assert.deepEqual(result.warnings, []);
 	});
 
-	test('keeps the generated prompt visible and the copy control always rendered', () => {
+	test('keeps the generated prompt visible, labeled, readonly, and keyboard selectable', () => {
 		assert.match(component, /AIへ渡す質問文/);
+		assert.match(component, /<label[^>]*for="ai-support-prompt-preview"/);
+		assert.match(component, /<textarea[^>]*id="ai-support-prompt-preview"[^>]*readonly/);
 		assert.match(component, /class="prompt-preview"/);
 		assert.match(component, /質問文をコピー/);
 		assert.match(component, /aria-live="polite"/);
@@ -30,6 +32,22 @@ describe('AI support dock accessibility and privacy boundary', () => {
 		assert.match(component, /rel="noopener noreferrer"/);
 		assert.match(component, /referrerpolicy="no-referrer"/);
 		assert.doesNotMatch(component, /window\.open|fetch\s*\(|XMLHttpRequest|sendBeacon/);
+	});
+
+	test('unlocks a distinct Gemini link only after a successful dedicated copy', () => {
+		assert.match(component, /Gemini用に質問文をコピー/);
+		assert.match(component, /geminiCopiedPrompt === draft\.prompt/);
+		assert.match(component, /result === 'copied'/);
+		assert.match(component, /href=\{draft\.geminiHref\}/);
+		assert.match(component, /aria-disabled="true"/);
+		assert.doesNotMatch(component, /onclick=\{[^}]*copyPrompt[^}]*\}[^>]*>\s*Geminiを開く/);
+	});
+
+	test('discloses URL, clipboard, account-memory, and retention boundaries', () => {
+		assert.match(component, /質問文がURLに含まれ/);
+		assert.match(component, /ブラウザ履歴/);
+		assert.match(component, /クリップボード/);
+		assert.match(component, /記憶・データ保持/);
 	});
 
 	test('does not inspect page, form, provider, mailbox, or browser location context', () => {
