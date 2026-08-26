@@ -6,6 +6,7 @@
 	import AddressField from '$lib/components/AddressField.svelte';
 	import DesktopNotifications from '$lib/components/DesktopNotifications.svelte';
 	import InstallApp from '$lib/components/InstallApp.svelte';
+	import SortRuleSettings from '$lib/components/SortRuleSettings.svelte';
 	import {
 		readThemePreference,
 		setThemePreference,
@@ -13,8 +14,54 @@
 		type ThemePreference
 	} from '$lib/theme';
 	import { MAX_EMAIL_SIGNATURE_LENGTH } from '$lib/email-signature';
+	import { domainStatusLabel } from '$lib/provider-copy';
+	import {
+		canApplyForwardingRefreshOutcome,
+		canDisableForwarding,
+		forwardingAttemptStatus,
+		forwardingStatus,
+		isCurrentForwardingRefresh,
+		isForwardingDestinationChanged,
+		replaceForwardingItemBySource,
+		reconcileForwardingInteraction,
+		safeForwardingError,
+		scopeLabel,
+		type ForwardingAttemptStatus,
+		type ForwardingRefreshOutcome,
+		type ForwardingStatusCopy
+	} from '$lib/settings-forwarding';
 	import type { ApiTokenSummary, MailAddress } from '$lib/types';
 	import type { PageData } from './$types';
+
+	type ForwardingDestinationState = {
+		id: string;
+		destination_address: string;
+		status: 'pending' | 'verified';
+		verification_expires_at: string | null;
+		verification_used_at: string | null;
+		verified_at: string | null;
+	};
+
+	type ForwardingRuleState = {
+		id: string;
+		destination_id: string;
+		status: 'disabled' | 'enabled';
+	};
+
+	type ForwardingAttemptState = {
+		status: ForwardingAttemptStatus;
+		attempt_count: number;
+		error_code: string | null;
+		next_attempt_at: string | null;
+		last_attempt_at: string | null;
+	};
+
+	type ForwardingItem = {
+		source_address: MailAddress;
+		destination: ForwardingDestinationState | null;
+		rule: ForwardingRuleState | null;
+		latest_attempt: ForwardingAttemptState | null;
+	};
 
 	let { data }: { data: PageData } = $props();
 
@@ -34,6 +81,342 @@
 	let signatureError = $state('');
 	let signatureSaved = $state(false);
 
+	let forwarding = $state<ForwardingItem[]>(untrack(() => data.forwarding as ForwardingItem[]));
+	let forwardingSourceId = $state(untrack(() => data.addresses[0]?.id ?? ''));
+	let forwardingDestination = $state(
+		untrack(() => data.forwarding[0]?.destination?.destination_address ?? '')
+	);
+	let forwardingBusy = $state(false);
+	let forwardingAction = $state('');
+	let forwardingError = $state('');
+	let forwardingSaved = $state('');
+	let forwardingAcknowledged = $state(false);
+	let forwardingRefreshBusy = $state(false);
+	let forwardingRefreshError = $state('');
+	let forwardingRefreshGeneration = 0;
+	let forwardingRefreshRequest: {
+		generation: number;
+		promise: Promise<ForwardingRefreshResult>;
+	} | null = null;
+
+	type ForwardingRefreshResult = {
+		generation: number;
+		outcome: ForwardingRefreshOutcome;
+	};
+
+	const selectedForwarding = $derived(
+		forwarding.find((item) => item.source_address.id === forwardingSourceId) ?? null
+	);
+	const selectedForwardingStatus = $derived<ForwardingStatusCopy>(
+		forwardingStatus({
+			destinationStatus: selectedForwarding?.destination?.status,
+			ruleStatus: selectedForwarding?.rule?.status,
+			attemptStatus: selectedForwarding?.latest_attempt?.status
+		})
+	);
+	const selectedAttemptStatus = $derived(
+		selectedForwarding?.latest_attempt
+			? forwardingAttemptStatus(
+					selectedForwarding.latest_attempt.status,
+					selectedForwarding.latest_attempt.next_attempt_at
+				)
+			: null
+	);
+	const forwardingDestinationChanged = $derived(
+		isForwardingDestinationChanged(
+			selectedForwarding?.destination?.destination_address,
+			forwardingDestination
+		)
+	);
+	const canEnableForwarding = $derived(
+		Boolean(
+			selectedForwarding?.rule &&
+			selectedForwarding.destination?.status === 'verified' &&
+			selectedForwarding.rule.status !== 'enabled' &&
+			!forwardingDestinationChanged &&
+			forwardingAcknowledged
+		)
+	);
+
+	function safeSettingsError(value: unknown, fallback: string): string {
+		if (typeof value !== 'string') return fallback;
+		if (value.includes('Signature must be text')) return '署名はテキストで入力してください。';
+		if (value.includes('Signature must be')) return '署名が長すぎます。';
+		if (value.includes('Could not save signature')) return '署名を保存できませんでした。';
+		if (value.includes('Could not create the API key')) return 'APIキーを作成できませんでした。';
+		if (value.includes('Could not revoke that key')) return 'APIキーを無効化できませんでした。';
+		if (value.includes('Could not add that address')) return 'アドレスを追加できませんでした。';
+		if (value.includes('Could not save that name')) return '名前を保存できませんでした。';
+		if (value.includes('Could not save that signature')) return '署名を保存できませんでした。';
+		if (value.includes('Could not remove that address')) return 'アドレスを削除できませんでした。';
+		if (value.includes('Keep at least one address')) return 'アドレスを1件以上残してください。';
+		if (value.includes('Database unavailable')) return 'データベースを利用できません。';
+		return fallback;
+	}
+
+	function selectForwardingSource(id: string) {
+		forwardingSourceId = id;
+		const item = forwarding.find((entry) => entry.source_address.id === id);
+		forwardingDestination = item?.destination?.destination_address ?? '';
+		forwardingAcknowledged = false;
+		forwardingError = '';
+		forwardingSaved = '';
+	}
+
+	function updateForwardingItem(next: ForwardingItem) {
+		forwarding = forwarding.map((item) =>
+			item.source_address.id === next.source_address.id ? next : item
+		);
+	}
+
+	function removeForwardingSource(sourceAddressId: string) {
+		const next = forwarding.filter((item) => item.source_address.id !== sourceAddressId);
+		forwarding = next;
+		if (forwardingSourceId === sourceAddressId) {
+			const replacement = next[0] ?? null;
+			forwardingSourceId = replacement?.source_address.id ?? '';
+			forwardingDestination = replacement?.destination?.destination_address ?? '';
+			forwardingAcknowledged = false;
+		}
+	}
+
+	function reportAddressMutationRefreshFailure(action: 'added' | 'removed') {
+		forwardingRefreshError =
+			action === 'removed'
+				? 'アドレスは削除されましたが、自動転送の状態を更新できませんでした。残りのアドレスを設定する前に「状態を更新」を実行してください。'
+				: 'アドレスは追加されましたが、自動転送の状態を更新できませんでした。設定する前に「状態を更新」を実行してください。';
+	}
+
+	function applyForwardingSnapshot(next: ForwardingItem[], preserveInteraction = true) {
+		const current = forwarding.find((item) => item.source_address.id === forwardingSourceId);
+		const nextForCurrentSource = next.find((item) => item.source_address.id === forwardingSourceId);
+		const interaction = reconcileForwardingInteraction({
+			currentDestination: current?.destination?.destination_address,
+			nextDestination: nextForCurrentSource?.destination?.destination_address,
+			draftDestination: forwardingDestination,
+			acknowledged: forwardingAcknowledged,
+			sourceStillSelected: Boolean(nextForCurrentSource),
+			preserveInteraction
+		});
+
+		forwarding = next;
+		if (!nextForCurrentSource) {
+			forwardingSourceId = next[0]?.source_address.id ?? '';
+		}
+		forwardingDestination = nextForCurrentSource
+			? interaction.destination
+			: next[0]?.destination?.destination_address ?? '';
+		forwardingAcknowledged = nextForCurrentSource ? interaction.acknowledged : false;
+	}
+
+	async function readForwardingBody(response: Response): Promise<Record<string, unknown>> {
+		return (await response.json().catch(() => ({}))) as Record<string, unknown>;
+	}
+
+	function invalidateForwardingRefresh() {
+		forwardingRefreshGeneration += 1;
+		forwardingRefreshBusy = false;
+		forwardingRefreshError = '';
+	}
+
+	async function reconcileForwardingState(options: {
+		forceFresh?: boolean;
+		preserveInteraction?: boolean;
+	} = {}): Promise<ForwardingRefreshResult> {
+		const forceFresh = options.forceFresh ?? false;
+		const preserveInteraction = options.preserveInteraction ?? true;
+		if (!forceFresh && forwardingRefreshRequest?.generation === forwardingRefreshGeneration) {
+			return forwardingRefreshRequest.promise;
+		}
+
+		const generation = forceFresh
+			? ++forwardingRefreshGeneration
+			: forwardingRefreshGeneration;
+		const request: Promise<ForwardingRefreshResult> = (async () => {
+			try {
+				const response = await fetch('/api/forwarding');
+				const result = await readForwardingBody(response);
+				if (!isCurrentForwardingRefresh(generation, forwardingRefreshGeneration)) {
+					return { generation, outcome: 'stale' };
+				}
+				if (!response.ok || !Array.isArray(result.forwarding)) {
+					return { generation, outcome: 'failed' };
+				}
+				applyForwardingSnapshot(result.forwarding as ForwardingItem[], preserveInteraction);
+				return { generation, outcome: 'applied' };
+			} catch {
+				return {
+					generation,
+					outcome: isCurrentForwardingRefresh(generation, forwardingRefreshGeneration)
+						? 'failed'
+						: 'stale'
+				};
+			}
+		})();
+		const requestRecord = { generation, promise: request };
+		forwardingRefreshRequest = requestRecord;
+
+		try {
+			return await request;
+		} finally {
+			if (forwardingRefreshRequest === requestRecord) forwardingRefreshRequest = null;
+		}
+	}
+
+	async function refreshForwardingStatus() {
+		if (forwardingBusy || forwardingRefreshBusy) return;
+		const generation = forwardingRefreshGeneration;
+		forwardingRefreshBusy = true;
+		forwardingRefreshError = '';
+		const result = await reconcileForwardingState();
+		if (!isCurrentForwardingRefresh(generation, forwardingRefreshGeneration)) return;
+		forwardingRefreshBusy = false;
+		if (result.outcome === 'failed') {
+			forwardingRefreshError = '自動転送の状態を更新できませんでした。もう一度お試しください。';
+		}
+	}
+
+	$effect(() => {
+		const onWindowFocus = () => {
+			void refreshForwardingStatus();
+		};
+		const onVisibilityChange = () => {
+			if (document.visibilityState === 'visible') void refreshForwardingStatus();
+		};
+
+		window.addEventListener('focus', onWindowFocus);
+		document.addEventListener('visibilitychange', onVisibilityChange);
+		return () => {
+			window.removeEventListener('focus', onWindowFocus);
+			document.removeEventListener('visibilitychange', onVisibilityChange);
+		};
+	});
+
+	function forwardingErrorAfterReconcile(error: unknown, reconciled: ForwardingRefreshResult): string {
+		const message = safeForwardingError(error);
+		return reconciled.outcome === 'failed'
+			? `${message}現在の状態を更新できませんでした。「設定」を再読み込みして確認してください。`
+			: message;
+	}
+
+	async function saveForwardingDestination(event: SubmitEvent) {
+		event.preventDefault();
+		if (!forwardingSourceId || !forwardingDestination.trim()) {
+			forwardingError = '転送元アドレスを選択し、転送先を入力してください。';
+			return;
+		}
+
+		const current = selectedForwarding;
+		const isNew = !current?.destination;
+		const isPendingResend = current?.destination?.status === 'pending' && !forwardingDestinationChanged;
+		const endpoint = isNew || isPendingResend
+			? '/api/forwarding/destinations'
+			: `/api/forwarding/rules/${current.rule?.id ?? ''}`;
+		const body = isNew || isPendingResend
+			? { sourceAddressId: forwardingSourceId, destination: forwardingDestination }
+			: { destination: forwardingDestination };
+
+		invalidateForwardingRefresh();
+		forwardingBusy = true;
+		forwardingAction = 'save';
+		forwardingError = '';
+		forwardingSaved = '';
+		try {
+			const response = await fetch(endpoint, {
+				method: isNew || isPendingResend ? 'POST' : 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(body)
+			});
+			const result = await readForwardingBody(response);
+			if (!response.ok) {
+				const reconciled = await reconcileForwardingState({
+					forceFresh: true,
+					preserveInteraction: true
+				});
+				forwardingError = forwardingErrorAfterReconcile(result.error, reconciled);
+				return;
+			}
+
+			if (result.forwarding && typeof result.forwarding === 'object') {
+				updateForwardingItem(result.forwarding as ForwardingItem);
+			} else if (current && result.destination && result.rule) {
+				updateForwardingItem({
+					...current,
+					destination: result.destination as ForwardingDestinationState,
+					rule: result.rule as ForwardingRuleState
+				});
+			}
+			await reconcileForwardingState({ forceFresh: true, preserveInteraction: false });
+			forwardingAcknowledged = false;
+				forwardingSaved = result.verification_sent
+					? '確認メールを送信しました。自動転送を有効にする前に、転送先の受信トレイを確認してください。'
+					: '自動転送先を保存しました。';
+		} catch {
+			const reconciled = await reconcileForwardingState({
+				forceFresh: true,
+				preserveInteraction: true
+			});
+				forwardingError =
+					reconciled.outcome === 'failed'
+						? '自動転送の更新中にネットワークエラーが発生しました。現在の状態を更新できませんでした。「設定」を再読み込みして確認してください。'
+						: '自動転送の更新中にネットワークエラーが発生しました。';
+		} finally {
+			forwardingBusy = false;
+			forwardingAction = '';
+		}
+	}
+
+	async function setForwardingEnabled(enabled: boolean) {
+		const current = selectedForwarding;
+		const rule = current?.rule;
+		if (!rule) return;
+		if (enabled && !canEnableForwarding) return;
+
+		invalidateForwardingRefresh();
+		forwardingBusy = true;
+		forwardingAction = enabled ? 'enable' : 'disable';
+		forwardingError = '';
+		forwardingSaved = '';
+		try {
+			const response = await fetch(`/api/forwarding/rules/${rule.id}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ enabled })
+			});
+			const result = await readForwardingBody(response);
+			if (!response.ok) {
+				const reconciled = await reconcileForwardingState({
+					forceFresh: true,
+					preserveInteraction: true
+				});
+				forwardingError = forwardingErrorAfterReconcile(result.error, reconciled);
+				return;
+			}
+			if (result.rule) {
+				forwarding = replaceForwardingItemBySource(
+					forwarding,
+					current.source_address.id,
+					(item) => ({ ...item, rule: result.rule as ForwardingRuleState })
+				);
+			}
+			await reconcileForwardingState({ forceFresh: true, preserveInteraction: false });
+			forwardingAcknowledged = false;
+				forwardingSaved = enabled ? '自動転送を有効にしました。' : '自動転送を無効にしました。';
+		} catch {
+			const reconciled = await reconcileForwardingState({
+				forceFresh: true,
+				preserveInteraction: true
+			});
+				forwardingError =
+					reconciled.outcome === 'failed'
+						? '自動転送の更新中にネットワークエラーが発生しました。現在の状態を更新できませんでした。「設定」を再読み込みして確認してください。'
+						: '自動転送の更新中にネットワークエラーが発生しました。';
+		} finally {
+			forwardingBusy = false;
+			forwardingAction = '';
+		}
+	}
+
 	async function saveSignature(event: SubmitEvent) {
 		event.preventDefault();
 		signatureBusy = true;
@@ -47,15 +430,15 @@
 				body: JSON.stringify({ signature })
 			});
 			const body = await res.json();
-			if (!res.ok) {
-				signatureError = body.error ?? 'Could not save signature';
+				if (!res.ok) {
+					signatureError = safeSettingsError(body.error, '署名を保存できませんでした。');
 				return;
 			}
 
 			signature = body.signature;
 			signatureSaved = true;
 		} catch {
-			signatureError = 'Network error';
+			signatureError = 'ネットワークエラーが発生しました。';
 		} finally {
 			signatureBusy = false;
 		}
@@ -89,9 +472,6 @@
 	let creating = $state(false);
 	let revealed = $state<{ summary: ApiTokenSummary; token: string } | null>(null);
 	let copied = $state(false);
-	let installCopied = $state(false);
-	const installCommand =
-		'curl -fsSL https://raw.githubusercontent.com/DivinPrince/quickmail/main/scripts/install.sh | sh';
 
 	const canCreateKey = $derived(
 		Boolean(keyName.trim()) && (sendScope || readScope || (data.isAdmin && adminScope))
@@ -135,8 +515,8 @@
 				body: JSON.stringify({ name: keyName, scopes })
 			});
 			const body = await res.json();
-			if (!res.ok) {
-				keyError = body.error ?? 'Could not create the API key';
+				if (!res.ok) {
+					keyError = safeSettingsError(body.error, 'APIキーを作成できませんでした。');
 				return;
 			}
 			tokens = [body.tokenMeta, ...tokens.filter((token) => token.id !== body.tokenMeta.id)];
@@ -144,7 +524,7 @@
 			copied = false;
 			keyName = '';
 		} catch {
-			keyError = 'Network error';
+			keyError = 'ネットワークエラーが発生しました。';
 		} finally {
 			keyBusy = false;
 		}
@@ -161,29 +541,19 @@
 		}
 	}
 
-	async function copyInstall() {
-		try {
-			await navigator.clipboard.writeText(installCommand);
-			installCopied = true;
-			setTimeout(() => (installCopied = false), 1600);
-		} catch {
-			/* clipboard unavailable — the command is still selectable */
-		}
-	}
-
 	async function revokeKey(id: string) {
-		if (!confirm('Revoke this key?')) return;
+		if (!confirm('このAPIキーを無効化しますか？')) return;
 		const res = await fetch(`/api/apikeys/${id}`, { method: 'DELETE' });
 		const body = await res.json();
 		if (!res.ok) {
-			keyError = body.error ?? 'Could not revoke that key';
+			keyError = safeSettingsError(body.error, 'APIキーを無効化できませんでした。');
 			return;
 		}
 		tokens = body.tokens;
 	}
 
 	function formatDate(value: string): string {
-		return new Date(value).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+		return new Date(value).toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' });
 	}
 
 	$effect(() => {
@@ -196,6 +566,7 @@
 
 	async function addAddress(event: SubmitEvent) {
 		event.preventDefault();
+		invalidateForwardingRefresh();
 		busy = true;
 		error = '';
 
@@ -206,15 +577,29 @@
 				body: JSON.stringify({ domainId, localPart, label: displayName.trim() || null })
 			});
 			const body = await res.json();
-			if (!res.ok) {
-				error = body.error ?? 'Could not add that address';
+				if (!res.ok) {
+					error = safeSettingsError(body.error, 'アドレスを追加できませんでした。');
 				return;
 			}
 			edited = [...addresses, body.address];
+			const reconciled = await reconcileForwardingState({
+				forceFresh: true,
+				preserveInteraction: true
+			});
+			if (
+				canApplyForwardingRefreshOutcome(
+					reconciled.outcome,
+					reconciled.generation,
+					forwardingRefreshGeneration
+				)
+			) {
+				if (reconciled.outcome === 'applied') forwardingRefreshError = '';
+				else reportAddressMutationRefreshFailure('added');
+			}
 			localPart = '';
 			displayName = '';
 		} catch {
-			error = 'Network error';
+			error = 'ネットワークエラーが発生しました。';
 		} finally {
 			busy = false;
 		}
@@ -233,13 +618,13 @@
 				body: JSON.stringify({ label: label.trim() || null })
 			});
 			const body = await res.json();
-			if (!res.ok) {
-				error = body.error ?? 'Could not save that name';
+				if (!res.ok) {
+					error = safeSettingsError(body.error, '名前を保存できませんでした。');
 				return;
 			}
 			edited = body.addresses;
 		} catch {
-			error = 'Network error';
+			error = 'ネットワークエラーが発生しました。';
 		} finally {
 			savingId = '';
 		}
@@ -268,42 +653,58 @@
 				body: JSON.stringify({ signature: value })
 			});
 			const body = await res.json();
-			if (!res.ok) {
-				error = body.error ?? 'Could not save that signature';
+				if (!res.ok) {
+					error = safeSettingsError(body.error, '署名を保存できませんでした。');
 				return;
 			}
 			edited = body.addresses;
 		} catch {
-			error = 'Network error';
+			error = 'ネットワークエラーが発生しました。';
 		} finally {
 			savingId = '';
 		}
 	}
 
 	async function remove(id: string) {
+		invalidateForwardingRefresh();
 		const res = await fetch(`/api/addresses/${id}`, { method: 'DELETE' });
 		const body = await res.json();
 		if (!res.ok) {
-			error = body.error ?? 'Could not remove that address';
+			error = safeSettingsError(body.error, 'アドレスを削除できませんでした。');
 			return;
 		}
 		edited = body.addresses;
+		removeForwardingSource(id);
+		const reconciled = await reconcileForwardingState({
+			forceFresh: true,
+			preserveInteraction: true
+		});
+		if (
+			canApplyForwardingRefreshOutcome(
+				reconciled.outcome,
+				reconciled.generation,
+				forwardingRefreshGeneration
+			)
+		) {
+			if (reconciled.outcome === 'applied') forwardingRefreshError = '';
+			else reportAddressMutationRefreshFailure('removed');
+		}
 	}
 </script>
 
 <svelte:head>
-	<title>Settings — Mail</title>
+	<title>設定 — QuickMail-ja</title>
 </svelte:head>
 
 <svelte:window onkeydown={handleWindowKeydown} />
 
 <div class="settings-page">
-	<StackHeader title="Settings" back={false} />
+	<StackHeader title="設定" back={false} />
 
 	<section class="surface-lg card">
-		<h2><Icon name="contrast-2-line" size={18} /> Appearance</h2>
+		<h2><Icon name="contrast-2-line" size={18} /> 外観</h2>
 
-		<div class="theme-options" role="radiogroup" aria-label="Theme">
+		<div class="theme-options" role="radiogroup" aria-label="テーマ">
 			{#each THEME_OPTIONS as option (option.value)}
 				<button
 					type="button"
@@ -335,8 +736,8 @@
 	<DesktopNotifications configured={data.push.configured} publicKey={data.push.publicKey} />
 
 	<section class="surface-lg card">
-		<h2><Icon name="pencil-line" size={18} /> Signature</h2>
-		<p class="card-hint">Used when a mailbox has no signature of its own.</p>
+		<h2><Icon name="pencil-line" size={18} /> 署名</h2>
+		<p class="card-hint">メールボックス固有の署名がない場合に使用します。</p>
 
 		<form class="signature-form" onsubmit={saveSignature}>
 			<textarea
@@ -344,27 +745,193 @@
 				bind:value={signature}
 				maxlength={MAX_EMAIL_SIGNATURE_LENGTH}
 				rows="3"
-				placeholder={'Best,\nEmmanuel'}
+				placeholder={'よろしくお願いします。\n（署名）'}
 				class="signature-input"
 			></textarea>
 
 			<div class="signature-actions">
 				<span class="character-count">{signature.length}/{MAX_EMAIL_SIGNATURE_LENGTH}</span>
 				<button type="submit" class="btn-primary" disabled={signatureBusy}>
-					{signatureBusy ? 'Saving…' : 'Save'}
+					{signatureBusy ? '保存中…' : '保存'}
 				</button>
 			</div>
 
 			{#if signatureError}<p class="error">{signatureError}</p>{/if}
-			{#if signatureSaved}<p class="saved">Saved</p>{/if}
+				{#if signatureSaved}<p class="saved">保存しました</p>{/if}
 		</form>
 	</section>
 
-	<section class="surface-lg card">
-		<h2><Icon name="at-line" size={18} /> Addresses</h2>
+	<section class="surface-lg card forwarding-card" aria-labelledby="automatic-forwarding-title">
+		<h2 id="automatic-forwarding-title"><Icon name="arrow-left-right-line" size={18} /> 自動転送</h2>
 		<p class="card-hint">
-			The From name is what recipients see. A signature on an address replaces the account
-			signature for that mailbox. Leave either blank to use the account default.
+			新着メッセージと添付ファイルをQuickMail-jaの外部へ転送します。自分で管理できる転送先を指定してください。
+			QuickMail-jaのアドレスや、同じ管理ドメイン内の転送先は指定できません。
+		</p>
+
+		{#if forwarding.length}
+			<div class="forwarding-refresh-row">
+				<button
+					type="button"
+					class="btn-ghost"
+					aria-label="自動転送の状態を更新"
+					aria-busy={forwardingRefreshBusy}
+					disabled={forwardingBusy || forwardingRefreshBusy}
+					onclick={() => void refreshForwardingStatus()}
+				>
+					<Icon name="refresh-line" size={15} />
+						{forwardingRefreshBusy ? '更新中…' : '状態を更新'}
+				</button>
+				{#if forwardingRefreshBusy}
+					<span class="hint" role="status" aria-live="polite">自動転送の状態を更新中…</span>
+				{/if}
+			</div>
+			{#if forwardingRefreshError}
+				<p class="error" role="alert" aria-live="assertive">{forwardingRefreshError}</p>
+			{/if}
+			<div class="forwarding-form">
+				<label class="field-title" for="forwarding-source">転送元アドレス</label>
+				<select
+					id="forwarding-source"
+					class="text-input forwarding-select"
+					value={forwardingSourceId}
+					disabled={forwardingBusy}
+					onchange={(event) => selectForwardingSource(event.currentTarget.value)}
+				>
+					{#each forwarding as item (item.source_address.id)}
+						<option value={item.source_address.id}>{item.source_address.address}</option>
+					{/each}
+				</select>
+			</div>
+
+			{#if selectedForwarding}
+				<div class="forwarding-status status-{selectedForwardingStatus.tone}" role="status" aria-live="polite">
+					<div class="forwarding-status-head">
+						<span class="status-label">
+							<Icon
+								name={selectedForwardingStatus.tone === 'good'
+									? 'checkbox-circle-line'
+									: selectedForwardingStatus.tone === 'danger'
+										? 'error-warning-line'
+										: 'information-line'}
+								size={16}
+							/>
+							{selectedForwardingStatus.label}
+						</span>
+						{#if selectedForwarding.destination}
+							<span class="status-destination">{selectedForwarding.destination.destination_address}</span>
+						{/if}
+					</div>
+					<p>{selectedForwardingStatus.detail}</p>
+				</div>
+
+				<form class="forwarding-form" onsubmit={saveForwardingDestination}>
+						<label class="field-title" for="forwarding-destination">転送先メールアドレス</label>
+					<input
+						id="forwarding-destination"
+						type="email"
+						class="text-input"
+						bind:value={forwardingDestination}
+						placeholder="external@example.net"
+						autocomplete="email"
+						aria-describedby="forwarding-destination-help"
+						disabled={forwardingBusy}
+						required
+					/>
+					<p id="forwarding-destination-help" class="hint">
+						<Icon name="shield-check-line" size={14} />
+						このアドレスに確認リンクを送信します。リンクの有効期限は24時間で、1回だけ使用できます。
+					</p>
+					<div class="forwarding-actions">
+						<button type="submit" class="btn-primary" disabled={forwardingBusy}>
+							{#if forwardingAction === 'save'}
+								{selectedForwarding.destination?.status === 'pending' && !forwardingDestinationChanged
+									? '送信中…'
+									: '保存中…'}
+							{:else if selectedForwarding.destination?.status === 'pending' && !forwardingDestinationChanged}
+								確認メールを再送信
+							{:else if selectedForwarding.destination}
+								{forwardingDestinationChanged ? '新しい確認メールを送信' : '転送先を保存'}
+							{:else}
+								確認メールを送信
+							{/if}
+						</button>
+					</div>
+				</form>
+
+				{#if selectedForwarding.destination?.status === 'pending'}
+					<p class="forwarding-pending-note">
+						確認待ちです。自動転送を有効にする前に、転送先に届いたメールを開いてください。
+					</p>
+				{:else if canDisableForwarding(selectedForwarding.rule?.status)}
+					<div class="forwarding-controls">
+						<button
+							type="button"
+							class="btn-ghost"
+							disabled={forwardingBusy}
+							onclick={() => setForwardingEnabled(false)}
+						>
+							{forwardingAction === 'disable' ? '無効化中…' : '自動転送を無効にする'}
+						</button>
+					</div>
+				{:else if selectedForwarding.destination?.status === 'verified' && selectedForwarding.rule}
+					<div class="forwarding-enable-box" role="note">
+						{#if forwardingDestinationChanged}
+							<p class="forwarding-warning">
+								<Icon name="information-line" size={15} />
+									変更した転送先を保存し、確認してから自動転送を有効にしてください。
+							</p>
+						{:else}
+							<p class="forwarding-warning">
+								<Icon name="alert-line" size={15} />
+								<span class="forwarding-warning-copy">
+									有効にすると、新着メッセージと添付ファイルをQuickMail-jaの外部にある
+										<strong>{selectedForwarding.destination.destination_address}</strong>へ送信します。
+								</span>
+							</p>
+							<label class="forwarding-acknowledge">
+								<input type="checkbox" bind:checked={forwardingAcknowledged} disabled={forwardingBusy} />
+									<span>この外部送信の動作を理解しました。</span>
+							</label>
+							<button
+								type="button"
+								class="btn-primary"
+								disabled={forwardingBusy || !canEnableForwarding}
+								onclick={() => setForwardingEnabled(true)}
+							>
+							{forwardingAction === 'enable' ? '有効化中…' : '自動転送を有効にする'}
+							</button>
+						{/if}
+					</div>
+				{/if}
+
+				{#if selectedForwarding.latest_attempt}
+					<p
+						class="forwarding-attempt status-{selectedAttemptStatus?.tone ?? 'neutral'}"
+							aria-label="最新の自動転送試行: {selectedAttemptStatus?.label}"
+						>
+						最新の試行: <strong>{selectedAttemptStatus?.label}</strong>
+						<span>{selectedAttemptStatus?.detail}</span>
+					</p>
+				{/if}
+			{:else}
+					<p class="empty">保存済みの転送元アドレスを選択して、自動転送を設定してください。</p>
+			{/if}
+
+			{#if forwardingError}<p class="error" role="alert">{forwardingError}</p>{/if}
+			{#if forwardingSaved}<p class="saved" role="status">{forwardingSaved}</p>{/if}
+		{:else}
+			<p class="empty">自動転送を設定する前に、転送元アドレスを追加してください。</p>
+		{/if}
+	</section>
+
+	<SortRuleSettings folders={data.folders} initialRules={data.sortRules} />
+
+	<section class="surface-lg card">
+		<h2><Icon name="at-line" size={18} /> アドレス</h2>
+		<p class="card-hint">
+			<strong>差出人名</strong>は、受信者のメール一覧に送信者として表示される名前です（例：サポート窓口）。
+			<strong>署名</strong>は、送信するメール本文の末尾に自動で入る組織名や連絡先です。
+			このアドレスの署名を空欄にすると、アカウント共通の署名を使用します。
 		</p>
 
 		<ul class="address-list">
@@ -372,12 +939,16 @@
 				<li class="address-row">
 					<div class="address-head">
 						<div class="min-w-0 flex-1">
+							<label class="field-title" for="address-label-{address.id}">
+								差出人名（受信者に見える名前）
+							</label>
 							<input
+								id="address-label-{address.id}"
 								type="text"
 								class="name-input"
 								value={address.label ?? ''}
-								placeholder="From name"
-								aria-label="From name for {address.address}"
+								placeholder="差出人名"
+								aria-label="{address.address}の差出人名"
 								disabled={savingId === address.id}
 								onchange={(event) => saveLabel(address.id, event.currentTarget.value)}
 							/>
@@ -385,10 +956,10 @@
 						</div>
 
 						{#if address.is_default}
-							<span class="badge">Default</span>
+						<span class="badge">既定</span>
 						{:else}
 							<button type="button" class="btn-ghost text-xs" onclick={() => makeDefault(address.id)}>
-								Make default
+								既定にする
 							</button>
 						{/if}
 
@@ -396,20 +967,24 @@
 							<button
 								type="button"
 								class="icon-btn"
-								aria-label="Remove {address.address}"
+								aria-label="{address.address}を削除"
 								onclick={() => remove(address.id)}
 							>
 								<Icon name="delete-bin-line" size={15} />
 							</button>
 						{/if}
 					</div>
+					<label class="field-title" for="address-signature-{address.id}">
+						署名（メール本文の末尾に自動挿入）
+					</label>
 					<textarea
+						id="address-signature-{address.id}"
 						class="mailbox-signature"
 						rows="2"
 						maxlength={MAX_EMAIL_SIGNATURE_LENGTH}
 						value={address.signature ?? ''}
-						placeholder="Signature for this address"
-						aria-label="Signature for {address.address}"
+							placeholder="このアドレスの署名"
+							aria-label="{address.address}の署名"
 						disabled={savingId === address.id}
 						onchange={(event) => saveMailboxSignature(address.id, event.currentTarget.value)}
 					></textarea>
@@ -419,12 +994,12 @@
 
 		<form class="add-form" onsubmit={addAddress}>
 			<div class="add-field">
-				<label class="field-title" for="new-display-name">From name</label>
+				<label class="field-title" for="new-display-name">差出人名</label>
 				<input
 					id="new-display-name"
 					type="text"
 					bind:value={displayName}
-					placeholder="Support"
+					placeholder="サポート"
 					class="name-add-input"
 					autocomplete="off"
 				/>
@@ -432,19 +1007,19 @@
 					bind:localPart
 					bind:domainId
 					domains={data.domains}
-					placeholder="another"
-					label="Address"
+					placeholder="support"
+					label="メールアドレス"
 				/>
 			</div>
 			<button type="submit" class="btn-primary" disabled={busy || !localPart.trim()}>
-				{busy ? 'Adding…' : 'Add'}
+				{busy ? '追加中…' : '追加'}
 			</button>
 		</form>
 
 		{#if selectedDomain && !selectedDomain.receiving_enabled}
 			<p class="hint">
 				<Icon name="information-line" size={14} />
-				{selectedDomain.name} can send, but inbound is off.
+				{selectedDomain.name}は送信できますが、受信が無効です。
 			</p>
 		{/if}
 
@@ -452,15 +1027,15 @@
 	</section>
 
 	<section class="surface-lg card">
-		<h2><Icon name="global-line" size={18} /> Connected domains</h2>
+		<h2><Icon name="global-line" size={18} /> 接続済みドメイン</h2>
 		<ul class="domain-list">
 			{#each data.domains as domain (domain.id)}
 				<li class="domain-row">
 					<span class="domain-name">{domain.name}</span>
 					<span class="caps">
-						<span class="chip" class:chip-on={domain.sending_enabled}>send</span>
-						<span class="chip" class:chip-on={domain.receiving_enabled}>receive</span>
-						<span class="chip" class:chip-ok={domain.status === 'verified'}>{domain.status}</span>
+						<span class="chip" class:chip-on={domain.sending_enabled}>送信</span>
+						<span class="chip" class:chip-on={domain.receiving_enabled}>受信</span>
+						<span class="chip" class:chip-ok={domain.status === 'verified'}>{domainStatusLabel(domain.status)}</span>
 					</span>
 				</li>
 			{/each}
@@ -469,12 +1044,21 @@
 
 	<section class="surface-lg card">
 		<div class="card-head">
-			<h2><Icon name="key-2-line" size={18} /> API keys</h2>
+			<h2><Icon name="key-2-line" size={18} /> APIキー</h2>
 			<button type="button" class="btn-primary" onclick={openCreate}>
 				<Icon name="add-line" size={15} />
-				New
+					新規作成
 			</button>
 		</div>
+		<p class="card-hint">
+			APIキーは、外部システムや自動処理からQuickMail-jaを操作するための認証情報です。ログイン用パスワードとは別に発行します。
+			問い合わせフォームの受付完了メール、CRM・AIへの受信メール取り込み、定期処理からのメール送信などに使えます。
+			作成時に「送信」「読み取り」から必要な権限だけを選びます。管理者は、ドメイン・ユーザー・アドレス管理の権限も追加できます。
+		</p>
+		<p class="hint">
+			<Icon name="shield-keyhole-line" size={14} />
+			作成したキーは一度だけ表示されます。パスワードと同じ秘密情報として管理してください。
+		</p>
 
 		{#if tokens.length}
 			<ul class="key-list">
@@ -485,7 +1069,7 @@
 							<p class="key-meta">
 								<code>{token.preview}</code>
 								<span class="caps">
-									{#each token.scopes as scope (scope)}<span class="chip">{scope}</span>{/each}
+									{#each token.scopes as scope (scope)}<span class="chip">{scopeLabel(scope)}</span>{/each}
 								</span>
 							</p>
 						</div>
@@ -493,7 +1077,7 @@
 						<button
 							type="button"
 							class="icon-btn"
-							aria-label="Revoke {token.name}"
+							aria-label="{token.name}を無効化"
 							onclick={() => revokeKey(token.id)}
 						>
 							<Icon name="delete-bin-line" size={15} />
@@ -502,17 +1086,17 @@
 				{/each}
 			</ul>
 		{:else}
-			<p class="empty">No keys</p>
+			<p class="empty">APIキーはありません</p>
 		{/if}
 
 		{#if keyError && !creating}<p class="error">{keyError}</p>{/if}
 
-		<div class="install-row">
-			<code>{installCommand}</code>
-			<button type="button" class="icon-btn" aria-label="Copy install command" onclick={copyInstall}>
-				<Icon name={installCopied ? 'check-line' : 'file-copy-line'} size={15} />
-			</button>
-		</div>
+		<details class="install-details">
+			<summary>開発者向け：CLI（コマンド操作ツール）を使う</summary>
+			<p class="hint">
+				公開リポジトリのURLが決まるまでは、ローカルのソースから <code>bun run quickmail</code> を実行してください。
+			</p>
+		</details>
 	</section>
 </div>
 
@@ -528,48 +1112,47 @@
 			class="key-modal"
 			role="dialog"
 			aria-modal="true"
-			aria-label={revealed ? 'Copy API key' : 'New API key'}
+			aria-label={revealed ? 'APIキーをコピー' : '新しいAPIキー'}
 			tabindex="-1"
 		>
 			<div class="modal-head">
 				<h3>
 					<Icon name="key-2-line" size={16} />
-					{revealed ? 'Copy this key' : 'New API key'}
+					{revealed ? 'このAPIキーをコピー' : '新しいAPIキー'}
 				</h3>
-				<button type="button" class="icon-btn" aria-label="Close" onclick={closeCreate}>
+				<button type="button" class="icon-btn" aria-label="閉じる" onclick={closeCreate}>
 					<Icon name="close-line" size={16} />
 				</button>
 			</div>
 
 			{#if revealed}
-				<p class="modal-note">Shown once. Copy it now.</p>
+				<p class="modal-note">この画面で一度だけ表示されます。今すぐコピーしてください。</p>
 				<pre class="token-box">{revealed.token}</pre>
 				<div class="modal-actions">
 					<button type="button" class="btn-primary" onclick={copyKey}>
 						<Icon name={copied ? 'check-line' : 'file-copy-line'} size={15} />
-						{copied ? 'Copied' : 'Copy'}
+						{copied ? 'コピーしました' : 'コピー'}
 					</button>
-					<button type="button" class="btn-ghost" onclick={closeCreate}>Done</button>
+					<button type="button" class="btn-ghost" onclick={closeCreate}>完了</button>
 				</div>
 			{:else}
 				<form class="key-form" onsubmit={createKey}>
-					<label class="sr-only" for="apikey-name">Key name</label>
+					<label class="sr-only" for="apikey-name">キー名</label>
 					<input
 						id="apikey-name"
 						class="text-input"
-						placeholder="Name"
+						placeholder="キー名"
 						value={keyName}
-						autofocus
 						oninput={(event) => (keyName = event.currentTarget.value)}
 					/>
 
 					<div class="scope-row">
-						<Check label="Send mail" caption="send" checked={sendScope} onchange={(next) => (sendScope = next)} />
-						<Check label="Read mail" caption="read" checked={readScope} onchange={(next) => (readScope = next)} />
+						<Check label="メールを送信する" caption="フォームや自動処理から送信" checked={sendScope} onchange={(next) => (sendScope = next)} />
+						<Check label="受信メールを読み取る" caption="一覧・本文の取得、既読・スター変更" checked={readScope} onchange={(next) => (readScope = next)} />
 						{#if data.isAdmin}
 							<Check
-								label="Admin"
-								caption="admin"
+								label="設定を管理する"
+								caption="ドメイン・ユーザー・アドレス管理"
 								checked={adminScope}
 								onchange={(next) => (adminScope = next)}
 							/>
@@ -579,9 +1162,9 @@
 					{#if keyError}<p class="error">{keyError}</p>{/if}
 
 					<div class="modal-actions">
-						<button type="button" class="btn-ghost" onclick={closeCreate}>Cancel</button>
+						<button type="button" class="btn-ghost" onclick={closeCreate}>キャンセル</button>
 						<button type="submit" class="btn-primary" disabled={keyBusy || !canCreateKey}>
-							{keyBusy ? 'Creating…' : 'Create'}
+							{keyBusy ? '作成中…' : '作成'}
 						</button>
 					</div>
 				</form>
@@ -635,6 +1218,147 @@
 		font-size: 0.8125rem;
 		line-height: 1.5;
 		color: var(--color-muted);
+	}
+
+	.forwarding-form {
+		margin-top: 1rem;
+	}
+
+	.forwarding-select {
+		margin-top: 0.5rem;
+		appearance: auto;
+	}
+
+	.forwarding-refresh-row {
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+		gap: 0.75rem;
+		margin-top: 1rem;
+	}
+
+	.forwarding-status {
+		margin-top: 1rem;
+		padding: 0.75rem 0.875rem;
+		border-radius: 0.75rem;
+		box-shadow: inset 0 0 0 1px var(--color-line);
+	}
+
+	.forwarding-status.status-pending {
+		background: var(--tone-warn-bg, var(--color-surface-muted));
+	}
+
+	.forwarding-status.status-good {
+		background: var(--tone-good-bg);
+	}
+
+	.forwarding-status.status-danger {
+		background: var(--tone-danger-bg, var(--color-surface-muted));
+	}
+
+	.forwarding-status-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+	}
+
+	.status-label {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.375rem;
+		font-size: 0.8125rem;
+		font-weight: 600;
+	}
+
+	.status-destination {
+		min-width: 0;
+		font-size: 0.75rem;
+		color: var(--color-muted);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.forwarding-status p {
+		margin-top: 0.25rem;
+		font-size: 0.75rem;
+		line-height: 1.5;
+		color: var(--color-muted);
+	}
+
+	.forwarding-actions,
+	.forwarding-controls {
+		display: flex;
+		justify-content: flex-end;
+		gap: 0.5rem;
+		margin-top: 0.75rem;
+	}
+
+	.forwarding-pending-note {
+		margin-top: 0.75rem;
+		font-size: 0.75rem;
+		line-height: 1.5;
+		color: var(--color-muted);
+	}
+
+	.forwarding-enable-box {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 0.75rem;
+		margin-top: 1rem;
+		padding: 0.875rem;
+		border-radius: 0.75rem;
+		background: var(--tone-warn-bg, var(--color-surface-muted));
+		box-shadow: inset 0 0 0 1px var(--color-line);
+	}
+
+	.forwarding-warning {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.375rem;
+		font-size: 0.8125rem;
+		line-height: 1.5;
+	}
+
+	.forwarding-warning strong {
+		word-break: break-word;
+	}
+
+	.forwarding-warning-copy {
+		min-width: 0;
+		overflow-wrap: anywhere;
+	}
+
+	.forwarding-acknowledge {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.5rem;
+		font-size: 0.8125rem;
+		line-height: 1.4;
+	}
+
+	.forwarding-acknowledge input {
+		width: 1rem;
+		height: 1rem;
+		margin-top: 0.1rem;
+		accent-color: var(--color-accent);
+	}
+
+	.forwarding-attempt {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem;
+		margin-top: 0.875rem;
+		font-size: 0.75rem;
+		line-height: 1.5;
+		color: var(--color-muted);
+	}
+
+	.forwarding-attempt strong {
+		font-weight: 600;
+		color: var(--color-text-secondary);
 	}
 
 	.signature-form {
@@ -1112,25 +1836,6 @@
 		margin-top: 0.25rem;
 	}
 
-	.install-row {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		margin-top: 1rem;
-		padding: 0.625rem 0.75rem;
-		border-radius: 0.625rem;
-		background: var(--color-surface-muted);
-		box-shadow: inset 0 0 0 1px var(--color-line);
-	}
-
-	.install-row code {
-		flex: 1;
-		min-width: 0;
-		overflow-x: auto;
-		font-size: 0.75rem;
-		white-space: nowrap;
-	}
-
 	@media (max-width: 900px) {
 		.settings-page {
 			max-width: none;
@@ -1144,6 +1849,25 @@
 
 		.theme-options {
 			gap: 0.5rem;
+		}
+
+		.forwarding-status-head {
+			align-items: flex-start;
+			flex-direction: column;
+			gap: 0.25rem;
+		}
+
+		.forwarding-actions,
+		.forwarding-controls,
+		.forwarding-refresh-row {
+			justify-content: stretch;
+		}
+
+		.forwarding-actions .btn-primary,
+		.forwarding-controls .btn-ghost,
+		.forwarding-refresh-row .btn-ghost,
+		.forwarding-enable-box .btn-primary {
+			width: 100%;
 		}
 	}
 </style>

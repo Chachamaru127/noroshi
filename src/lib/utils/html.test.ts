@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { isHtmlEmpty } from './html';
+import { htmlToPlainText, isHtmlEmpty } from './html';
+
+test('preserves editor line breaks in outbound plain text', () => {
+	assert.equal(
+		htmlToPlainText('Intro<br>\n<br>\nFrom: Alice<br>\nDate: Monday<br>\n<div>Original body</div>'),
+		'Intro\n\nFrom: Alice\nDate: Monday\nOriginal body'
+	);
+});
 
 test('treats image tags as content', () => {
 	assert.equal(isHtmlEmpty('<p><img src="x" alt=""></p>'), false);

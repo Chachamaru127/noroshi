@@ -2,30 +2,24 @@
 	import Icon from './Icon.svelte';
 	import type { DeliveryStatus } from '$lib/types';
 
-	let {
-		status,
-		detail = null
-	}: {
-		status: DeliveryStatus | null;
-		detail?: string | null;
-	} = $props();
+	let { status }: { status: DeliveryStatus | null } = $props();
 
 	// Resend reports these over the webhook; before that a message is just queued.
 	const meta: Record<DeliveryStatus, { label: string; icon: string; tone: string }> = {
-		queued: { label: 'Sending', icon: 'time-line', tone: 'neutral' },
-		sent: { label: 'Sent', icon: 'check-line', tone: 'neutral' },
-		delivered: { label: 'Delivered', icon: 'check-double-line', tone: 'good' },
-		delayed: { label: 'Delayed', icon: 'time-line', tone: 'warn' },
-		bounced: { label: 'Bounced', icon: 'error-warning-line', tone: 'bad' },
-		complained: { label: 'Marked as spam', icon: 'spam-2-line', tone: 'warn' },
-		failed: { label: 'Failed', icon: 'close-circle-line', tone: 'bad' }
+		queued: { label: '送信中', icon: 'time-line', tone: 'neutral' },
+		sent: { label: '送信済み', icon: 'check-line', tone: 'neutral' },
+		delivered: { label: '配信済み', icon: 'check-double-line', tone: 'good' },
+		delayed: { label: '遅延', icon: 'time-line', tone: 'warn' },
+		bounced: { label: '不達', icon: 'error-warning-line', tone: 'bad' },
+		complained: { label: '迷惑メール扱い', icon: 'spam-2-line', tone: 'warn' },
+		failed: { label: '失敗', icon: 'close-circle-line', tone: 'bad' }
 	};
 
 	const info = $derived(status ? meta[status] : null);
 </script>
 
 {#if info}
-	<span class="status status-{info.tone}" title={detail ?? info.label}>
+	<span class="status status-{info.tone}" title={info.label}>
 		<Icon name={info.icon} size={12} />
 		{info.label}
 	</span>

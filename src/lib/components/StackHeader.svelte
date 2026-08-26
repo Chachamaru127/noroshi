@@ -36,7 +36,12 @@
 
 <header class="stack-header" class:no-back={!back}>
 	{#if back}
-		<button type="button" class="stack-back" aria-label={close ? 'Close' : 'Back'} onclick={goBack}>
+		<button
+			type="button"
+			class="stack-back"
+			aria-label={close ? '閉じる' : '戻る'}
+			onclick={goBack}
+		>
 			<Icon name={close ? 'close-line' : 'arrow-left-line'} size={22} />
 		</button>
 	{/if}

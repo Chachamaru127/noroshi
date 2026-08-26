@@ -6,7 +6,7 @@ export const PRIMARY_TABS = ['/inbox', '/starred', '/sent'] as const;
 export type NavDirection = 'forward' | 'back' | 'tab';
 
 export function isMailboxPath(pathname: string): boolean {
-	return MAILBOX_PATHS.some((path) => pathname === path);
+	return MAILBOX_PATHS.some((path) => pathname === path) || pathname.startsWith('/folders/');
 }
 
 /** Thread and compose take over the phone — no search bar or tab bar. */
@@ -30,6 +30,7 @@ export function isUtilityPath(pathname: string): boolean {
 
 export function isMorePath(pathname: string): boolean {
 	return (
+		pathname.startsWith('/folders/') ||
 		pathname === '/drafts' ||
 		pathname === '/trash' ||
 		pathname === '/settings' ||

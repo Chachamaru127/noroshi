@@ -29,7 +29,7 @@ export async function startMcpServer(): Promise<void> {
 	server.registerTool(
 		'list_threads',
 		{
-			description: 'List mailbox conversations for the authenticated QuickMail user.',
+			description: 'List mailbox conversations for the authenticated QuickMail-ja user.',
 			inputSchema: {
 				view: z.enum(views).optional().describe('Mailbox to list. Defaults to inbox.'),
 				q: z.string().optional().describe('Search participants, subject, and body.'),

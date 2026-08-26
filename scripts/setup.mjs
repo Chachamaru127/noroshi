@@ -1,22 +1,25 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
- * Interactive first-run setup for QuickMail.
+ * Interactive first-run setup for QuickMail-ja.
  *
- * Installs tools, logs into Cloudflare, creates D1/R2, writes env and
- * wrangler config, and onboards a mail domain (Resend or Cloudflare Email).
+ * Cloudflareへログインし、D1/R2、設定、メールドメインを準備します。
  *
  * Usage:
  *   bun run setup
- *   node scripts/setup.mjs
  *   bash scripts/setup.sh
  */
 import { spawnSync } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import readline from 'node:readline/promises';
 import { stdin as stdinStream, stdout as stdoutStream } from 'node:process';
 import { fileURLToPath } from 'node:url';
+import {
+	buildBootstrapSecretPlan,
+	configureSetupTemplate,
+	generateBootstrapSecret
+} from './setup-config.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const wranglerFile = join(root, 'wrangler.jsonc');
@@ -25,11 +28,7 @@ const devVarsExample = join(root, '.dev.vars.example');
 const envFile = join(root, '.env');
 
 const MIN_WRANGLER = [4, 123, 0];
-const ADDRESSES_WRANGLER = [4, 113, 0];
-const MIN_NODE_MAJOR = 20;
-const BUN_INSTALL_DIR = process.env.BUN_INSTALL || join(homedir(), '.bun');
 const RESEND_WEBHOOK_EVENTS = [
-	'email.received',
 	'email.sent',
 	'email.delivered',
 	'email.bounced',
@@ -57,23 +56,21 @@ if (args.help) {
 let rl = null;
 
 function printHelp() {
-	console.log(`QuickMail setup
+	console.log(`QuickMail-ja セットアップ
 
-Installs tools, logs you into Cloudflare, creates D1/R2, writes env and
-wrangler config, and onboards your mail domain.
+Cloudflareへログインし、D1/R2、設定ファイル、受信・送信経路を準備します。
+受信にはCloudflareで管理するDNSゾーンが必要です。標準の送信はResendです。
 
   bun run setup
   bash scripts/setup.sh
-  node scripts/setup.mjs [options]
 
-Options:
-  --domain <name>      Mail domain (e.g. example.com)
-  --provider <name>    resend | cloudflare
-  --d1-name <name>     D1 database name (e.g. quickmail)
-  --r2-name <name>     R2 bucket name (e.g. quickmail-attachments)
-  --yes                Accept defaults (still requires --domain)
-  --skip-deploy        Do not deploy at the end
-  --help               Show this help
+オプション:
+  --domain <name>      メールドメイン（例: example.com）
+  --d1-name <name>     D1名（例: quickmail-ja）
+  --r2-name <name>     R2名（例: quickmail-ja-attachments）
+  --yes                既定値を使用（--domainは必須）
+  --skip-deploy        最後のデプロイを行わない
+  --help               このヘルプを表示
 `);
 }
 
@@ -83,7 +80,6 @@ function parseArgs(argv) {
 		yes: false,
 		skipDeploy: false,
 		domain: null,
-		provider: null,
 		d1Name: null,
 		r2Name: null
 	};
@@ -104,9 +100,6 @@ function parseArgs(argv) {
 			case '--domain':
 				out.domain = argv[++i] ?? '';
 				break;
-			case '--provider':
-				out.provider = argv[++i] ?? '';
-				break;
 			case '--d1-name':
 				out.d1Name = argv[++i] ?? '';
 				break;
@@ -115,21 +108,13 @@ function parseArgs(argv) {
 				break;
 			default:
 				if (arg.startsWith('--domain=')) out.domain = arg.slice('--domain='.length);
-				else if (arg.startsWith('--provider=')) out.provider = arg.slice('--provider='.length);
 				else if (arg.startsWith('--d1-name=')) out.d1Name = arg.slice('--d1-name='.length);
 				else if (arg.startsWith('--r2-name=')) out.r2Name = arg.slice('--r2-name='.length);
 				else {
-					console.error(`Unknown option: ${arg}`);
+					console.error(`不明なオプションです: ${arg}`);
 					printHelp();
 					process.exit(1);
 				}
-		}
-	}
-	if (out.provider) {
-		out.provider = out.provider.trim().toLowerCase();
-		if (out.provider !== 'resend' && out.provider !== 'cloudflare') {
-			console.error('--provider must be "resend" or "cloudflare".');
-			process.exit(1);
 		}
 	}
 	return out;
@@ -169,16 +154,11 @@ function shellQuote(value) {
 }
 
 function bunBin() {
-	return which('bun') || (existsSync(join(BUN_INSTALL_DIR, 'bin', 'bun')) ? join(BUN_INSTALL_DIR, 'bin', 'bun') : null);
-}
-
-function hasBun() {
-	return Boolean(bunBin());
+	return which('bun') || process.execPath;
 }
 
 function childEnv(extra = {}) {
-	const bunDir = join(BUN_INSTALL_DIR, 'bin');
-	const bins = [join(root, 'node_modules', '.bin'), bunDir].filter((dir) => existsSync(dir) || dir === bunDir);
+	const bins = [join(root, 'node_modules', '.bin')];
 	return {
 		...process.env,
 		PATH: `${bins.join(delimiter)}${delimiter}${process.env.PATH ?? ''}`,
@@ -216,10 +196,7 @@ function wrangler(wranglerArgs, options = {}) {
 	if (existsSync(local)) {
 		return run(local, wranglerArgs, options);
 	}
-	if (hasBun()) {
-		return run(bunBin(), ['x', 'wrangler', ...wranglerArgs], options);
-	}
-	return run('npx', ['wrangler', ...wranglerArgs], options);
+	return run(bunBin(), ['x', 'wrangler', ...wranglerArgs], options);
 }
 
 function parseJsonOutput(text) {
@@ -268,7 +245,7 @@ async function prompt(question, fallback = '') {
 	if (args.yes) return fallback;
 	if (!stdinStream.isTTY) {
 		if (fallback) return fallback;
-		throw new Error(`Non-interactive run needs a value for: ${question}`);
+		throw new Error(`対話できない環境では値の指定が必要です: ${question}`);
 	}
 	const suffix = fallback ? ` ${c.dim(`(${fallback})`)}` : '';
 	const input = await (await ensureReadline()).question(`  ${question}${suffix}: `);
@@ -286,13 +263,22 @@ async function confirm(question, defaultYes = true) {
 
 async function promptSecret(question) {
 	if (!stdinStream.isTTY) {
-		throw new Error(`Non-interactive run cannot prompt for ${question}. Omit it or run in a terminal.`);
+		throw new Error(`対話できない環境では${question}を入力できません。端末で再実行してください。`);
 	}
 	await closeReadline();
 	stdoutStream.write(`  ${question}: `);
 	const value = await readMutedLine();
 	stdoutStream.write('\n');
 	return value.trim();
+}
+
+async function chooseBootstrapSecret() {
+	let value = '';
+	if (stdinStream.isTTY && !args.yes) {
+		value = await promptSecret('セットアップキー（空欄なら安全な値を自動生成）');
+	}
+	if (!value) value = generateBootstrapSecret(randomBytes(32));
+	return buildBootstrapSecretPlan(value);
 }
 
 function readMutedLine() {
@@ -345,7 +331,7 @@ function readMutedLine() {
 
 function readWrangler() {
 	if (!existsSync(wranglerFile)) {
-		throw new Error('wrangler.jsonc is missing. Run this from the QuickMail repo root.');
+		throw new Error('wrangler.jsoncがありません。QuickMail-jaのルートから実行してください。');
 	}
 	return readFileSync(wranglerFile, 'utf8');
 }
@@ -356,47 +342,6 @@ function writeWrangler(source) {
 
 function jsoncString(source, key) {
 	return source.match(new RegExp(`"${key}"\\s*:\\s*"([^"]*)"`))?.[1] ?? null;
-}
-
-function setFirstString(source, key, value) {
-	return source.replace(new RegExp(`("${key}"\\s*:\\s*")[^"]*(")`), `$1${value}$2`);
-}
-
-function setVars(source, { provider, domains }) {
-	const lines = [`\t\t"EMAIL_PROVIDER": "${provider}"`];
-	if (provider === 'cloudflare' && domains) {
-		lines.push(`\t\t"CLOUDFLARE_MAIL_DOMAINS": "${domains}"`);
-	} else {
-		lines.push(`\t\t// "CLOUDFLARE_MAIL_DOMAINS": "example.com"`);
-	}
-	const block = `\t"vars": {\n${lines.join(',\n')}\n\t}`;
-	if (/\t"vars"\s*:\s*\{[\s\S]*?\n\t\}/.test(source)) {
-		return source.replace(/\t"vars"\s*:\s*\{[\s\S]*?\n\t\}/, block);
-	}
-	return source.replace(/\n(\t"send_email")/, `\n${block},\n\n$1`);
-}
-
-function setAddresses(source, addresses) {
-	const rendered = `"addresses": ${JSON.stringify(addresses)}`;
-	if (/"addresses"\s*:/.test(source)) {
-		return source.replace(/"addresses"\s*:\s*\[[^\]]*\]/, rendered);
-	}
-	return source.replace(/\n(\t*"send_email")/, `\n\t${rendered},\n\n$1`);
-}
-
-function removeAddresses(source) {
-	return source.replace(/\n\t"addresses"\s*:\s*\[[^\]]*\]\s*,?/, '\n');
-}
-
-function setRoutes(source, hostname) {
-	const block = `\t"routes": [\n\t\t{\n\t\t\t"pattern": "${hostname}",\n\t\t\t"custom_domain": true\n\t\t}\n\t],\n`;
-	if (/^\t"routes": \[/m.test(source)) {
-		return source.replace(/\t"routes": \[[\s\S]*?\],\n/, block);
-	}
-	if (/\t\/\/ "routes": \[[\s\S]*?\t\/\/ \],\n/.test(source)) {
-		return source.replace(/\t\/\/ "routes": \[[\s\S]*?\t\/\/ \],\n/, block);
-	}
-	return source.replace(/("workers_dev": true,\n)/, `$1\n${block}`);
 }
 
 function upsertEnvFile(file, updates, { fromExample = false } = {}) {
@@ -441,60 +386,15 @@ function isR2BucketName(value) {
 	);
 }
 
-function nodeMajor() {
-	const path = which('node');
-	if (!path) return null;
-	const result = spawnSync(path, ['-v'], { encoding: 'utf8' });
-	const version = parseVersion(result.stdout || '');
-	return version[0] || null;
-}
-
 async function ensureRuntime() {
-	if (process.platform === 'win32' && !hasBun() && !which('node')) {
-		throw new Error(
-			'Install Node.js 20+ from https://nodejs.org or Bun from https://bun.sh, then re-run setup.'
-		);
-	}
-
-	if (hasBun()) {
-		ok(`bun ${run(bunBin(), ['--version'], { allowFail: true }).stdout.trim() || 'installed'}`);
-		return;
-	}
-
-	warn('Bun is not installed. QuickMail scripts (build, deploy, migrate) expect bun.');
-	if (await confirm('Install bun now?', true)) {
-		if (process.platform === 'win32') {
-			throw new Error('Install bun from https://bun.sh on Windows, then re-run setup.');
-		}
-		run('sh', ['-c', 'curl -fsSL https://bun.sh/install | bash'], { inherit: true });
-		if (!hasBun()) {
-			throw new Error(
-				`Bun installed but not on PATH. Open a new terminal or add ${join(BUN_INSTALL_DIR, 'bin')} to PATH.`
-			);
-		}
-		ok(`bun ${run(bunBin(), ['--version']).stdout.trim()}`);
-		return;
-	}
-
-	const major = nodeMajor();
-	if (major && major >= MIN_NODE_MAJOR) {
-		ok(`node v${process.versions.node} (bun skipped; some npm scripts still call bun)`);
-		return;
-	}
-	if (major) {
-		throw new Error(`Node ${major} is too old. Install Node ${MIN_NODE_MAJOR}+ or bun, then re-run.`);
-	}
-	throw new Error('Need bun (https://bun.sh) or Node 20+ (https://nodejs.org).');
+	const version = run(bunBin(), ['--version'], { allowFail: true }).stdout.trim();
+	if (!version) throw new Error('Bunが必要です。https://bun.sh から導入して再実行してください。');
+	ok(`Bun ${version}`);
 }
 
 function installDeps() {
-	if (hasBun()) {
-		run(bunBin(), ['install'], { inherit: true });
-		ok('dependencies installed (bun)');
-		return;
-	}
-	run('npm', ['install'], { inherit: true });
-	ok('dependencies installed (npm)');
+	run(bunBin(), ['install'], { inherit: true });
+	ok('依存パッケージをBunで準備しました');
 }
 
 function wranglerVersion() {
@@ -503,14 +403,10 @@ function wranglerVersion() {
 }
 
 function upgradeWrangler() {
-	if (hasBun()) {
-		run(bunBin(), ['add', '-d', 'wrangler@latest'], { inherit: true });
-	} else {
-		run('npm', ['install', '-D', 'wrangler@latest'], { inherit: true });
-	}
+	run(bunBin(), ['add', '-d', 'wrangler@latest'], { inherit: true });
 }
 
-async function ensureWrangler(needLatest) {
+async function ensureWrangler() {
 	if (!existsSync(join(root, 'node_modules', 'wrangler')) && !which('wrangler')) {
 		installDeps();
 	}
@@ -518,17 +414,11 @@ async function ensureWrangler(needLatest) {
 	let version = wranglerVersion();
 	ok(`wrangler ${formatVersion(version)}`);
 
-	if (!needLatest && versionGte(version, MIN_WRANGLER)) return version;
-	if (needLatest && versionGte(version, MIN_WRANGLER)) return version;
+	if (versionGte(version, MIN_WRANGLER)) return version;
 
-	warn(
-		`Wrangler ${formatVersion(version)} is too old. Cloudflare Email Sending needs ${formatVersion(MIN_WRANGLER)}+.`
-	);
-	if (!(await confirm('Upgrade wrangler to latest?', true))) {
-		if (needLatest) {
-			throw new Error(`Upgrade wrangler (bun add -d wrangler@latest) and re-run.`);
-		}
-		return version;
+	warn(`Wrangler ${formatVersion(version)}は古いため、${formatVersion(MIN_WRANGLER)}以上が必要です。`);
+	if (!(await confirm('Wranglerを最新版へ更新しますか？', true))) {
+		throw new Error('`bun add -d wrangler@latest`で更新してから再実行してください。');
 	}
 	upgradeWrangler();
 	version = wranglerVersion();
@@ -569,96 +459,81 @@ async function ensureLogin() {
 	const who = wrangler(['whoami'], { allowFail: true });
 	const parsed = parseWhoami(`${who.stdout}\n${who.stderr}`);
 	if (who.status === 0 && !parsed.unauthenticated && (parsed.email || parsed.accounts.length)) {
-		ok(parsed.email ? `logged in as ${parsed.email}` : 'logged in to Cloudflare');
+		ok(parsed.email ? `${parsed.email}でログイン済み` : 'Cloudflareへログイン済み');
 		return pickAccount(parsed.accounts);
 	}
 
-	log(`  ${c.dim('Opening a browser for wrangler login…')}`);
+	log(`  ${c.dim('Cloudflareログイン用のブラウザを開きます…')}`);
 	wrangler(['login'], { inherit: true });
 
 	const again = wrangler(['whoami'], { allowFail: true });
 	const next = parseWhoami(`${again.stdout}\n${again.stderr}`);
 	if (again.status !== 0 || next.unauthenticated) {
-		throw new Error('Cloudflare login did not complete. Run `bunx wrangler login` and re-run setup.');
+		throw new Error('Cloudflareログインが完了しませんでした。`bunx wrangler login`後に再実行してください。');
 	}
-	ok(next.email ? `logged in as ${next.email}` : 'logged in to Cloudflare');
+	ok(next.email ? `${next.email}でログインしました` : 'Cloudflareへログインしました');
 	return pickAccount(next.accounts);
 }
 
 async function pickAccount(accounts) {
 	if (accounts.length === 0) return null;
 	if (accounts.length === 1) {
-		ok(`account ${accounts[0].name}`);
+		ok(`アカウント: ${accounts[0].name}`);
 		upsertEnvFile(envFile, { CLOUDFLARE_ACCOUNT_ID: accounts[0].id });
 		return accounts[0];
 	}
 
-	log('  This login can see more than one Cloudflare account:');
+	log('  複数のCloudflareアカウントが見つかりました:');
 	accounts.forEach((account, index) => {
 		log(`    ${index + 1}) ${account.name}  ${c.dim(account.id)}`);
 	});
 
 	if (args.yes) {
 		upsertEnvFile(envFile, { CLOUDFLARE_ACCOUNT_ID: accounts[0].id });
-		ok(`using ${accounts[0].name}`);
+		ok(`${accounts[0].name}を使用します`);
 		return accounts[0];
 	}
 
 	let chosen = null;
 	while (!chosen) {
-		const raw = await prompt('Account number', '1');
+		const raw = await prompt('使用するアカウント番号', '1');
 		const index = Number(raw) - 1;
 		chosen = accounts[index];
-		if (!chosen) warn('Pick a number from the list.');
+		if (!chosen) warn('一覧の番号を入力してください。');
 	}
 	upsertEnvFile(envFile, { CLOUDFLARE_ACCOUNT_ID: chosen.id });
-	ok(`using ${chosen.name}`);
+	ok(`${chosen.name}を使用します`);
 	return chosen;
 }
 
 async function askDomain() {
 	if (args.domain) {
 		const domain = normalizeDomain(args.domain);
-		if (!isDomain(domain)) throw new Error(`Invalid --domain "${args.domain}".`);
+		if (!isDomain(domain)) throw new Error(`--domainの形式が正しくありません: "${args.domain}"`);
 		return domain;
 	}
 	while (true) {
-		const domain = normalizeDomain(await prompt('Mail domain (e.g. example.com)'));
+		const domain = normalizeDomain(await prompt('メール用ドメイン（例: example.com）'));
 		if (isDomain(domain)) return domain;
-		warn('Enter a domain like example.com — no URL, no @.');
-	}
-}
-
-async function askProvider() {
-	if (args.provider) return args.provider;
-	if (args.yes) return 'resend';
-
-	log(`  ${c.bold('Mail provider')}`);
-	log('    1) Cloudflare Email  — zone already on Cloudflare DNS; Workers paid plan for sending');
-	log('    2) Resend            — any DNS host; Resend account');
-	while (true) {
-		const choice = await prompt('Choice (1/2)', '2');
-		if (choice === '1' || choice === 'cloudflare') return 'cloudflare';
-		if (choice === '2' || choice === 'resend') return 'resend';
-		warn('Enter 1 or 2.');
+		warn('URLや@を付けず、example.comの形式で入力してください。');
 	}
 }
 
 async function askWorkerName(current) {
-	const fallback = current && isWorkerName(current) ? current : 'quickmail';
+	const fallback = current && isWorkerName(current) ? current : 'quickmail-ja';
 	while (true) {
-		const name = (await prompt('Worker name', fallback)).toLowerCase();
+		const name = (await prompt('Worker名', fallback)).toLowerCase();
 		if (isWorkerName(name)) return name;
-		warn('Use lowercase letters, numbers, and hyphens.');
+		warn('半角小文字、数字、ハイフンを使用してください。');
 	}
 }
 
 async function askHostname(domain) {
-	const raw = await prompt(`Web UI hostname (blank = workers.dev)`, '');
+	const raw = await prompt('Web UIのホスト名（空欄ならworkers.dev）', '');
 	if (!raw) return null;
 	const host = normalizeDomain(raw.includes('.') ? raw : `${raw}.${domain}`);
 	if (!isDomain(host)) {
-		warn(`Ignoring invalid hostname "${raw}". Deploying to workers.dev.`);
+		warn(`ホスト名"${raw}"の形式が正しくないため、workers.devへデプロイします。`);
 		return null;
 	}
 	return host;
@@ -667,7 +542,7 @@ async function askHostname(domain) {
 async function askResourceName(question, fallback, flagValue, validate, invalidHint) {
 	if (flagValue) {
 		const name = flagValue.trim().toLowerCase();
-		if (!validate(name)) throw new Error(`Invalid ${question}: "${flagValue}". ${invalidHint}`);
+		if (!validate(name)) throw new Error(`${question}の形式が正しくありません: "${flagValue}"。${invalidHint}`);
 		return name;
 	}
 	if (args.yes) return fallback;
@@ -717,17 +592,17 @@ function createD1(name) {
 		const existing = listD1().find((row) => row.name === name);
 		if (existing) return existing.id;
 	}
-	throw new Error(text.trim() || `Failed to create D1 database "${name}".`);
+	throw new Error(text.trim() || `D1データベース"${name}"を作成できませんでした。`);
 }
 
 async function ensureD1(databaseName) {
 	const existing = listD1().find((row) => row.name === databaseName);
 	if (existing) {
-		ok(`reusing D1 ${databaseName} (${existing.id})`);
+		ok(`既存のD1 ${databaseName} (${existing.id}) を使用します`);
 		return existing.id;
 	}
 
-	log(`  ${c.dim(`Creating D1 database ${databaseName}…`)}`);
+	log(`  ${c.dim(`D1データベース ${databaseName} を作成しています…`)}`);
 	const id = createD1(databaseName);
 	ok(`D1 ${databaseName} (${id})`);
 	return id;
@@ -754,11 +629,11 @@ function listR2Names() {
 
 function ensureR2(bucketName) {
 	if (listR2Names().includes(bucketName)) {
-		ok(`reusing R2 bucket ${bucketName}`);
+		ok(`既存のR2バケット ${bucketName} を使用します`);
 		return;
 	}
 
-	log(`  ${c.dim(`Creating R2 bucket ${bucketName}…`)}`);
+	log(`  ${c.dim(`R2バケット ${bucketName} を作成しています…`)}`);
 	const result = wrangler(['r2', 'bucket', 'create', bucketName], {
 		allowFail: true,
 		env: { CI: 'true' }
@@ -768,7 +643,7 @@ function ensureR2(bucketName) {
 		ok(`R2 bucket ${bucketName}`);
 		return;
 	}
-	throw new Error(text.trim() || `Failed to create R2 bucket "${bucketName}".`);
+	throw new Error(text.trim() || `R2バケット"${bucketName}"を作成できませんでした。`);
 }
 
 function setPackageMigrateScripts(databaseName) {
@@ -786,13 +661,10 @@ function putSecret(name, value) {
 		input: value,
 		stdio: ['pipe', 'inherit', 'inherit']
 	});
-	ok(`stored ${name} as a Worker secret`);
+	ok(`${name}をWorkerシークレットとして保存しました`);
 }
 
-function wranglerOutputLooksEnabled(text, kind) {
-	if (kind === 'sending') {
-		return /enabled:\s*yes|status:\s*(enabled|ready)|successfully enabled/i.test(text);
-	}
+function wranglerOutputLooksEnabled(text) {
 	return /enabled:\s*true|status:\s*ready|successfully enabled/i.test(text);
 }
 
@@ -804,42 +676,21 @@ function tryWrangler(wranglerArgs) {
 	};
 }
 
-async function setupCloudflare(domain, workerName, wranglerVer) {
-	log(`  ${c.dim('Enabling Email Sending (needs a Workers paid plan)…')}`);
-	const sending = tryWrangler(['email', 'sending', 'enable', domain]);
-	if (sending.ok) ok(`Email Sending enabled on ${domain}`);
-	else {
-		warn('Could not enable Email Sending from the CLI.');
-		log(`  ${sending.text.split('\n').slice(0, 8).join('\n  ')}`);
-		log(
-			`  ${c.dim('Dashboard: https://dash.cloudflare.com/?to=/:account/email-service/sending')}`
-		);
-	}
-
-	log(`  ${c.dim('Enabling Email Routing…')}`);
+async function setupCloudflare(domain) {
+	log(`  ${c.dim('Email Routingを有効化しています…')}`);
 	const routing = tryWrangler(['email', 'routing', 'enable', domain]);
-	if (routing.ok) ok(`Email Routing enabled on ${domain}`);
+	if (routing.ok) ok(`${domain}でEmail Routingを有効化しました`);
 	else {
-		warn('Could not enable Email Routing from the CLI.');
+		warn('CLIからEmail Routingを有効化できませんでした。');
 		log(`  ${routing.text.split('\n').slice(0, 8).join('\n  ')}`);
 		log(
 			`  ${c.dim('Dashboard: https://dash.cloudflare.com/?to=/:account/email-service/routing')}`
 		);
 	}
 
-	const sendingDns = tryWrangler(['email', 'sending', 'dns', 'get', domain]);
-	if (sendingDns.text) {
-		log(`\n  ${c.bold('Sending DNS (Cloudflare usually adds these for you)')}`);
-		log(
-			sendingDns.text
-				.split('\n')
-				.map((line) => `    ${line}`)
-				.join('\n')
-		);
-	}
 	const routingDns = tryWrangler(['email', 'routing', 'dns', 'get', domain]);
 	if (routingDns.text) {
-		log(`\n  ${c.bold('Routing DNS (apex MX must point at Cloudflare)')}`);
+		log(`\n  ${c.bold('受信用DNS（apex MXはCloudflareの値だけを使います）')}`);
 		log(
 			routingDns.text
 				.split('\n')
@@ -848,16 +699,11 @@ async function setupCloudflare(domain, workerName, wranglerVer) {
 		);
 	}
 
-	tryWrangler(['email', 'sending', 'list']);
 	const settings = tryWrangler(['email', 'routing', 'settings', domain]);
-	if (settings.text && wranglerOutputLooksEnabled(settings.text, 'routing')) {
-		ok('Email Routing reports enabled');
+	if (settings.text && wranglerOutputLooksEnabled(settings.text)) {
+		ok('Email Routingが有効であることを確認しました');
 	}
 
-	return {
-		useAddresses: versionGte(wranglerVer, ADDRESSES_WRANGLER),
-		workerName
-	};
 }
 
 async function listResendDomains(apiKey) {
@@ -895,20 +741,20 @@ async function createResendWebhook(apiKey, endpoint) {
 	const raw = await response.text();
 	const parsed = raw ? parseJsonOutput(raw) : null;
 	if (!response.ok) {
-		throw new Error(parsed?.message ?? parsed?.error ?? `Resend webhook create failed (${response.status})`);
+		throw new Error(parsed?.message ?? parsed?.error ?? `Resend Webhookの作成に失敗しました（${response.status}）`);
 	}
 	return parsed;
 }
 
 async function setupResend(domain) {
-	log('  Create an API key at https://resend.com/api-keys with send + domains + receiving.');
-	log('  Add the domain in Resend (Domains → Add Domain) and copy every DNS record, including apex MX.');
+	log('  https://resend.com/api-keys で送信・ドメイン確認用のAPIキーを作成してください。');
+	log('  Resendでは送信用DNSだけを追加します。Receivingやapex MXは追加しません。');
 
 	let apiKey = '';
 	if (stdinStream.isTTY && !args.yes) {
-		apiKey = await promptSecret('Resend API key (starts with re_, blank to skip)');
+		apiKey = await promptSecret('Resend APIキー（re_で始まる値。空欄なら後で設定）');
 	} else {
-		warn('Skipped API key prompt. Set RESEND_API_KEY later with wrangler secret put.');
+		warn('APIキー入力を省略しました。後で`wrangler secret put RESEND_API_KEY`を実行してください。');
 	}
 
 	if (!apiKey) {
@@ -916,7 +762,7 @@ async function setupResend(domain) {
 	}
 
 	if (!apiKey.startsWith('re_')) {
-		warn('That does not look like a Resend key (usually starts with re_). Storing it anyway.');
+		warn('Resend APIキーは通常re_で始まります。入力値はそのまま保存します。');
 	}
 
 	putSecret('RESEND_API_KEY', apiKey);
@@ -924,39 +770,39 @@ async function setupResend(domain) {
 	try {
 		const domains = await listResendDomains(apiKey);
 		if (domains.length === 0) {
-			warn('This key sees no domains yet. Add one in the Resend dashboard before going live.');
+			warn('このキーで確認できるドメインがありません。公開前にResendへドメインを追加してください。');
 			return { apiKey, webhookSecret: '', domainOk: false };
 		}
-		log('  Resend domains on this key:');
+		log('  このキーで確認できるResendドメイン:');
 		for (const item of domains) {
-			const receiving = item.capabilities?.receiving === 'enabled' ? 'receive on' : 'receive off';
+			const receiving = item.capabilities?.receiving === 'enabled' ? '受信ON' : '受信OFF';
 			log(`    • ${item.name}  ${c.dim(`${item.status}, ${receiving}`)}`);
 		}
 		const match = domains.find((item) => item.name?.toLowerCase() === domain);
 		if (!match) {
-			warn(`${domain} is not on this Resend account yet. Add it, then finish DNS.`);
+			warn(`${domain}はまだResendにありません。追加後、送信用DNSを設定してください。`);
 			return { apiKey, webhookSecret: '', domainOk: false };
 		}
-		ok(`${domain} is in Resend (${match.status})`);
-		if (match.capabilities?.receiving !== 'enabled') {
-			warn('Enable sending and receiving on the domain in Resend or inbound mail will not arrive.');
+		ok(`${domain}をResendで確認しました（${match.status}）`);
+		if (match.capabilities?.receiving === 'enabled') {
+			warn('Resend Receivingを無効にしてください。受信はCloudflare Email Routingを使います。');
 		}
 		return { apiKey, webhookSecret: '', domainOk: match.status === 'verified' };
 	} catch (error) {
-		warn(`Could not list Resend domains: ${error.message}`);
+		warn(`Resendのドメイン一覧を取得できませんでした: ${error.message}`);
 		return { apiKey, webhookSecret: '', domainOk: false };
 	}
 }
 
 function migrate(local, remote) {
-	const databaseName = jsoncString(readWrangler(), 'database_name') || 'quickmail';
+	const databaseName = jsoncString(readWrangler(), 'database_name') || 'quickmail-ja';
 	if (local) {
 		wrangler(['d1', 'migrations', 'apply', databaseName, '--local'], { inherit: true });
-		ok('local D1 migrations applied');
+		ok('ローカルD1へマイグレーションを適用しました');
 	}
 	if (remote) {
 		wrangler(['d1', 'migrations', 'apply', databaseName, '--remote'], { inherit: true });
-		ok('remote D1 migrations applied');
+		ok('リモートD1へマイグレーションを適用しました');
 	}
 }
 
@@ -968,22 +814,12 @@ function parseDeployUrl(text) {
 }
 
 function deploy() {
-	if (hasBun()) {
-		const result = run(bunBin(), ['run', 'deploy'], { inherit: true, allowFail: true });
-		return { ok: result.status === 0, text: '' };
-	}
-	const result = run('npm', ['run', 'deploy'], { inherit: true, allowFail: true });
+	const result = run(bunBin(), ['run', 'deploy'], { inherit: true, allowFail: true });
 	return { ok: result.status === 0, text: '' };
 }
 
 function deployCaptured() {
-	if (hasBun()) {
-		const result = run(bunBin(), ['run', 'deploy'], { allowFail: true });
-		const text = `${result.stdout}\n${result.stderr}`;
-		if (text.trim()) console.log(text);
-		return { ok: result.status === 0, text };
-	}
-	const result = run('npm', ['run', 'deploy'], { allowFail: true });
+	const result = run(bunBin(), ['run', 'deploy'], { allowFail: true });
 	const text = `${result.stdout}\n${result.stderr}`;
 	if (text.trim()) console.log(text);
 	return { ok: result.status === 0, text };
@@ -995,194 +831,175 @@ async function maybeCreateWebhook(apiKey, publicUrl) {
 	const existing = await listResendWebhooks(apiKey);
 	const already = existing.find((hook) => hook.endpoint === endpoint);
 	if (already) {
-		warn(`Resend already has a webhook at ${endpoint}. The signing secret is only shown once — keep the existing RESEND_WEBHOOK_SECRET.`);
+		warn(`${endpoint}はResendに登録済みです。既存のRESEND_WEBHOOK_SECRETを維持してください。`);
 		return '';
 	}
-	if (!(await confirm(`Create Resend webhook at ${endpoint}?`, true))) return '';
+	if (!(await confirm(`${endpoint}をResend Webhookへ登録しますか？`, true))) return '';
 	const created = await createResendWebhook(apiKey, endpoint);
 	const secret = created?.signing_secret ?? created?.svix_secret ?? '';
 	if (!secret) {
-		warn('Webhook created but no signing secret in the response. Copy it from the Resend dashboard.');
+		warn('Webhookを作成しましたが署名シークレットを取得できませんでした。Resend画面から保存してください。');
 		return '';
 	}
 	putSecret('RESEND_WEBHOOK_SECRET', secret);
-	log(`  ${c.dim('Signing secret stored. It is not shown again.')}`);
+	log(`  ${c.dim('署名シークレットを保存しました。値は再表示しません。')}`);
 	return secret;
 }
 
 function printNextSteps(state) {
-	log(`\n${c.bold('Next')}`);
-	const app = state.publicUrl ? `${state.publicUrl}/setup` : 'the deployed URL /setup (or http://localhost:5173/setup after bun run dev)';
-
-	if (state.provider === 'cloudflare') {
-		if (state.useAddresses && state.deployed) {
-			log(`  1. Confirm catch-all: Email Routing → ${state.domain} → Catch-all → Send to a Worker → ${state.workerName}.`);
-			log('     Deploy tried to attach `*@' + state.domain + '` via wrangler `addresses`. If mail never arrives, set that catch-all in the dashboard.');
-		} else {
-			log(`  1. Catch-all → Worker (CLI cannot set this to a Worker on older Wrangler):`);
-			log('     https://dash.cloudflare.com/?to=/:account/email-service/routing');
-			log(`     Enable Catch-all → Send to a Worker → ${state.workerName}.`);
-		}
-		log('     The dashboard may ask you to verify a personal destination first. Do not forward production mail there.');
-		log(`  2. Open ${app} and create the admin (name, local-part, password).`);
-		log('  3. Send yourself a message from another account. Inbound only hits a deployed Worker — not vite dev.');
-	} else {
-		let n = 1;
-		if (!state.resendDomainOk) {
-			log(`  ${n++}. In Resend, add ${state.domain} and every DNS record they show, including apex MX. Enable sending and receiving.`);
-		}
-		if (!state.webhookSecret && state.publicUrl) {
-			log(`  ${n++}. Create a webhook at https://resend.com/webhooks → ${state.publicUrl}/api/webhooks/resend`);
-			log('     Events: received, sent, delivered, bounced, complained, delivery_delayed, failed.');
-			log('     Then: bunx wrangler secret put RESEND_WEBHOOK_SECRET && bun run deploy');
-		} else if (!state.publicUrl) {
-			log(`  ${n++}. Deploy, then create the Resend webhook pointing at https://<worker>/api/webhooks/resend`);
-			log('     Save the signing secret (shown once) and wrangler secret put RESEND_WEBHOOK_SECRET.');
-		}
-		log(`  ${n++}. Open ${app} and create the admin (name, local-part, password).`);
-		log('  Local inbound needs a tunnel (cloudflared) — production uses the public Worker URL.');
+	log(`\n${c.bold('次に行うこと')}`);
+	const app = state.publicUrl ? `${state.publicUrl}/setup` : 'デプロイ後のURLの/setup';
+	let n = 1;
+	log(`  ${n++}. Cloudflare Email RoutingでCatch-all → Send to a Worker → ${state.workerName}を選択します。`);
+	log('     apex MXはCloudflareの値だけにします。Resendの受信用MXは追加しません。');
+	if (!state.resendDomainOk) {
+		log(`  ${n++}. Resendへ${state.domain}を追加し、送信用DNSだけを設定します。Receivingとapex MXは追加しません。`);
 	}
+	if (!state.webhookSecret && state.publicUrl) {
+		log(`  ${n++}. https://resend.com/webhooks で${state.publicUrl}/api/webhooks/resendを登録します。`);
+		log('     イベント: sent, delivered, bounced, complained, delivery_delayed, failed');
+		log('     その後: bunx wrangler secret put RESEND_WEBHOOK_SECRET && bun run deploy');
+	} else if (!state.publicUrl) {
+		log(`  ${n++}. デプロイ後、https://<worker>/api/webhooks/resendをResend Webhookへ登録します。`);
+		log('     1回だけ表示される署名シークレットをWorkerシークレットへ保存します。');
+	}
+	log(`  ${n++}. ${app}を開き、セットアップキーで最初の管理者を作成します。`);
+	log('  受信メールはデプロイ済みWorkerだけに届きます。vite devには届きません。');
 
-	log(`\n  ${c.dim('wrangler.jsonc now has a real D1 id. Do not commit that back to the public template.')}`);
+	log(`\n  ${c.dim('wrangler.jsoncとpackage.jsonには環境固有値が入る場合があります。公開テンプレートへコミットしないでください。')}`);
 	if (state.publicUrl) log(`\n  ${c.green(state.publicUrl)}`);
 }
 
 async function main() {
 	if (!stdinStream.isTTY && !args.yes) {
-		throw new Error('Non-interactive shells need --yes and --domain. See --help.');
+		throw new Error('対話できない環境では--yesと--domainが必要です。--helpを確認してください。');
 	}
 	if (args.yes && !args.domain) {
-		throw new Error('--yes requires --domain.');
+		throw new Error('--yesを使う場合は--domainが必要です。');
 	}
 
-	log(`\n${c.bold('QuickMail setup')}`);
-	log(c.dim('  A mailbox on your domain, on Cloudflare.\n'));
+	log(`\n${c.bold('QuickMail-ja セットアップ')}`);
+	log(c.dim('  Cloudflare上に独自ドメインのメール環境を作成します。\n'));
 
-	const total = 8;
+	const total = 9;
 
-	section(1, total, 'Tools');
+	section(1, total, '実行環境');
 	await ensureRuntime();
 	installDeps();
 
-	section(2, total, 'Cloudflare login');
+	section(2, total, 'Cloudflareログイン');
 	await ensureLogin();
 
-	section(3, total, 'Domain and provider');
+	section(3, total, 'ドメインと送信サービス');
 	const domain = await askDomain();
 	ok(domain);
-	const provider = await askProvider();
-	ok(provider === 'cloudflare' ? 'Cloudflare Email' : 'Resend');
+	ok('受信: Cloudflare Email Routing');
+	ok('Resend（送信）');
 
-	const wranglerVer = await ensureWrangler(provider === 'cloudflare');
+	await ensureWrangler();
 
 	let source = readWrangler();
-	const workerName = await askWorkerName(jsoncString(source, 'name') || 'quickmail');
+	const workerName = await askWorkerName(jsoncString(source, 'name') || 'quickmail-ja');
 	const hostname = await askHostname(domain);
-	if (hostname) ok(`UI hostname ${hostname}`);
+	if (hostname) ok(`Web UIホスト名: ${hostname}`);
 
-	section(4, total, 'D1 and R2');
+	section(4, total, 'D1とR2');
 	const databaseName = await askResourceName(
-		'D1 database name (e.g. quickmail)',
-		jsoncString(source, 'database_name') || 'quickmail',
+		'D1データベース名（例: quickmail-ja）',
+		jsoncString(source, 'database_name') || 'quickmail-ja',
 		args.d1Name,
 		isWorkerName,
-		'Use lowercase letters, numbers, and hyphens.'
+		'半角小文字、数字、ハイフンを使用してください。'
 	);
 	const bucketName = await askResourceName(
-		'R2 bucket name (e.g. quickmail-attachments)',
-		jsoncString(source, 'bucket_name') || 'quickmail-attachments',
+		'R2バケット名（例: quickmail-ja-attachments）',
+		jsoncString(source, 'bucket_name') || 'quickmail-ja-attachments',
 		args.r2Name,
 		isR2BucketName,
-		'3–63 characters, lowercase letters, numbers, and hyphens.'
+		'3〜63文字の半角小文字、数字、ハイフンを使用してください。'
 	);
 	ok(`D1 ${databaseName}`);
 	ok(`R2 ${bucketName}`);
 	const databaseId = await ensureD1(databaseName);
 	ensureR2(bucketName);
 
-	section(5, total, 'Config');
+	section(5, total, '設定ファイル');
 	source = readWrangler();
-	source = setFirstString(source, 'name', workerName);
-	source = setFirstString(source, 'database_name', databaseName);
-	source = setFirstString(source, 'database_id', databaseId);
-	source = setFirstString(source, 'bucket_name', bucketName);
-	source = setVars(source, {
-		provider,
-		domains: provider === 'cloudflare' ? domain : ''
+	source = configureSetupTemplate(source, {
+		workerName,
+		databaseName,
+		databaseId,
+		bucketName,
+		domain,
+		hostname
 	});
-	if (hostname) source = setRoutes(source, hostname);
-	if (provider === 'cloudflare' && versionGte(wranglerVer, ADDRESSES_WRANGLER)) {
-		source = setAddresses(source, [`*@${domain}`]);
-	} else {
-		source = removeAddresses(source);
-	}
 	writeWrangler(source);
-	ok('updated wrangler.jsonc');
+	ok('wrangler.jsoncを更新しました');
 	setPackageMigrateScripts(databaseName);
-	if (databaseName !== 'quickmail') ok(`updated package.json migrate scripts for ${databaseName}`);
+	if (databaseName !== 'quickmail-ja') ok(`package.jsonの移行先を${databaseName}へ更新しました`);
 
 	const devVars = {
-		EMAIL_PROVIDER: provider
+		EMAIL_PROVIDER: 'resend',
+		INBOUND_EMAIL_PROVIDER: 'cloudflare',
+		CLOUDFLARE_MAIL_DOMAINS: domain
 	};
-	if (provider === 'cloudflare') {
-		devVars.CLOUDFLARE_MAIL_DOMAINS = domain;
-	}
 	upsertEnvFile(devVarsFile, devVars, { fromExample: true });
-	ok('updated .dev.vars');
+	ok('.dev.varsを更新しました');
 
-	section(6, total, 'Provider');
-	let useAddresses = false;
+	section(6, total, 'セットアップキー');
+	const bootstrapPlan = await chooseBootstrapSecret();
+	upsertEnvFile(devVarsFile, bootstrapPlan.localUpdates, { fromExample: true });
+	putSecret('BOOTSTRAP_SECRET', bootstrapPlan.input);
+	log(`  ${c.bold('最初の管理者作成に使うセットアップキー（この画面での表示は1回だけです）')}`);
+	log(`  ${c.bold(bootstrapPlan.displayOnce)}`);
+	log(`  ${c.dim('安全な場所へ保存し、管理者作成後は破棄してください。')}`);
+
+	section(7, total, 'メール経路');
 	let resend = { apiKey: '', webhookSecret: '', domainOk: false };
-	if (provider === 'cloudflare') {
-		const cf = await setupCloudflare(domain, workerName, wranglerVer);
-		useAddresses = cf.useAddresses;
-	} else {
-		resend = await setupResend(domain);
-		if (resend.apiKey) {
-			upsertEnvFile(devVarsFile, { RESEND_API_KEY: resend.apiKey });
-			ok('wrote RESEND_API_KEY to .dev.vars');
-		}
+	await setupCloudflare(domain);
+	resend = await setupResend(domain);
+	if (resend.apiKey) {
+		upsertEnvFile(devVarsFile, { RESEND_API_KEY: resend.apiKey });
+		ok('RESEND_API_KEYを.dev.varsへ保存しました');
 	}
 
-	section(7, total, 'Database');
+	section(8, total, 'データベース');
 	migrate(true, false);
 
-	section(8, total, 'Deploy');
+	section(9, total, 'デプロイ');
 	let deployed = false;
 	let publicUrl = hostname ? `https://${hostname}` : null;
-	const shouldDeploy = args.skipDeploy ? false : await confirm('Deploy now?', true);
+	const shouldDeploy = args.skipDeploy ? false : await confirm('今すぐデプロイしますか？', true);
 	if (shouldDeploy) {
 		migrate(false, true);
 		const result = deployCaptured();
 		deployed = result.ok;
 		const parsed = parseDeployUrl(result.text);
 		if (parsed) publicUrl = parsed;
-		if (deployed) ok('deployed');
-		else warn('Deploy failed. Fix the error above, then bun run deploy.');
+		if (deployed) ok('デプロイしました');
+		else warn('デプロイに失敗しました。表示されたエラーを修正し、`bun run deploy`を実行してください。');
 
-		if (deployed && provider === 'resend' && resend.apiKey && publicUrl) {
+		if (deployed && resend.apiKey && publicUrl) {
 			try {
 				const secret = await maybeCreateWebhook(resend.apiKey, publicUrl);
 				if (secret) {
 					resend.webhookSecret = secret;
 					upsertEnvFile(devVarsFile, { RESEND_WEBHOOK_SECRET: secret });
-					log(`  ${c.dim('Redeploying so the Worker has RESEND_WEBHOOK_SECRET…')}`);
+					log(`  ${c.dim('RESEND_WEBHOOK_SECRETを反映するため再デプロイしています…')}`);
 					const again = deploy();
-					if (!again.ok) warn('Second deploy failed. Run bun run deploy after checking the secret.');
+					if (!again.ok) warn('再デプロイに失敗しました。シークレットを確認後、`bun run deploy`を実行してください。');
 				}
 			} catch (error) {
-				warn(`Webhook setup failed: ${error.message}`);
+				warn(`Webhook設定に失敗しました: ${error.message}`);
 			}
 		}
 	} else {
-		log(`  ${c.dim('Skipped deploy. bun run db:migrate:remote && bun run deploy when you are ready.')}`);
+		log(`  ${c.dim('デプロイを省略しました。準備後に`bun run db:migrate:remote`と`bun run deploy`を実行してください。')}`);
 	}
 
 	printNextSteps({
-		provider,
 		domain,
 		workerName,
-		useAddresses,
 		deployed,
 		publicUrl,
 		resendDomainOk: resend.domainOk,

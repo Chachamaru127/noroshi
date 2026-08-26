@@ -125,11 +125,28 @@ describe('new-mail push payloads', () => {
 
 		assert.deepEqual(payload, {
 			title: 'Project update',
-			body: 'From Ada <ada@example.com>',
+			body: '差出人: Ada <ada@example.com>',
 			tag: 'quickmail-mail/id',
 			url: '/mail/mail%2Fid'
 		});
 		assert.equal(JSON.stringify(payload).includes('message body'), false);
+	});
+
+	test('uses Japanese notification fallbacks without changing message content', () => {
+		assert.deepEqual(
+			buildNewMailPayload({
+				emailId: 'mail-2',
+				userId: 'user-1',
+				from: '',
+				subject: '(no subject)'
+			}),
+			{
+				title: '（件名なし）',
+				body: '差出人: 不明な差出人',
+				tag: 'quickmail-mail-2',
+				url: '/mail/mail-2'
+			}
+		);
 	});
 
 	test('recognizes expired subscription responses', () => {

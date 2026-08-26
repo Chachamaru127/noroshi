@@ -83,7 +83,13 @@ export const DELETE: RequestHandler = async ({ params, locals, platform }) => {
 	}
 
 	const ids = await expandToThreads(db, locals.user.id, [params.id!]);
-	const removed = await deleteEmailsPermanently(db, platform?.env.ATTACHMENTS, locals.user.id, ids);
+	const removed = await deleteEmailsPermanently(
+		db,
+		platform?.env.ATTACHMENTS,
+		locals.user.id,
+		ids,
+		{ onlyTrashed: true }
+	);
 
 	if (removed === 0) {
 		return json({ error: 'Not found' }, { status: 404 });

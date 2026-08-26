@@ -3,7 +3,7 @@
 
 	let {
 		html = $bindable(''),
-		placeholder = 'Write your message…',
+		placeholder = 'メール本文を入力…',
 		minHeight = 240,
 		embedded = false,
 		fill = false,
@@ -26,10 +26,6 @@
 		html = editor?.innerHTML ?? '';
 	}
 
-	function handleInput() {
-		html = editor?.innerHTML ?? '';
-	}
-
 	function handlePaste(event: ClipboardEvent) {
 		event.preventDefault();
 		const text = event.clipboardData?.getData('text/plain') ?? '';
@@ -38,16 +34,16 @@
 	}
 
 	const tools = [
-		{ icon: 'bold', command: 'bold', label: 'Bold' },
-		{ icon: 'italic', command: 'italic', label: 'Italic' },
-		{ icon: 'underline', command: 'underline', label: 'Underline' },
-		{ icon: 'list-unordered', command: 'insertUnorderedList', label: 'List' },
-		{ icon: 'link', command: 'createLink', label: 'Link', prompt: true }
+		{ icon: 'bold', command: 'bold', label: '太字' },
+		{ icon: 'italic', command: 'italic', label: '斜体' },
+		{ icon: 'underline', command: 'underline', label: '下線' },
+		{ icon: 'list-unordered', command: 'insertUnorderedList', label: '箇条書き' },
+		{ icon: 'link', command: 'createLink', label: 'リンク', prompt: true }
 	] as const;
 
 	function handleTool(tool: (typeof tools)[number]) {
 		if ('prompt' in tool && tool.prompt) {
-			const url = window.prompt('Link URL');
+			const url = window.prompt('リンクURL');
 			if (url) exec('createLink', url);
 			return;
 		}
@@ -77,13 +73,14 @@
 
 	<div
 		bind:this={editor}
+		bind:innerHTML={html}
 		contenteditable="true"
 		role="textbox"
+		aria-label="メール本文"
 		aria-multiline="true"
 		class="editor prose prose-sm max-w-none px-4 py-3 outline-none"
 		style:min-height={fill ? undefined : `${minHeight}px`}
 		data-placeholder={placeholder}
-		oninput={handleInput}
 		onpaste={handlePaste}
 	></div>
 </div>

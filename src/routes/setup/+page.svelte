@@ -10,7 +10,8 @@
 		noDomainsBody,
 		noDomainsTitle,
 		providerName,
-		receivingHint
+		receivingHint,
+		safeProviderError
 	} from '$lib/provider-copy';
 	import type { PageData } from './$types';
 
@@ -23,17 +24,33 @@
 	let localPart = $state('');
 	let password = $state('');
 	let confirm = $state('');
+	let bootstrapSecret = $state('');
 	let error = $state('');
 	let submitting = $state(false);
+
+	function safeSetupError(value: unknown): string {
+		if (typeof value !== 'string') return 'アカウントを作成できませんでした。';
+		if (value.includes('Setup already completed')) return '初期設定はすでに完了しています。';
+		if (value.includes('Invalid setup key')) return 'セットアップキーが正しくありません。';
+		if (value.includes('Setup protection is not configured')) return 'セットアップ保護が設定されていません。';
+		if (value.includes('Choose a domain first')) return 'ドメインを選択してください。';
+		if (value.includes('Your name is required')) return '名前を入力してください。';
+		if (value.includes('Choose an address')) return 'アドレスを選択してください。';
+		if (value.includes('Password must be at least 8 characters')) return 'パスワードは8文字以上で入力してください。';
+		if (value.includes('Database unavailable')) return 'データベースを利用できません。';
+		return 'アカウントを作成できませんでした。';
+	}
 
 	const chosen = $derived(data.available.find((domain) => domain.id === selected[0]) ?? null);
 	const cleanLocal = $derived(localPart.trim().toLowerCase().replace(/@.*$/, ''));
 	// Once they type a name, offer the obvious mailbox for it.
-	const suggestion = $derived(name.trim().split(/\s+/)[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') ?? '');
+	const suggestion = $derived(
+		name.trim().split(/\s+/)[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'info'
+	);
 
 	function goToDetails() {
 		if (!chosen) {
-			error = 'Pick a domain to continue';
+			error = '続行するにはドメインを選択してください。';
 			return;
 		}
 		error = '';
@@ -45,11 +62,11 @@
 		error = '';
 
 		if (password.length < 8) {
-			error = 'Password must be at least 8 characters';
+			error = 'パスワードは8文字以上で入力してください。';
 			return;
 		}
 		if (password !== confirm) {
-			error = 'Passwords do not match';
+			error = 'パスワードが一致しません。';
 			return;
 		}
 
@@ -62,18 +79,19 @@
 					domainId: chosen?.id,
 					localPart: cleanLocal || suggestion,
 					name,
-					password
+					password,
+					bootstrapSecret
 				})
 			});
 			const body = await res.json();
 			if (!res.ok) {
-				error = body.error ?? 'Setup failed';
+				error = safeSetupError(body.error);
 				return;
 			}
 			// The endpoint signs us in, so go straight to the inbox.
 			window.location.href = body.signedIn ? '/inbox' : '/login';
 		} catch {
-			error = 'Network error';
+			error = 'ネットワークエラーが発生しました。';
 		} finally {
 			submitting = false;
 		}
@@ -81,19 +99,19 @@
 </script>
 
 <svelte:head>
-	<title>Get started — Mail</title>
+		<title>初期設定 — QuickMail-ja</title>
 </svelte:head>
 
 <WizardShell
-	title={step === 1 ? 'Choose your domain' : 'Create your account'}
+		title={step === 1 ? 'ドメインを選択' : 'アカウントを作成'}
 	subtitle={step === 1
 		? domainPickerSubtitle(data.providerKind)
-		: `You'll send and receive on ${chosen?.name}.`}
-	steps={['Domain', 'Account']}
+			: `${chosen?.name}で送受信します。`}
+	steps={['ドメイン', 'アカウント']}
 	current={step}
 	partner={step === 1}
 	partnerKind={data.providerKind}
-	partnerCaption={`Mail + ${providerName(data.providerKind)}`}
+	partnerCaption={`QuickMail-ja + ${providerName(data.providerKind)}`}
 >
 	{#if step === 1}
 		{#if !data.providerConfigured}
@@ -101,7 +119,7 @@
 				<Icon name="key-2-line" size={18} />
 				<div>
 					<p class="notice-title">{missingProviderTitle(data.providerKind)}</p>
-					<p class="notice-body">{data.loadError}</p>
+					<p class="notice-body">{safeProviderError(data.loadError)}</p>
 					<pre class="snippet">{missingProviderHint(data.providerKind)}</pre>
 				</div>
 			</div>
@@ -109,8 +127,8 @@
 			<div class="surface-lg notice notice-warn">
 				<Icon name="error-warning-line" size={18} />
 				<div>
-					<p class="notice-title">Couldn't load your domains</p>
-					<p class="notice-body">{data.loadError}</p>
+						<p class="notice-title">ドメインを読み込めませんでした</p>
+						<p class="notice-body">{safeProviderError(data.loadError)}</p>
 				</div>
 			</div>
 		{:else if data.available.length === 0}
@@ -129,18 +147,28 @@
 			{#if error}<p class="error">{error}</p>{/if}
 
 			<button type="button" class="btn-primary w-full py-2.5 mt-4" onclick={goToDetails}>
-				Continue{chosen ? ` with ${chosen.name}` : ''}
+					続行{chosen ? `（${chosen.name}）` : ''}
 			</button>
 		{/if}
 	{:else}
 		<form class="surface-lg details-card" onsubmit={finish}>
-			<label class="field-title" for="name">Your name</label>
+			<label class="field-title" for="bootstrap-secret">セットアップキー</label>
+			<input
+				id="bootstrap-secret"
+				type="password"
+				bind:value={bootstrapSecret}
+				required
+				autocomplete="off"
+				class="text-input"
+			/>
+
+			<label class="field-title mt-4" for="name">名前</label>
 			<input
 				id="name"
 				type="text"
 				bind:value={name}
 				required
-				placeholder="Divin"
+				placeholder="山田太郎"
 				class="text-input"
 			/>
 
@@ -149,17 +177,17 @@
 					bind:localPart
 					domainId={chosen?.id ?? ''}
 					domains={chosen ? [chosen] : []}
-					placeholder={suggestion || 'you'}
-					label="Your address"
+						placeholder={suggestion}
+						label="メールアドレス"
 				/>
 			</div>
 
 			<p class="preview">
-				This is your inbox <em>and</em> your login —
-				<strong>{(cleanLocal || suggestion || 'you') + '@' + (chosen?.name ?? '')}</strong>
+				このアドレスが受信トレイとログインIDになります —
+				<strong>{(cleanLocal || suggestion) + '@' + (chosen?.name ?? '')}</strong>
 			</p>
 
-			<label class="field-title mt-4" for="password">Password</label>
+			<label class="field-title mt-4" for="password">パスワード</label>
 			<input
 				id="password"
 				type="password"
@@ -170,7 +198,7 @@
 				class="text-input"
 			/>
 
-			<label class="field-title mt-4" for="confirm">Confirm password</label>
+			<label class="field-title mt-4" for="confirm">パスワード（確認）</label>
 			<input
 				id="confirm"
 				type="password"
@@ -192,10 +220,10 @@
 
 			<div class="actions">
 				<button type="button" class="btn-ghost" onclick={() => (step = 1)}>
-					<Icon name="arrow-left-line" size={16} /> Back
+					<Icon name="arrow-left-line" size={16} /> 戻る
 				</button>
 				<button type="submit" class="btn-primary flex-1 py-2.5" disabled={submitting}>
-					{submitting ? 'Setting up…' : 'Create account'}
+					{submitting ? '設定中…' : 'アカウントを作成'}
 				</button>
 			</div>
 		</form>

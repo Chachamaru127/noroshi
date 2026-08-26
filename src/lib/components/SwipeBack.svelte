@@ -4,9 +4,11 @@
 
 	let {
 		href,
+		useHistoryBack = true,
 		children
 	}: {
 		href: string;
+		useHistoryBack?: boolean;
 		children: import('svelte').Snippet;
 	} = $props();
 
@@ -22,7 +24,7 @@
 
 	function goBack() {
 		requestSkipViewTransition();
-		if (hasInAppHistory()) {
+		if (useHistoryBack && hasInAppHistory()) {
 			history.back();
 			return;
 		}

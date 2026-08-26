@@ -13,12 +13,38 @@ export function providerName(kind: EmailProviderKind): string {
 	}
 }
 
+/** Render only known provider states; never leak a provider's raw status to the UI. */
+export function domainStatusLabel(status: unknown): string {
+	switch (status) {
+		case 'verified':
+			return '確認済み';
+		case 'pending':
+			return '確認待ち';
+		case 'missing':
+			return '見つかりません';
+		case 'failed':
+			return '確認失敗';
+		case 'not_started':
+			return '未開始';
+		case 'temporary_failure':
+			return '一時的なエラー';
+		case 'suspended':
+			return '停止中';
+		case 'deleted':
+			return '削除済み';
+		case 'unverified':
+			return '未確認';
+		default:
+			return '状態不明';
+	}
+}
+
 export function missingProviderTitle(kind: EmailProviderKind): string {
 	switch (kind) {
 		case 'resend':
-			return 'Resend API key missing';
+			return 'Resend APIキーが設定されていません';
 		case 'cloudflare':
-			return 'Cloudflare Email is not configured';
+			return 'Cloudflare Emailが設定されていません';
 		default: {
 			const _never: never = kind;
 			return _never;
@@ -42,9 +68,9 @@ export function missingProviderHint(kind: EmailProviderKind): string {
 export function noDomainsTitle(kind: EmailProviderKind): string {
 	switch (kind) {
 		case 'resend':
-			return 'No domains in this Resend account';
+			return 'このResendアカウントにドメインがありません';
 		case 'cloudflare':
-			return 'No domains in CLOUDFLARE_MAIL_DOMAINS';
+			return 'CLOUDFLARE_MAIL_DOMAINSにドメインがありません';
 		default: {
 			const _never: never = kind;
 			return _never;
@@ -55,9 +81,9 @@ export function noDomainsTitle(kind: EmailProviderKind): string {
 export function noDomainsBody(kind: EmailProviderKind): string {
 	switch (kind) {
 		case 'resend':
-			return 'Add and verify a domain at resend.com/domains, then reload this page.';
+			return 'resend.com/domainsで送信用ドメインを追加・認証し、Cloudflare Email Routingにも同じドメインを登録してから再読み込みしてください。';
 		case 'cloudflare':
-			return 'Onboard the domain in Cloudflare Email Service, then set CLOUDFLARE_MAIL_DOMAINS and reload.';
+			return 'Cloudflare Email Serviceでドメインを登録し、CLOUDFLARE_MAIL_DOMAINSを設定してから再読み込みしてください。';
 		default: {
 			const _never: never = kind;
 			return _never;
@@ -68,9 +94,9 @@ export function noDomainsBody(kind: EmailProviderKind): string {
 export function domainPickerSubtitle(kind: EmailProviderKind): string {
 	switch (kind) {
 		case 'resend':
-			return 'These are the domains your Resend account can send and receive on. Pick the one you want to use — you can add more later.';
+			return 'Resendで送信認証済み、かつCloudflare Email Routingで受信するドメインです。使用するドメインを選択してください。';
 		case 'cloudflare':
-			return 'These are the domains listed in CLOUDFLARE_MAIL_DOMAINS. Pick the one you want to use — you can add more later.';
+			return 'CLOUDFLARE_MAIL_DOMAINSに登録されたドメインです。使用するドメインを選択してください。後から追加もできます。';
 		default: {
 			const _never: never = kind;
 			return _never;
@@ -81,9 +107,9 @@ export function domainPickerSubtitle(kind: EmailProviderKind): string {
 export function onboardingSubtitle(kind: EmailProviderKind): string {
 	switch (kind) {
 		case 'resend':
-			return 'Pick the domains from your Resend account that you want in this dashboard.';
+			return 'Resendで送信し、Cloudflare Email Routingで受信するドメインを選択してください。';
 		case 'cloudflare':
-			return 'Pick the domains from CLOUDFLARE_MAIL_DOMAINS that you want in this dashboard.';
+			return 'このダッシュボードで使うドメインをCLOUDFLARE_MAIL_DOMAINSから選択してください。';
 		default: {
 			const _never: never = kind;
 			return _never;
@@ -94,12 +120,25 @@ export function onboardingSubtitle(kind: EmailProviderKind): string {
 export function receivingHint(kind: EmailProviderKind, domainName: string): string {
 	switch (kind) {
 		case 'resend':
-			return `Receiving isn't enabled on ${domainName} yet — you can send, but inbound mail won't arrive until you add the MX record in Resend.`;
+			return `${domainName}ではまだ受信が有効になっていません。Cloudflare Email RoutingのキャッチオールをこのWorkerに向けてください。Resend ReceivingやResendの受信用MXは追加しません。`;
 		case 'cloudflare':
-			return `Receiving isn't enabled on ${domainName} yet — point Email Routing's catch-all at this Worker.`;
+			return `${domainName}ではまだ受信が有効になっていません。Email RoutingのキャッチオールをこのWorkerに向けてください。`;
 		default: {
 			const _never: never = kind;
 			return _never;
 		}
 	}
+}
+
+/** Keep provider diagnostics out of the UI while preserving useful, known guidance. */
+export function safeProviderError(error: unknown): string {
+	if (typeof error !== 'string') return 'ドメインを読み込めませんでした。';
+	if (error.includes('Could not reach Resend')) {
+		return 'Resendに接続できませんでした。APIキーを確認してください。';
+	}
+	if (error.includes('Could not load Cloudflare Email domains')) {
+		return 'Cloudflare Emailのドメインを読み込めませんでした。設定を確認してください。';
+	}
+	if (error.includes('Database unavailable')) return 'データベースを利用できません。';
+	return 'ドメインを読み込めませんでした。';
 }

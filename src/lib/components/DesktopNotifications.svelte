@@ -32,18 +32,18 @@
 	let pushError = $state('');
 	const pushStatusLabel = $derived(
 		({
-			loading: 'Checking',
-			unsupported: 'Unsupported',
-			unconfigured: 'Setup required',
-			denied: 'Blocked',
-			disabled: 'Off',
-			enabled: 'On',
-			error: 'Error'
+			loading: '確認中',
+			unsupported: '非対応',
+			unconfigured: '設定が必要',
+			denied: 'ブロック中',
+			disabled: 'オフ',
+			enabled: 'オン',
+			error: 'エラー'
 		} satisfies Record<PushState, string>)[pushState]
 	);
 
 	function pushErrorMessage(error: unknown): string {
-		return error instanceof Error ? error.message : 'Could not update notifications';
+		return '通知を更新できませんでした。ブラウザーの設定を確認してください。';
 	}
 
 	async function refreshPushState() {
@@ -93,8 +93,8 @@
 				pushState = permission === 'denied' ? 'denied' : 'disabled';
 				pushError =
 					permission === 'denied'
-						? 'Notifications are blocked in this browser. Allow them in site settings.'
-						: 'Notification permission was not granted.';
+						? 'このブラウザーでは通知がブロックされています。サイトの設定で許可してください。'
+						: '通知の許可が得られませんでした。';
 				return;
 			}
 
@@ -117,7 +117,7 @@
 			if (subscription) {
 				await deletePushSubscription(subscription);
 				const removed = await subscription.unsubscribe();
-				if (!removed) throw new Error('The browser could not remove its push subscription');
+				if (!removed) throw new Error('ブラウザーから通知登録を解除できませんでした。');
 			}
 			pushState = 'disabled';
 		} catch (error) {
@@ -132,8 +132,8 @@
 <section class="surface-lg card">
 	<div class="card-head">
 		<div>
-			<h2><Icon name="notification-3-line" size={18} /> Notifications</h2>
-			<p class="section-description">Get an alert when new mail arrives, even after closing the app.</p>
+			<h2><Icon name="notification-3-line" size={18} /> 通知</h2>
+			<p class="section-description">アプリを閉じた後でも、新着メールを通知します。</p>
 		</div>
 		<span class="badge" class:notification-on={pushState === 'enabled'}>{pushStatusLabel}</span>
 	</div>
@@ -141,24 +141,24 @@
 	{#if pushState === 'unconfigured'}
 		<p class="hint">
 			<Icon name="information-line" size={14} />
-			The server needs VAPID keys before notifications can be enabled.
+			通知を有効にするには、サーバーにVAPIDキーが必要です。
 		</p>
 	{:else if pushState === 'unsupported'}
 		<p class="hint">
 			<Icon name="information-line" size={14} />
-			This browser does not support Web Push notifications.
+			このブラウザーはWeb Push通知に対応していません。
 		</p>
 	{:else if pushState === 'denied'}
 		<p class="hint">
 			<Icon name="information-line" size={14} />
-			Notifications are blocked. Allow them for this site in your browser settings.
+			通知がブロックされています。ブラウザーの設定でこのサイトの通知を許可してください。
 		</p>
 	{:else}
 		<div class="notification-controls">
 			<p class="hint notification-hint">
 				{pushState === 'enabled'
-					? 'This browser will receive notifications for your account.'
-					: 'Permission is requested only when you enable notifications.'}
+					? 'このブラウザーでアカウントの通知を受け取ります。'
+					: '通知を有効にするときだけ許可を求めます。'}
 			</p>
 			{#if pushState === 'enabled'}
 				<button
@@ -167,7 +167,7 @@
 					disabled={pushBusy}
 					onclick={disableDesktopNotifications}
 				>
-					{pushBusy ? 'Disabling…' : 'Disable'}
+					{pushBusy ? '無効化中…' : '無効にする'}
 				</button>
 			{:else}
 				<button
@@ -176,7 +176,7 @@
 					disabled={pushBusy || pushState === 'loading'}
 					onclick={enableDesktopNotifications}
 				>
-					{pushBusy ? 'Enabling…' : pushState === 'loading' ? 'Checking…' : 'Enable'}
+					{pushBusy ? '有効化中…' : pushState === 'loading' ? '確認中…' : '有効にする'}
 				</button>
 			{/if}
 		</div>

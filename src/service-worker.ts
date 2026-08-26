@@ -61,8 +61,8 @@ worker.addEventListener('push', (event: PushEvent) => {
 	event.waitUntil(
 		(async () => {
 			if (!(await currentAccountOwnsSubscription())) return;
-			await worker.registration.showNotification(stringValue(payload.title, 'New message'), {
-				body: stringValue(payload.body, 'You received a new email.'),
+			await worker.registration.showNotification(stringValue(payload.title, '新着メール'), {
+				body: stringValue(payload.body, '新着メールが届きました。'),
 				icon: '/icons/icon-192.png',
 				badge: '/icons/icon-192.png',
 				tag: stringValue(payload.tag, 'quickmail-new-message'),

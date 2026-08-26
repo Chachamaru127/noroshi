@@ -1,9 +1,29 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { authorizeApiRequest, authorizeMailAction } from './api-access';
+import { POST as createForwardingDestination } from '../../routes/api/forwarding/destinations/+server';
+import * as legacyForwardingRoute from '../../routes/api/forwarding/+server';
+import { authorizeApiRequest, authorizeMailAction, authorizeManualForward } from './api-access';
 import { parseScopes } from './api-tokens';
 
 describe('API key access', () => {
+	test('manual forward needs both read and send scopes while sessions stay allowed', () => {
+		assert.deepEqual(authorizeManualForward({ authMethod: 'session', scopes: [] }), { ok: true });
+		assert.equal(
+			authorizeManualForward({ authMethod: 'api_token', scopes: ['mail:read'] }).ok,
+			false
+		);
+		assert.equal(
+			authorizeManualForward({ authMethod: 'api_token', scopes: ['mail:send'] }).ok,
+			false
+		);
+		assert.deepEqual(
+			authorizeManualForward({
+				authMethod: 'api_token',
+				scopes: ['mail:read', 'mail:send']
+			}),
+			{ ok: true }
+		);
+	});
 	test('sessions are unrestricted', () => {
 		assert.deepEqual(
 			authorizeApiRequest({
@@ -152,6 +172,101 @@ describe('API key access', () => {
 			}),
 			{ ok: true }
 		);
+	});
+
+	test('forwarding settings require both mailbox scopes for API keys', () => {
+		assert.deepEqual(
+			authorizeApiRequest({
+				pathname: '/api/forwarding/destinations',
+				method: 'POST',
+				authMethod: 'session',
+				scopes: []
+			}),
+			{ ok: true }
+		);
+		assert.deepEqual(
+			authorizeApiRequest({
+				pathname: '/api/forwarding',
+				method: 'GET',
+				authMethod: 'api_token',
+				scopes: ['mail:read']
+			}),
+			{ ok: true }
+		);
+		assert.equal(
+			authorizeApiRequest({
+				pathname: '/api/forwarding/destinations',
+				method: 'POST',
+				authMethod: 'api_token',
+				scopes: ['mail:read']
+			}).ok,
+			false
+		);
+		assert.deepEqual(
+			authorizeApiRequest({
+				pathname: '/api/forwarding/destinations',
+				method: 'POST',
+				authMethod: 'api_token',
+				scopes: ['mail:read']
+			}),
+			{
+				ok: false,
+				status: 403,
+				error: 'This API key needs mail:read and mail:send.'
+			}
+		);
+		assert.equal(
+			authorizeApiRequest({
+				pathname: '/api/forwarding/rules/rule-1',
+				method: 'PATCH',
+				authMethod: 'api_token',
+				scopes: ['mail:send']
+			}).ok,
+			false
+		);
+		assert.deepEqual(
+			authorizeApiRequest({
+				pathname: '/api/forwarding/destinations',
+				method: 'POST',
+				authMethod: 'api_token',
+				scopes: ['mail:read', 'mail:send']
+			}),
+			{ ok: true }
+		);
+		assert.deepEqual(
+			authorizeApiRequest({
+				pathname: '/api/forwarding',
+				method: 'POST',
+				authMethod: 'api_token',
+				scopes: ['mail:read', 'mail:send']
+			}),
+			{
+				ok: false,
+				status: 403,
+				error: 'This API key cannot access that endpoint.'
+			}
+		);
+	});
+
+	test('forwarding creation is mounted only at the destinations route', async () => {
+		assert.equal('POST' in legacyForwardingRoute, false);
+		assert.equal(typeof createForwardingDestination, 'function');
+
+		const response = await createForwardingDestination({
+			request: new Request('https://quickmail.example/api/forwarding/destinations', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({})
+			}),
+			locals: { user: { id: 'user-1', name: 'Owner' } },
+			platform: { env: { DB: {} } },
+			url: new URL('https://quickmail.example/api/forwarding/destinations')
+		} as Parameters<typeof createForwardingDestination>[0]);
+
+		assert.equal(response.status, 400);
+		assert.deepEqual(await response.json(), {
+			error: 'Source address and destination are required'
+		});
 	});
 
 	test('mailbox flag actions need mail:read; destructive actions need both scopes', () => {

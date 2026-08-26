@@ -1,10 +1,13 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "quickmail",
+	"name": "quickmail-ja",
 	"main": ".svelte-kit/cloudflare/_worker.js",
 	"compatibility_date": "2025-06-01",
 	"compatibility_flags": ["nodejs_compat", "enable_nodejs_http_modules"],
 	"workers_dev": true,
+	"triggers": {
+		"crons": ["*/1 * * * *"]
+	},
 
 	// Your Cloudflare account is picked up from `wrangler login`. If you belong
 	// to more than one account, set CLOUDFLARE_ACCOUNT_ID in your environment
@@ -27,32 +30,25 @@
 	},
 
 	// Prefer `bun run setup` (or `bash scripts/setup.sh`) over editing this by hand.
-	// Mail provider is selected by EMAIL_PROVIDER (resend | cloudflare).
-	// Resend secrets (when EMAIL_PROVIDER=resend or unset):
+	// The first release uses Resend for outbound and Cloudflare Email Routing for inbound.
+	// Set CLOUDFLARE_MAIL_DOMAINS before deploy so the Worker accepts the domain.
+	// Setup and Resend secrets:
+	//   wrangler secret put BOOTSTRAP_SECRET
 	//   wrangler secret put RESEND_API_KEY
 	//   wrangler secret put RESEND_WEBHOOK_SECRET
-	// Cloudflare Email uses the send_email binding below plus CLOUDFLARE_MAIL_DOMAINS.
 	// Locally, put values in .dev.vars (copy .dev.vars.example).
 
 	"vars": {
 		"EMAIL_PROVIDER": "resend",
-		// Only used when EMAIL_PROVIDER=cloudflare. Comma-separated domains
-		// onboarded in Email Service / Email Routing.
+		"INBOUND_EMAIL_PROVIDER": "cloudflare",
+		// Comma-separated domains onboarded in Email Service / Email Routing.
 		"CLOUDFLARE_MAIL_DOMAINS": ""
 	},
-
-	"send_email": [
-		{
-			"name": "EMAIL",
-			"remote": true
-		}
-	],
 
 	"d1_databases": [
 		{
 			"binding": "DB",
-			"database_name": "quickmail",
-			// `bun run setup` fills this in, or: wrangler d1 create <name>
+			"database_name": "quickmail-ja",
 			"database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID",
 			"migrations_dir": "migrations"
 		}
@@ -61,8 +57,7 @@
 	"r2_buckets": [
 		{
 			"binding": "ATTACHMENTS",
-			// `bun run setup` creates this, or: wrangler r2 bucket create <name>
-			"bucket_name": "quickmail-attachments"
+			"bucket_name": "quickmail-ja-attachments"
 		}
 	],
 

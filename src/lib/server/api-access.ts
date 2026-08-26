@@ -9,6 +9,7 @@ type RouteRule = {
 	method: string;
 	match: (pathname: string) => boolean;
 	scopes: readonly ApiScope[];
+	allScopes?: boolean;
 };
 
 function isPrefix(pathname: string, prefix: string): boolean {
@@ -60,6 +61,29 @@ const BEARER_ROUTES: RouteRule[] = [
 		method: 'DELETE',
 		match: (pathname) => /^\/api\/mail\/[^/]+$/.test(pathname),
 		scopes: ['mail:send']
+	},
+	{
+		method: 'GET',
+		match: (pathname) => pathname === '/api/forwarding',
+		scopes: ['mail:read']
+	},
+	{
+		method: 'POST',
+		match: (pathname) => pathname === '/api/forwarding/destinations',
+		scopes: ['mail:read', 'mail:send'],
+		allScopes: true
+	},
+	{
+		method: 'PATCH',
+		match: (pathname) => /^\/api\/forwarding\/rules\/[^/]+$/.test(pathname),
+		scopes: ['mail:read', 'mail:send'],
+		allScopes: true
+	},
+	{
+		method: 'DELETE',
+		match: (pathname) => /^\/api\/forwarding\/rules\/[^/]+$/.test(pathname),
+		scopes: ['mail:read', 'mail:send'],
+		allScopes: true
 	},
 	{
 		method: 'GET',
@@ -193,6 +217,26 @@ export function authorizeMailAction(input: {
 	}
 }
 
+/** Reading and re-sending stored content requires both API capabilities. */
+export function authorizeManualForward(input: {
+	authMethod: AuthMethod;
+	scopes: readonly ApiScope[];
+}): ApiAuthDecision {
+	if (input.authMethod === 'session') {
+		return { ok: true };
+	}
+
+	if (!hasAllScopes(input.scopes, ['mail:read', 'mail:send'])) {
+		return {
+			ok: false,
+			status: 403,
+			error: 'This API key needs mail:read and mail:send.'
+		};
+	}
+
+	return { ok: true };
+}
+
 /**
  * Session cookies keep full access. Bearer tokens are limited to an explicit
  * allowlist so a leaked "read" key cannot send mail, mint more keys, or hit
@@ -226,11 +270,13 @@ export function authorizeApiRequest(input: {
 		};
 	}
 
-	if (!hasScope(input.scopes, rule.scopes)) {
+	const permitted = rule.allScopes ? hasAllScopes(input.scopes, rule.scopes) : hasScope(input.scopes, rule.scopes);
+	if (!permitted) {
+		const scopeSeparator = rule.allScopes ? ' and ' : ' or ';
 		return {
 			ok: false,
 			status: 403,
-			error: `This API key needs ${rule.scopes.join(' or ')}.`
+			error: `This API key needs ${rule.scopes.join(scopeSeparator)}.`
 		};
 	}
 

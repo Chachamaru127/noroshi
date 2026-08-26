@@ -1,6 +1,6 @@
 # QuickMail-ja Repository Separation Plan
 
-Status: In progress
+Status: Local sanitized release candidate complete — public release and deployment remain on HOLD
 Team validation mode: `subagent`
 
 ## Purpose
@@ -18,7 +18,7 @@ Separate an existing customer deployment from a publishable generic Japanese pro
 
 ### QMJ-1 — Establish the public-history boundary
 
-Status: In progress
+Status: Completed locally — reachable product history and the independent repository boundary are clean
 
 - Keep only the original upstream history through `77e8858`.
 - Keep the remote named `upstream`; do not configure `origin` until the public repository exists.
@@ -34,7 +34,7 @@ Acceptance:
 ### QMJ-2 — Import and generalize the feature set atomically
 
 Depends on: QMJ-1
-Status: Pending
+Status: Completed locally
 
 - Import the current application feature set without importing the downstream `.git`, backups, operations files, or Harness state.
 - Replace all customer branding, domains, addresses, Worker/D1/R2 values, examples, and test fixtures with generic values before the first feature commit.
@@ -52,7 +52,7 @@ Acceptance:
 ### QMJ-3 — Make distribution and documentation truthful
 
 Depends on: QMJ-2
-Status: Pending
+Status: Completed locally
 
 - Write a Japanese-first README with topology, cost boundary, limitations, backup/recovery, and update flow.
 - Retain MIT attribution and identify the upstream source/base.
@@ -68,7 +68,7 @@ Acceptance:
 ### QMJ-4 — Validate the generic release candidate
 
 Depends on: QMJ-3
-Status: Pending
+Status: Completed locally — automated gates pass and the independent A-security review approved
 
 - Run dependency install, unit tests, D1 integration/race tests, type checks, formatter checks, template-clean checks, build, and diff checks.
 - Scan the tracked tree, new commit history, and distributable output for customer-specific strings, UUIDs, real routes, state folders, and backups.
@@ -83,7 +83,7 @@ Acceptance:
 ### QMJ-5 — Local handoff
 
 Depends on: QMJ-4
-Status: Pending
+Status: Completed locally — sanitized release-candidate handoff is prepared without push or deployment
 
 - Create clean local commits only.
 - Report both repository paths, commit IDs, validation evidence, and the remaining external publication gate.
@@ -93,6 +93,31 @@ Acceptance:
 
 - The generic product and production downstream are independent repositories.
 - No push or deployment has occurred.
+
+## Local validation evidence — 2026-08-26
+
+- `bun install --frozen-lockfile`: completed with no dependency changes.
+- `bun test`: 254 passed, 0 failed.
+- `bun run test:d1-forwarding`: passed.
+- `bun run check`: 0 errors, 0 warnings.
+- `bun run format:check`: passed.
+- `bun run check:clean`: passed across 261 tracked files, including text `bun.lock`.
+- `bun run build`: passed.
+- `bun run test:archive`: the extracted archive passed its included `check:clean` guard.
+- `git diff --check` and `git diff --cached --check`: passed.
+- Outlook import destructive-boundary tests cover equal/nested paths, root/home/working-directory boundaries, non-owned non-empty staging, marker/manifest symlink rejection, and marked staging reuse without recursive deletion. An exclusive staging lock spans scan through manifest install; bigint nanosecond fingerprints detect in-place mutation. Lock and temporary-file removal first renames to a random same-directory quarantine, verifies the moved inode, and deletes only an exact match; mismatches remain quarantined and block later imports.
+- `BOOTSTRAP_SECRET` runtime tests cover missing (503), wrong (403), and correct-key execution through mocked database/provider dependencies without external calls.
+- The tracked working tree and reachable product commits passed the forbidden customer/source identifier scan and the case-sensitive local absolute-path scan.
+- `LICENSE.md` is byte-identical to upstream commit `77e8858`.
+- Independent A-security review returned APPROVE. This is not approval to publish or deploy.
+
+## HOLD gates after local validation
+
+- Public repository creation, `origin` configuration, push, release publication, Cloudflare deployment, DNS changes, remote D1/R2 access, and email sends remain external Risk Gates.
+- A QuickMail-ja public URL is not configured. Remote installer and Deploy links remain disabled.
+- Release hardening remains separate: pin GitHub Actions and Bun to reviewed immutable versions, then verify deployed logging, retention, privacy, cost alerts, and rollback behavior in the release environment.
+- The final public handoff must use the intended no-tags sanitized commits so ignored local state, tags, and unreachable Git objects cannot enter the published repository.
+- No public release approval is claimed by the local validation or independent A-security approval.
 
 ## Spec delta
 

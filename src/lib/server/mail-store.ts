@@ -3,6 +3,7 @@ import { MAILBOX_PAGE_SIZE } from '$lib/constants';
 import { MAX_BODY_BYTES } from './constants';
 import { stripQuotedText } from '$lib/utils/quotes';
 import { displaySubject, normalizeSubject, resolveThreadId } from './threads';
+import { normalizeMailSortKey } from './mail-sort-key';
 import type {
 	DeliveryStatus,
 	EmailAttachmentMeta,
@@ -16,6 +17,13 @@ import type {
 	ThreadParticipant,
 	ThreadSummary
 } from '$lib/types';
+
+export class ProviderDeliveryAlreadyClaimedError extends Error {
+	constructor(providerId: string) {
+		super(`Provider delivery already claimed: ${providerId}`);
+		this.name = 'ProviderDeliveryAlreadyClaimedError';
+	}
+}
 
 export async function getUserIdByEmail(db: D1Database, email: string): Promise<string | null> {
 	const row = await db
@@ -45,12 +53,19 @@ export async function insertEmail(
 		domainId?: string | null;
 		providerId?: string | null;
 		status?: MailStatus | null;
+		forwardingHop?: number;
+		attachmentsReady?: boolean;
 		isRead?: boolean;
+		createdAt?: Date;
+		/** Preserve a trusted historical EML body beyond the live ingress limit. */
+		preserveBody?: boolean;
+		/** Override subject fallback when callers must create a separate conversation. */
+		subjectMatch?: boolean;
 	}
 ): Promise<string> {
 	const id = crypto.randomUUID();
-	const bodyText = truncate(input.bodyText ?? null);
-	const bodyHtml = truncate(input.bodyHtml ?? null);
+	const bodyText = input.preserveBody ? (input.bodyText ?? null) : truncate(input.bodyText ?? null);
+	const bodyHtml = input.preserveBody ? (input.bodyHtml ?? null) : truncate(input.bodyHtml ?? null);
 
 	// Every message lands in a conversation before it is stored, so the list
 	// view never has to guess.
@@ -63,17 +78,20 @@ export async function insertEmail(
 		inReplyTo: input.inReplyTo,
 		references: input.references,
 		replyToEmailId: input.replyToEmailId,
-		subjectMatch: input.status !== 'draft'
+		subjectMatch: input.subjectMatch ?? input.status !== 'draft'
 	});
 
-	await db
+	const createdAt = input.createdAt ?? new Date();
+	const inserted = await db
 		.prepare(
 			`INSERT INTO emails (
 				id, user_id, direction, from_addr, to_addr, cc_addr, bcc_addr, subject,
+				sort_sender_key, sort_subject_key,
 				body_text, body_html, message_id, in_reply_to, references_header,
 				reply_to_email_id, thread_id, thread_key,
-				domain_id, provider_id, status, status_at, is_read
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)`
+				domain_id, provider_id, status, forwarding_hop, attachments_ready, status_at, is_read,
+				created_at
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?, ?)`
 		)
 		.bind(
 			id,
@@ -84,6 +102,8 @@ export async function insertEmail(
 			input.cc ?? null,
 			input.bcc ?? null,
 			input.subject,
+			normalizeMailSortKey(input.from),
+			normalizeMailSortKey(input.subject),
 			bodyText,
 			bodyHtml,
 			input.messageId ?? null,
@@ -95,9 +115,15 @@ export async function insertEmail(
 			input.domainId ?? null,
 			input.providerId ?? null,
 			input.status ?? null,
-			input.isRead ? 1 : 0
+			input.forwardingHop ?? 0,
+			input.attachmentsReady === false ? 0 : 1,
+			input.isRead ? 1 : 0,
+			createdAt.toISOString()
 		)
 		.run();
+	if (input.providerId && (inserted.meta.changes ?? 0) === 0) {
+		throw new ProviderDeliveryAlreadyClaimedError(input.providerId);
+	}
 
 	return id;
 }
@@ -105,13 +131,25 @@ export async function insertEmail(
 /** Already stored? Resend retries webhooks, so inbound writes must be idempotent. */
 export async function emailExistsByProviderId(
 	db: D1Database,
-	providerId: string
+	providerId: string,
+	recipient?: string
 ): Promise<boolean> {
 	const row = await db
-		.prepare('SELECT id FROM emails WHERE provider_id = ?')
-		.bind(providerId)
-		.first<{ id: string }>();
+		.prepare(
+			recipient
+				? 'SELECT record_id FROM provider_delivery_claims WHERE provider_id = ? AND recipient = lower(?)'
+				: 'SELECT record_id FROM provider_delivery_claims WHERE provider_id = ? LIMIT 1'
+		)
+		.bind(...(recipient ? [providerId, recipient] : [providerId]))
+		.first<{ record_id: string }>();
 	return Boolean(row);
+}
+
+export async function markInboundAttachmentsReady(db: D1Database, emailId: string): Promise<void> {
+	await db
+		.prepare("UPDATE emails SET attachments_ready = 1 WHERE id = ? AND direction = 'inbound'")
+		.bind(emailId)
+		.run();
 }
 
 /** Applied when Resend reports delivery/bounce/complaint on something we sent. */
@@ -135,10 +173,15 @@ export async function updateEmailStatusByProviderId(
  * Trash is anything with `deleted_at`, and the rest hide trashed mail. A
  * conversation shows up in a mailbox when any of its messages match.
  */
-function viewFilter(view: MailboxView): string {
+function viewFilter(view: MailboxView | 'folder'): string {
 	switch (view) {
 		case 'inbox':
-			return "e.deleted_at IS NULL AND e.direction = 'inbound'";
+			return `e.deleted_at IS NULL AND e.direction = 'inbound'
+				AND NOT EXISTS (
+					SELECT 1 FROM mail_thread_folders inbox_folder
+					WHERE inbox_folder.user_id = e.user_id
+					  AND inbox_folder.thread_id = COALESCE(e.thread_id,e.id)
+				)`;
 		case 'sent':
 			return "e.deleted_at IS NULL AND e.direction = 'outbound' AND (e.status IS NULL OR e.status <> 'draft')";
 		case 'drafts':
@@ -147,6 +190,8 @@ function viewFilter(view: MailboxView): string {
 			return "e.deleted_at IS NULL AND e.is_starred = 1 AND (e.status IS NULL OR e.status <> 'draft')";
 		case 'trash':
 			return 'e.deleted_at IS NOT NULL';
+		case 'folder':
+			return "e.deleted_at IS NULL AND (e.status IS NULL OR e.status <> 'draft')";
 	}
 }
 
@@ -155,7 +200,7 @@ function viewFilter(view: MailboxView): string {
  * `viewFilter` on purpose — an inbox row counts the replies we sent too, so it
  * reads as one conversation rather than a matched message.
  */
-function displayFilter(view: MailboxView, alias: string): string {
+function displayFilter(view: MailboxView | 'folder', alias: string): string {
 	switch (view) {
 		case 'trash':
 			return `${alias}.deleted_at IS NOT NULL`;
@@ -167,7 +212,9 @@ function displayFilter(view: MailboxView, alias: string): string {
 }
 
 export type MailboxQuery = {
-	view: MailboxView;
+	view: MailboxView | 'folder';
+	/** Required for the custom-folder view. */
+	folderId?: string | null;
 	/** Restrict to one connected domain; omit for the combined view. */
 	domainId?: string | null;
 	/** Free text matched against participants, subject and body. */
@@ -199,6 +246,18 @@ type ThreadMessageRow = {
 function buildScope(userId: string, query: MailboxQuery): { where: string; bindings: unknown[] } {
 	const filters = ['e.user_id = ?', viewFilter(query.view)];
 	const bindings: unknown[] = [userId];
+	if (query.view === 'folder') {
+		if (!query.folderId) throw new Error('folderId is required for the folder mailbox.');
+		filters.push(
+			`EXISTS (
+				SELECT 1 FROM mail_thread_folders selected_folder
+				WHERE selected_folder.user_id = e.user_id
+				  AND selected_folder.thread_id = COALESCE(e.thread_id,e.id)
+				  AND selected_folder.folder_id = ?
+			)`
+		);
+		bindings.push(query.folderId);
+	}
 
 	if (query.domainId) {
 		filters.push('e.domain_id = ?');
@@ -215,7 +274,11 @@ function buildScope(userId: string, query: MailboxQuery): { where: string; bindi
 		bindings.push(like, like, like, like);
 	}
 
-	if (query.unreadOnly) filters.push('e.is_read = 0');
+	if (query.unreadOnly) {
+		filters.push(
+			query.view === 'folder' ? "e.direction = 'inbound' AND e.is_read = 0" : 'e.is_read = 0'
+		);
+	}
 	if (query.starredOnly) filters.push('e.is_starred = 1');
 	if (query.attachmentsOnly) {
 		filters.push('EXISTS(SELECT 1 FROM email_attachments a WHERE a.email_id = e.id)');
@@ -424,8 +487,16 @@ export async function getMailboxCounts(
 	const row = await db
 		.prepare(
 			`SELECT
-				COUNT(DISTINCT CASE WHEN deleted_at IS NULL AND direction = 'inbound' THEN ${thread} END) AS inbox,
-				COUNT(DISTINCT CASE WHEN deleted_at IS NULL AND direction = 'inbound' AND is_read = 0 THEN ${thread} END) AS inbox_unread,
+				COUNT(DISTINCT CASE WHEN deleted_at IS NULL AND direction = 'inbound'
+					AND NOT EXISTS (SELECT 1 FROM mail_thread_folders inbox_folder
+						WHERE inbox_folder.user_id = emails.user_id
+						  AND inbox_folder.thread_id = COALESCE(emails.thread_id,emails.id))
+					THEN ${thread} END) AS inbox,
+				COUNT(DISTINCT CASE WHEN deleted_at IS NULL AND direction = 'inbound' AND is_read = 0
+					AND NOT EXISTS (SELECT 1 FROM mail_thread_folders inbox_folder
+						WHERE inbox_folder.user_id = emails.user_id
+						  AND inbox_folder.thread_id = COALESCE(emails.thread_id,emails.id))
+					THEN ${thread} END) AS inbox_unread,
 				COUNT(DISTINCT CASE WHEN deleted_at IS NULL AND is_starred = 1 AND (status IS NULL OR status <> 'draft') THEN ${thread} END) AS starred,
 				COUNT(DISTINCT CASE WHEN deleted_at IS NULL AND status = 'draft' THEN ${thread} END) AS drafts,
 				COUNT(DISTINCT CASE WHEN deleted_at IS NULL AND direction = 'outbound' AND (status IS NULL OR status <> 'draft') THEN ${thread} END) AS sent,
@@ -525,51 +596,181 @@ export async function setEmailFlags(
 	return result.meta?.changes ?? 0;
 }
 
-/** Irreversible: drops the rows and the R2 objects their attachments point at. */
+/**
+ * Irreversible: atomically queues attachment cleanup and drops the D1 mail rows,
+ * then removes the R2 objects. A post-commit R2 failure remains in the durable
+ * cleanup outbox without turning the committed D1 deletion into a false failure.
+ */
 export async function deleteEmailsPermanently(
 	db: D1Database,
 	bucket: R2Bucket | undefined,
 	userId: string,
-	ids: string[]
+	ids: string[],
+	options: { onlyTrashed?: boolean } = {}
 ): Promise<number> {
 	if (ids.length === 0) return 0;
+	const requestedIds = JSON.stringify([...new Set(ids)]);
+	const trashPredicate = options.onlyTrashed ? ' AND e.deleted_at IS NOT NULL' : '';
+	const selectedAttachments = db
+		.prepare(
+			`SELECT a.storage_key
+			 FROM email_attachments a
+			 JOIN emails e ON e.id = a.email_id
+			 JOIN json_each(?) requested ON CAST(requested.value AS TEXT) = e.id
+			 WHERE e.user_id = ? AND a.storage_key IS NOT NULL${trashPredicate}`
+		)
+		.bind(requestedIds, userId);
 
-	const placeholders = ids.map(() => '?').join(', ');
-	const owned = await db
-		.prepare(`SELECT id FROM emails WHERE user_id = ? AND id IN (${placeholders})`)
-		.bind(userId, ...ids)
-		.all<{ id: string }>();
-
-	const ownedIds = owned.results.map((row) => row.id);
-	if (ownedIds.length === 0) return 0;
-
-	const ownedPlaceholders = ownedIds.map(() => '?').join(', ');
-
-	if (bucket) {
-		const { results: files } = await db
+	// All D1 rows disappear in one transaction. The first statement captures
+	// exactly the R2 keys covered by that transaction; objects are deleted only
+	// after D1 commits, so a rolled-back D1 batch never loses attachment data.
+	const batch = await db.batch<{ storage_key: string }>([
+		selectedAttachments,
+		db
 			.prepare(
-				`SELECT storage_key FROM email_attachments
-				 WHERE email_id IN (${ownedPlaceholders}) AND storage_key IS NOT NULL`
+				`INSERT OR IGNORE INTO attachment_cleanup_outbox(storage_key)
+				 SELECT a.storage_key
+				 FROM email_attachments a
+				 JOIN emails e ON e.id = a.email_id
+				 JOIN json_each(?) requested ON CAST(requested.value AS TEXT) = e.id
+				 WHERE e.user_id = ? AND a.storage_key IS NOT NULL${trashPredicate}`
 			)
-			.bind(...ownedIds)
-			.all<{ storage_key: string }>();
+			.bind(requestedIds, userId),
+		db
+			.prepare(
+				`DELETE FROM email_attachments
+				 WHERE email_id IN (
+					SELECT e.id FROM emails e
+					JOIN json_each(?) requested ON CAST(requested.value AS TEXT) = e.id
+					WHERE e.user_id = ?${trashPredicate}
+				 )`
+			)
+			.bind(requestedIds, userId),
+		db
+			.prepare(
+				`DELETE FROM emails
+				 WHERE user_id = ?
+				   AND id IN (SELECT CAST(value AS TEXT) FROM json_each(?))
+				   ${options.onlyTrashed ? 'AND deleted_at IS NOT NULL' : ''}`
+			)
+			.bind(userId, requestedIds),
+		db
+			.prepare(
+				`DELETE FROM mail_thread_folders
+				 WHERE user_id = ?
+				   AND NOT EXISTS (
+					 SELECT 1 FROM emails remaining
+					 WHERE remaining.user_id = mail_thread_folders.user_id
+					   AND COALESCE(remaining.thread_id,remaining.id) = mail_thread_folders.thread_id
+				   )`
+			)
+			.bind(userId),
+		db
+			.prepare(
+				`DELETE FROM mail_thread_folder_suppressions
+				 WHERE user_id = ?
+				   AND NOT EXISTS (
+					 SELECT 1 FROM emails remaining
+					 WHERE remaining.user_id = mail_thread_folder_suppressions.user_id
+					   AND COALESCE(remaining.thread_id,remaining.id) = mail_thread_folder_suppressions.thread_id
+				   )`
+			)
+			.bind(userId)
+	]);
 
-		await Promise.all(files.map((file) => bucket.delete(file.storage_key)));
+	const deleted = batch[3]?.meta?.changes ?? 0;
+	if (bucket && deleted > 0) {
+		const files = batch[0]?.results ?? [];
+		await cleanupAttachmentObjects(db, bucket, files);
 	}
+	return deleted;
+}
 
-	// Older D1 databases were created without ON DELETE CASCADE enforcement,
-	// so clear the children explicitly.
-	await db
-		.prepare(`DELETE FROM email_attachments WHERE email_id IN (${ownedPlaceholders})`)
-		.bind(...ownedIds)
-		.run();
+type AttachmentCleanupRow = { storage_key: string };
 
-	await db
-		.prepare(`DELETE FROM emails WHERE user_id = ? AND id IN (${ownedPlaceholders})`)
-		.bind(userId, ...ownedIds)
-		.run();
+async function cleanupAttachmentObjects(
+	db: D1Database,
+	bucket: R2Bucket,
+	files: AttachmentCleanupRow[]
+): Promise<{ processed: number; failed: number }> {
+	if (files.length === 0) return { processed: 0, failed: 0 };
+	const cleanup = await Promise.allSettled(files.map((file) => bucket.delete(file.storage_key)));
+	const successful: string[] = [];
+	const failures: PromiseRejectedResult[] = [];
+	cleanup.forEach((result, index) => {
+		if (result.status === 'fulfilled') successful.push(files[index].storage_key);
+		else failures.push(result);
+	});
 
-	return ownedIds.length;
+	if (successful.length > 0) {
+		try {
+			await db.batch(
+				successful.map((storageKey) =>
+					db.prepare('DELETE FROM attachment_cleanup_outbox WHERE storage_key = ?').bind(storageKey)
+				)
+			);
+		} catch (error) {
+			console.error('Attachment cleanup outbox acknowledgement failed', {
+				count: successful.length,
+				error_kind: error instanceof Error ? error.name.slice(0, 64) : typeof error
+			});
+		}
+	}
+	if (failures.length > 0) {
+		const failedKeys = files
+			.filter((_, index) => cleanup[index]?.status === 'rejected')
+			.map((file) => file.storage_key);
+		try {
+			await db.batch(
+				failedKeys.map((storageKey) =>
+					db
+						.prepare(
+							`UPDATE attachment_cleanup_outbox
+							 SET attempts = attempts + 1,
+							     last_attempt_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+							 WHERE storage_key = ?`
+						)
+						.bind(storageKey)
+				)
+			);
+		} catch (error) {
+			console.error('Attachment cleanup outbox failure recording failed', {
+				count: failedKeys.length,
+				error_kind: error instanceof Error ? error.name.slice(0, 64) : typeof error
+			});
+		}
+		// Do not log storage keys or provider error messages: both may contain
+		// tenant data. Counts and bounded error kinds are enough for diagnosis.
+		console.error('Attachment R2 cleanup incomplete after permanent mail deletion', {
+			failed: failures.length,
+			total: files.length,
+			error_kinds: [
+				...new Set(
+					failures.map(({ reason }) =>
+						reason instanceof Error ? reason.name.slice(0, 64) : typeof reason
+					)
+				)
+			].slice(0, 5)
+		});
+	}
+	return { processed: files.length, failed: failures.length };
+}
+
+/** Retries a bounded batch of R2 objects left behind by committed D1 deletion. */
+export async function drainAttachmentCleanupOutbox(
+	db: D1Database,
+	bucket: R2Bucket,
+	limit = 100
+): Promise<{ processed: number; failed: number }> {
+	const boundedLimit = Math.max(1, Math.min(100, Math.trunc(limit)));
+	const { results } = await db
+		.prepare(
+			`SELECT storage_key FROM attachment_cleanup_outbox
+			 ORDER BY julianday(COALESCE(last_attempt_at, created_at)), storage_key LIMIT ?`
+		)
+		.bind(boundedLimit)
+		.all<AttachmentCleanupRow>();
+	return cleanupAttachmentObjects(db, bucket, results);
 }
 
 /** "Mark all as read" from the list menu — scoped to the active domain filter. */
@@ -579,7 +780,12 @@ export async function markAllRead(
 	domainId?: string | null
 ): Promise<number> {
 	const bindings: unknown[] = [userId];
-	let scope = "user_id = ? AND direction = 'inbound' AND deleted_at IS NULL AND is_read = 0";
+	let scope = `user_id = ? AND direction = 'inbound' AND deleted_at IS NULL AND is_read = 0
+		AND NOT EXISTS (
+			SELECT 1 FROM mail_thread_folders inbox_folder
+			WHERE inbox_folder.user_id = emails.user_id
+			  AND inbox_folder.thread_id = COALESCE(emails.thread_id,emails.id)
+		)`;
 	if (domainId) {
 		scope += ' AND domain_id = ?';
 		bindings.push(domainId);
@@ -607,7 +813,8 @@ export async function emptyTrash(
 		db,
 		bucket,
 		userId,
-		results.map((row) => row.id)
+		results.map((row) => row.id),
+		{ onlyTrashed: true }
 	);
 }
 

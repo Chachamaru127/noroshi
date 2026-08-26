@@ -36,34 +36,34 @@
 <section class="surface-lg card">
 	<div class="card-head">
 		<div>
-			<h2><Icon name="smartphone-line" size={18} /> Home screen</h2>
+			<h2><Icon name="smartphone-line" size={18} /> ホーム画面</h2>
 			<p class="section-description">
 				{standalone
-					? 'Mail is installed on this device.'
-					: 'Open Mail like a normal app, without browser chrome.'}
+					? 'メールアプリはこの端末にインストールされています。'
+					: 'ブラウザーの枠を表示せず、通常のアプリのように開けます。'}
 			</p>
 		</div>
-		<span class="badge" class:on={standalone}>{standalone ? 'Installed' : 'Optional'}</span>
+		<span class="badge" class:on={standalone}>{standalone ? 'インストール済み' : '任意'}</span>
 	</div>
 
 	{#if standalone}
-		<p class="hint">Notifications and theme still apply while it runs on its own.</p>
+		<p class="hint">単独で起動している間も通知とテーマの設定が適用されます。</p>
 	{:else if ios}
 		<p class="hint">
 			<Icon name="share-forward-line" size={14} />
-			Tap Share, then Add to Home Screen.
+			共有をタップしてから「ホーム画面に追加」を選択してください。
 		</p>
 	{:else if deferred}
 		<div class="actions">
-			<p class="hint flush">Adds Mail to the home screen or app drawer.</p>
+			<p class="hint flush">ホーム画面またはアプリ一覧に追加します。</p>
 			<button type="button" class="btn-primary" disabled={busy} onclick={install}>
-				{busy ? 'Installing…' : 'Install'}
+				{busy ? 'インストール中…' : 'インストール'}
 			</button>
 		</div>
 	{:else}
 		<p class="hint">
 			<Icon name="information-line" size={14} />
-			Use the browser menu to install Mail or add it to the home screen.
+			ブラウザーのメニューからインストールするか、ホーム画面に追加してください。
 		</p>
 	{/if}
 </section>

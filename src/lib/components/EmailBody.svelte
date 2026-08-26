@@ -123,7 +123,7 @@
 	class="frame"
 	class:rich
 	class:sized={height > 0}
-	title="Message content"
+	title="メール本文"
 	sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
 	referrerpolicy="no-referrer"
 	{srcdoc}

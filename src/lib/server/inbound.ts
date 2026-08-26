@@ -4,9 +4,16 @@ import { insertAttachmentBytes } from './attachments';
 import { MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS_PER_EMAIL, MAX_BODY_BYTES } from './constants';
 import { collectInboundRecipients, parseEmailAddress } from './email-address';
 import { recordUnroutedEmail, resolveInboundRoute } from './domains';
-import { emailExistsByProviderId, insertEmail, updateEmailStatusByProviderId } from './mail-store';
+import {
+	emailExistsByProviderId,
+	insertEmail,
+	markInboundAttachmentsReady,
+	ProviderDeliveryAlreadyClaimedError,
+	updateEmailStatusByProviderId
+} from './mail-store';
 import { scheduleNewMailNotification, type PushNotificationEnv } from './push-notifications';
 import type { ResendClient } from './resend';
+import { enqueueAndScheduleForwarding, isForwardedHop } from './forwarding-delivery';
 
 export type ResendWebhookEvent = {
 	type: string;
@@ -19,7 +26,28 @@ export type WebhookOutcome = {
 	note: string;
 };
 
-type InboundEnv = PushNotificationEnv & { ATTACHMENTS: R2Bucket };
+export type InboundEnv = PushNotificationEnv & {
+	ATTACHMENTS: R2Bucket;
+	EMAIL_PROVIDER?: string;
+	RESEND_API_KEY?: string;
+	FORWARDING_KILL_SWITCH?: string;
+	FORWARDING_LEASE_MS?: string;
+};
+
+export function createResendWebhookInboundEnv(platform: App.Platform): InboundEnv {
+	return {
+		DB: platform.env.DB,
+		ATTACHMENTS: platform.env.ATTACHMENTS,
+		EMAIL_PROVIDER: platform.env.EMAIL_PROVIDER,
+		RESEND_API_KEY: platform.env.RESEND_API_KEY,
+		FORWARDING_KILL_SWITCH: platform.env.FORWARDING_KILL_SWITCH,
+		FORWARDING_LEASE_MS: platform.env.FORWARDING_LEASE_MS,
+		VAPID_PUBLIC_KEY: platform.env.VAPID_PUBLIC_KEY,
+		VAPID_PRIVATE_KEY: platform.env.VAPID_PRIVATE_KEY,
+		VAPID_SUBJECT: platform.env.VAPID_SUBJECT,
+		waitUntil: (promise) => platform.ctx.waitUntil(promise)
+	};
+}
 
 /** Resend delivery events → the status we display on a sent message. */
 const STATUS_BY_EVENT: Record<string, DeliveryStatus> = {
@@ -78,10 +106,6 @@ async function handleInboundEmail(
 		return { handled: false, note: 'email.received without email_id' };
 	}
 
-	if (await emailExistsByProviderId(env.DB, providerId)) {
-		return { handled: true, note: `Already stored ${providerId}` };
-	}
-
 	// Webhooks carry metadata only — the body and attachments come from the API.
 	let received = await client.getReceivedEmail(providerId, 'data_uri');
 
@@ -112,27 +136,48 @@ async function handleInboundEmail(
 		});
 		return { handled: true, note: `Stored ${providerId} as unrouted` };
 	}
+	if (await emailExistsByProviderId(env.DB, providerId, route.address)) {
+		return { handled: true, note: `Already stored ${providerId}` };
+	}
 
-	const emailId = await insertEmail(env.DB, {
-		userId: route.userId,
-		direction: 'inbound',
-		from,
-		to: route.address,
-		cc: received.cc?.join(', ') || null,
-		subject,
-		bodyText: received.text,
-		bodyHtml: received.html,
-		messageId: received.message_id ?? null,
-		inReplyTo: received.headers?.['in-reply-to'] ?? null,
-		// The whole chain, not just the direct parent: a reply to something we
-		// sent references a Message-ID Resend never handed back to us, but the
-		// chain still carries the message that started the conversation.
-		references: received.headers?.['references'] ?? null,
-		domainId: route.domainId,
-		providerId
-	});
+	let emailId: string;
+	try {
+		emailId = await insertEmail(env.DB, {
+			userId: route.userId,
+			direction: 'inbound',
+			from,
+			to: route.address,
+			cc: received.cc?.join(', ') || null,
+			subject,
+			bodyText: received.text,
+			bodyHtml: received.html,
+			messageId: received.message_id ?? null,
+			inReplyTo: received.headers?.['in-reply-to'] ?? null,
+			// The whole chain, not just the direct parent: a reply to something we
+			// sent references a Message-ID Resend never handed back to us, but the
+			// chain still carries the message that started the conversation.
+			references: received.headers?.['references'] ?? null,
+			domainId: route.domainId,
+			providerId,
+			forwardingHop: isForwardedHop(received.headers) ? 1 : 0,
+			attachmentsReady: false
+		});
+	} catch (error) {
+		if (error instanceof ProviderDeliveryAlreadyClaimedError) {
+			return { handled: true, note: `Already stored ${providerId}` };
+		}
+		throw error;
+	}
 
-	await storeInboundAttachments(env, client, providerId, emailId);
+	const attachmentsReady = await storeInboundAttachments(env, client, providerId, emailId);
+	if (attachmentsReady) await markInboundAttachmentsReady(env.DB, emailId);
+	if (attachmentsReady && route.addressId) {
+		await enqueueAndScheduleForwarding(env, {
+			userId: route.userId,
+			sourceAddressId: route.addressId,
+			emailId
+		});
+	}
 	await scheduleNewMailNotification(env, {
 		emailId,
 		userId: route.userId,
@@ -151,25 +196,33 @@ async function storeInboundAttachments(
 	client: ResendClient,
 	providerId: string,
 	emailId: string
-): Promise<void> {
+): Promise<boolean> {
 	let attachments;
 	try {
 		attachments = await client.listReceivedAttachments(providerId);
 	} catch (error) {
 		console.error('Failed to list inbound attachments', providerId, error);
-		return;
+		return false;
 	}
 
+	let ready = true;
 	for (const attachment of attachments.slice(0, MAX_ATTACHMENTS_PER_EMAIL)) {
-		if (!attachment.download_url) continue;
+		if (!attachment.download_url) {
+			ready = false;
+			continue;
+		}
 		if (attachment.size && attachment.size > MAX_ATTACHMENT_BYTES) {
 			console.warn(`Skipping oversized attachment ${attachment.filename} on ${providerId}`);
+			ready = false;
 			continue;
 		}
 
 		try {
 			const bytes = await client.downloadAttachment(attachment.download_url);
-			if (bytes.byteLength > MAX_ATTACHMENT_BYTES) continue;
+			if (bytes.byteLength > MAX_ATTACHMENT_BYTES) {
+				ready = false;
+				continue;
+			}
 
 			await insertAttachmentBytes(env.DB, env.ATTACHMENTS, emailId, {
 				filename: attachment.filename || 'attachment',
@@ -177,10 +230,13 @@ async function storeInboundAttachments(
 				bytes
 			});
 		} catch (error) {
+			ready = false;
 			// One bad attachment shouldn't cost us the message.
 			console.error('Failed to store inbound attachment', attachment.id, error);
 		}
 	}
+	if (attachments.length > MAX_ATTACHMENTS_PER_EMAIL) ready = false;
+	return ready;
 }
 
 /** Resend retries on non-2xx, so record ids we've already processed. */

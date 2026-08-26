@@ -32,6 +32,12 @@
 	const stacked = $derived(isStackedPath($page.url.pathname));
 	const mailbox = $derived(isMailboxPath($page.url.pathname));
 	const utility = $derived(isUtilityPath($page.url.pathname));
+	const stackedBackHref = $derived(
+		typeof $page.data.backHref === 'string' ? $page.data.backHref : '/inbox'
+	);
+	const stackedUseHistoryBack = $derived(
+		typeof $page.data.useHistoryBack === 'boolean' ? $page.data.useHistoryBack : true
+	);
 
 	let collapsed = $state(false);
 
@@ -108,6 +114,7 @@
 	>
 		<Sidebar
 			counts={data.counts}
+			folders={data.folders}
 			domains={data.domains}
 			activeDomainId={data.activeDomainId}
 			isAdmin={data.user!.is_admin}
@@ -124,7 +131,7 @@
 
 			<main class="app-main" class:app-main-narrow={narrow}>
 				{#if stacked}
-					<SwipeBack href="/inbox">
+					<SwipeBack href={stackedBackHref} useHistoryBack={stackedUseHistoryBack}>
 						{@render children()}
 					</SwipeBack>
 				{:else}
@@ -136,6 +143,7 @@
 		{#if !stacked}
 			<MobileChrome
 				counts={data.counts}
+				folders={data.folders}
 				domains={data.domains}
 				activeDomainId={data.activeDomainId}
 				isAdmin={data.user!.is_admin}

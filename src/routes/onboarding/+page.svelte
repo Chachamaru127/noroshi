@@ -8,7 +8,8 @@
 		noDomainsBody,
 		noDomainsTitle,
 		onboardingSubtitle,
-		providerName
+		providerName,
+		safeProviderError
 	} from '$lib/provider-copy';
 	import type { PageData } from './$types';
 
@@ -21,6 +22,20 @@
 
 	let localPart = $state('');
 	let addressDomainId = $state('');
+
+	function safeOnboardingError(value: unknown): string {
+		if (typeof value !== 'string') return '処理を完了できませんでした。';
+		if (value.includes('Select at least one domain')) return 'ドメインを1つ以上選択してください。';
+		if (value.includes('Could not connect that domain') || value.includes('Failed to connect domain')) {
+			return 'ドメインを接続できませんでした。';
+		}
+		if (value.includes('Could not create that address') || value.includes('Failed to create address')) {
+			return 'アドレスを作成できませんでした。';
+		}
+		if (value.includes('Pick a domain and enter an address')) return 'ドメインとアドレスを入力してください。';
+		if (value.includes('Database unavailable')) return 'データベースを利用できません。';
+		return '処理を完了できませんでした。';
+	}
 
 	// Seed the picker with the first connected domain once data is available.
 	$effect(() => {
@@ -37,7 +52,7 @@
 
 	async function connectDomains() {
 		if (selected.length === 0) {
-			error = 'Pick at least one domain to continue';
+			error = 'ドメインを1つ以上選択してください。';
 			return;
 		}
 
@@ -52,12 +67,12 @@
 			});
 			const body = await res.json();
 			if (!res.ok) {
-				error = body.error ?? 'Could not connect that domain';
+				error = safeOnboardingError(body.error);
 				return;
 			}
 			window.location.reload();
 		} catch {
-			error = 'Network error';
+			error = 'ネットワークエラーが発生しました。';
 		} finally {
 			connecting = false;
 		}
@@ -76,12 +91,12 @@
 			});
 			const body = await res.json();
 			if (!res.ok) {
-				error = body.error ?? 'Could not create that address';
+				error = safeOnboardingError(body.error);
 				return;
 			}
 			window.location.href = '/inbox';
 		} catch {
-			error = 'Network error';
+			error = 'ネットワークエラーが発生しました。';
 		} finally {
 			creating = false;
 		}
@@ -89,25 +104,25 @@
 </script>
 
 <svelte:head>
-	<title>Get started — Mail</title>
+		<title>初期設定 — QuickMail-ja</title>
 </svelte:head>
 
 <WizardShell
-	title={needsDomain ? 'Connect a domain' : 'Claim your address'}
+	title={needsDomain ? 'ドメインを接続' : 'アドレスを作成'}
 	subtitle={needsDomain
 		? onboardingSubtitle(data.providerKind)
-		: "Choose the address you'll send and receive mail from."}
+		: '送受信に使うアドレスを選択してください。'}
 	partner={needsDomain}
 	partnerKind={data.providerKind}
-	partnerCaption={`Mail + ${providerName(data.providerKind)}`}
+	partnerCaption={`QuickMail-ja + ${providerName(data.providerKind)}`}
 >
 	{#if needsDomain}
 		{#if !data.isAdmin}
 			<div class="surface-lg notice">
 				<Icon name="time-line" size={18} />
 				<div>
-					<p class="notice-title">Waiting on your admin</p>
-					<p class="notice-body">No domain has been connected yet. Ask an admin to finish setup.</p>
+				<p class="notice-title">管理者の設定を待っています</p>
+				<p class="notice-body">まだドメインが接続されていません。管理者に初期設定を依頼してください。</p>
 				</div>
 			</div>
 		{:else if !data.providerConfigured || data.loadError}
@@ -115,9 +130,9 @@
 				<Icon name={data.providerConfigured ? 'error-warning-line' : 'key-2-line'} size={18} />
 				<div>
 					<p class="notice-title">
-						{data.providerConfigured ? "Couldn't load your domains" : missingProviderTitle(data.providerKind)}
+						{data.providerConfigured ? 'ドメインを読み込めませんでした' : missingProviderTitle(data.providerKind)}
 					</p>
-					<p class="notice-body">{data.loadError}</p>
+					<p class="notice-body">{safeProviderError(data.loadError)}</p>
 				</div>
 			</div>
 		{:else if connectable.length === 0}
@@ -142,25 +157,30 @@
 				onclick={connectDomains}
 			>
 				{connecting
-					? 'Connecting…'
-					: `Continue with ${selected.length || 'no'} domain${selected.length === 1 ? '' : 's'}`}
+					? '接続中…'
+					: `ドメイン${selected.length}件で続行`}
 			</button>
 		{/if}
 	{:else}
 		<form class="surface-lg address-card" onsubmit={claimAddress}>
-			<AddressField bind:localPart bind:domainId={addressDomainId} domains={data.domains} />
+				<AddressField
+					bind:localPart
+					bind:domainId={addressDomainId}
+					domains={data.domains}
+					label="メールアドレス"
+					placeholder="info"
+				/>
 
 			{#if cleanLocal && activeDomain}
 				<p class="preview">
-					You'll send and receive as <strong>{cleanLocal}@{activeDomain.name}</strong>
+					<strong>{cleanLocal}@{activeDomain.name}</strong>として送受信します。
 				</p>
 			{/if}
 
 			{#if activeDomain && !activeDomain.receiving_enabled}
 				<p class="hint">
 					<Icon name="information-line" size={14} />
-					Receiving isn't enabled on {activeDomain.name} — you can send, but inbound mail won't
-					arrive.
+					{activeDomain.name}では受信が有効になっていません。送信はできますが、受信メールは届きません。
 				</p>
 			{/if}
 
@@ -171,13 +191,13 @@
 				class="btn-primary w-full py-2.5 mt-4"
 				disabled={creating || !cleanLocal}
 			>
-				{creating ? 'Creating…' : 'Go to inbox'}
+			{creating ? '作成中…' : '受信トレイへ'}
 			</button>
 		</form>
 
 		{#if data.isAdmin && data.available.some((domain) => !domain.connected)}
 			<p class="footnote">
-				Want more than one domain here? Connect them any time from <a href="/admin">Admin</a>.
+				複数のドメインを使いますか？<a href="/admin">管理画面</a>からいつでも接続できます。
 			</p>
 		{/if}
 	{/if}

@@ -22,19 +22,19 @@ export function normalizeUrl(url: string): string {
 	try {
 		parsed = new URL(url.trim());
 	} catch {
-		throw new Error('QuickMail URL is invalid.');
+		throw new Error('QuickMail-ja URL is invalid.');
 	}
 
 	if (parsed.username || parsed.password) {
-		throw new Error('QuickMail URL must not include credentials.');
+		throw new Error('QuickMail-ja URL must not include credentials.');
 	}
 
 	if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-		throw new Error('QuickMail URL must use http or https.');
+		throw new Error('QuickMail-ja URL must use http or https.');
 	}
 
 	if (!parsed.hostname) {
-		throw new Error('QuickMail URL is invalid.');
+		throw new Error('QuickMail-ja URL is invalid.');
 	}
 
 	const host = parsed.hostname.toLowerCase();

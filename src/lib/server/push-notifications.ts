@@ -1,6 +1,7 @@
 import type { D1Database } from '@cloudflare/workers-types';
 import { createECDH } from 'node:crypto';
 import webpush from 'web-push';
+import { displayMailSubject } from '$lib/mail-ui-copy';
 
 const MAX_ENDPOINT_LENGTH = 2048;
 const MAX_KEY_LENGTH = 512;
@@ -276,9 +277,11 @@ function truncate(value: string, max: number): string {
 }
 
 export function buildNewMailPayload(input: NewMailNotificationInput): NewMailPushPayload {
+	const subject = displayMailSubject(input.subject);
+	const sender = truncate(input.from || '不明な差出人', 160) || '不明な差出人';
 	return {
-		title: truncate(input.subject || '(no subject)', 120) || '(no subject)',
-		body: `From ${truncate(input.from || 'Unknown sender', 160) || 'Unknown sender'}`,
+		title: truncate(subject, 120) || '（件名なし）',
+		body: `差出人: ${sender}`,
 		tag: `quickmail-${input.emailId}`,
 		url: `/mail/${encodeURIComponent(input.emailId)}`
 	};

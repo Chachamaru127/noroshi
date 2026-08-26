@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Bootstrap QuickMail setup: install bun if needed, install deps, run the wizard.
+# QuickMail-jaの準備: Bunがなければ確認後に公式インストーラーを実行し、ウィザードを開始します。
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -16,19 +16,11 @@ has_bun() {
 	command -v bun >/dev/null 2>&1
 }
 
-has_node() {
-	command -v node >/dev/null 2>&1
-}
-
-node_major() {
-	node -v 2>/dev/null | sed 's/^v//' | cut -d. -f1
-}
-
 ask_yes() {
 	# $1 prompt, default yes
 	local reply
 	if [[ ! -t 0 ]]; then
-		return 0
+		return 1
 	fi
 	read -r -p "  $1 [Y/n] " reply || true
 	reply="$(printf '%s' "$reply" | tr '[:upper:]' '[:lower:]')"
@@ -36,47 +28,33 @@ ask_yes() {
 }
 
 say ""
-say "QuickMail setup"
-say "  Installing anything that's missing, then the domain wizard."
+say "QuickMail-ja セットアップ"
+say "  Bunと依存パッケージを確認し、ドメイン設定ウィザードを開始します。"
 say ""
 
 if ! has_bun; then
-	warn "Bun is not installed. QuickMail's build and deploy scripts use bun."
-	if ask_yes "Install bun now?"; then
+	warn "Bunがありません。QuickMail-jaはBunだけをサポートします。"
+	if ask_yes "bun.shの公式インストーラーでBunを導入しますか？"; then
 		if [[ "$(uname -s)" == "MINGW"* || "$(uname -s)" == "MSYS"* || "$(uname -s)" == "CYGWIN"* ]]; then
-			say "  Install bun from https://bun.sh on Windows, then re-run: bash scripts/setup.sh"
+			say "  Windowsでは https://bun.sh の手順でBunを導入後、bash scripts/setup.shを再実行してください。"
 			exit 1
 		fi
 		curl -fsSL https://bun.sh/install | bash
 		export PATH="$BUN_INSTALL/bin:$PATH"
 		if ! has_bun; then
-			say "  Bun installed, but this shell cannot see it yet."
-			say "  Add $BUN_INSTALL/bin to PATH and re-run: bash scripts/setup.sh"
+			say "  Bunを導入しましたが、このシェルのPATHから見つかりません。"
+			say "  $BUN_INSTALL/bin をPATHへ追加し、bash scripts/setup.shを再実行してください。"
 			exit 1
 		fi
 		ok "bun $(bun --version)"
-	elif has_node; then
-		major="$(node_major)"
-		if [[ -n "$major" && "$major" -ge 20 ]]; then
-			warn "Continuing with Node $(node -v). Some package.json scripts still call bun."
-		else
-			say "  Need bun (https://bun.sh) or Node 20+ (https://nodejs.org)."
-			exit 1
-		fi
 	else
-		say "  Need bun (https://bun.sh) or Node 20+ (https://nodejs.org)."
+		say "  Bunを導入してから再実行してください: https://bun.sh"
 		exit 1
 	fi
 else
 	ok "bun $(bun --version)"
 fi
 
-if has_bun; then
-	bun install
-	ok "dependencies installed"
-	exec bun "$ROOT/scripts/setup.mjs" "$@"
-fi
-
-npm install
-ok "dependencies installed"
-exec node "$ROOT/scripts/setup.mjs" "$@"
+bun install
+ok "依存パッケージを準備しました"
+exec bun "$ROOT/scripts/setup.mjs" "$@"

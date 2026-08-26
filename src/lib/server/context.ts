@@ -16,6 +16,17 @@ export { ProviderError } from './email-provider';
 
 type PlatformLike = App.Platform | undefined | null;
 
+export type InboundEmailProviderKind = 'resend' | 'cloudflare';
+
+export function getInboundEmailProviderKind(platform: PlatformLike): InboundEmailProviderKind {
+	const raw = platform?.env.INBOUND_EMAIL_PROVIDER?.trim().toLowerCase();
+	if (!raw) return getEmailProviderKind(platform);
+	if (raw === 'resend' || raw === 'cloudflare') return raw;
+	throw new ConfigError(
+		`Unknown INBOUND_EMAIL_PROVIDER "${platform?.env.INBOUND_EMAIL_PROVIDER}". Use "resend" or "cloudflare".`
+	);
+}
+
 export function getEmailProviderKind(platform: PlatformLike): EmailProviderKind {
 	const raw = platform?.env.EMAIL_PROVIDER?.trim().toLowerCase();
 	if (!raw || raw === 'resend') return 'resend';
@@ -42,7 +53,12 @@ export function getEmailProvider(platform: PlatformLike): EmailProvider {
 					'RESEND_API_KEY is not set. Add it with `wrangler secret put RESEND_API_KEY` (or to .dev.vars locally).'
 				);
 			}
-			return createResendProvider(apiKey);
+			return createResendProvider(
+				apiKey,
+				getInboundEmailProviderKind(platform) === 'cloudflare'
+					? platform?.env.CLOUDFLARE_MAIL_DOMAINS
+					: undefined
+			);
 		}
 		case 'cloudflare': {
 			const email = platform?.env.EMAIL;
@@ -63,9 +79,14 @@ export function getEmailProvider(platform: PlatformLike): EmailProvider {
 export function hasProviderConfigured(platform: PlatformLike): boolean {
 	try {
 		const kind = getEmailProviderKind(platform);
+		const inboundKind = getInboundEmailProviderKind(platform);
 		switch (kind) {
 			case 'resend':
-				return Boolean(platform?.env.RESEND_API_KEY);
+				return (
+					Boolean(platform?.env.RESEND_API_KEY) &&
+					(inboundKind !== 'cloudflare' ||
+						parseMailDomains(platform?.env.CLOUDFLARE_MAIL_DOMAINS).length > 0)
+				);
 			case 'cloudflare':
 				return Boolean(platform?.env.EMAIL) && parseMailDomains(platform?.env.CLOUDFLARE_MAIL_DOMAINS).length > 0;
 			default: {

@@ -10,13 +10,14 @@ import { listAllAddresses, listUnroutedEmails } from '$lib/server/domains';
 
 export const load: PageServerLoad = async ({ locals, platform }) => {
 	if (!locals.user?.is_admin) {
-		throw error(403, 'Forbidden');
+		throw error(403, '管理者権限が必要です。');
 	}
 
 	const providerKind = safeEmailProviderKind(platform);
 	const db = platform?.env.DB;
 	if (!db) {
 		return {
+			currentUserId: locals.user.id,
 			users: [],
 			addresses: [],
 			domains: locals.domains,
@@ -40,6 +41,7 @@ export const load: PageServerLoad = async ({ locals, platform }) => {
 		);
 
 		return {
+			currentUserId: locals.user.id,
 			users,
 			addresses,
 			unrouted,
@@ -50,6 +52,7 @@ export const load: PageServerLoad = async ({ locals, platform }) => {
 		};
 	} catch (err) {
 		return {
+			currentUserId: locals.user.id,
 			users,
 			addresses,
 			unrouted,

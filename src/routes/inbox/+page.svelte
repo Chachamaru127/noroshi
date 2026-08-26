@@ -6,7 +6,12 @@
 </script>
 
 <svelte:head>
-	<title>Inbox — Mail</title>
+	<title>受信トレイ — QuickMail-ja</title>
 </svelte:head>
 
-<MailboxView view={data.view} mailbox={data.mailbox} filters={data.filters} />
+<MailboxView
+	view={data.view}
+	folders={data.folders}
+	mailbox={data.mailbox}
+	filters={data.filters}
+/>

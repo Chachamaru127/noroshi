@@ -303,6 +303,7 @@ export async function deleteAddress(
 export type InboundRoute = {
 	userId: string;
 	domainId: string | null;
+	addressId: string | null;
 	address: string;
 	viaCatchall: boolean;
 };
@@ -326,10 +327,10 @@ export async function resolveInboundRoute(
 	const placeholders = candidates.map(() => '?').join(', ');
 	const { results } = await db
 		.prepare(
-			`SELECT user_id, domain_id, address FROM addresses WHERE address IN (${placeholders})`
+			`SELECT id, user_id, domain_id, address FROM addresses WHERE address IN (${placeholders})`
 		)
 		.bind(...candidates)
-		.all<{ user_id: string; domain_id: string; address: string }>();
+		.all<{ id: string; user_id: string; domain_id: string; address: string }>();
 
 	if (results.length > 0) {
 		// Honour the order the recipients arrived in, not SQLite's row order.
@@ -339,6 +340,7 @@ export async function resolveInboundRoute(
 				return {
 					userId: match.user_id,
 					domainId: match.domain_id,
+					addressId: match.id,
 					address: match.address,
 					viaCatchall: false
 				};
@@ -359,6 +361,7 @@ export async function resolveInboundRoute(
 			return {
 				userId: domain.catchall_user_id,
 				domainId: domain.id,
+				addressId: null,
 				address: candidate,
 				viaCatchall: true
 			};
@@ -377,8 +380,8 @@ export async function recordUnroutedEmail(
 		subject: string | null;
 		reason: string;
 	}
-): Promise<void> {
-	await db
+): Promise<boolean> {
+	const inserted = await db
 		.prepare(
 			`INSERT INTO unrouted_emails (id, provider_id, from_addr, to_addr, subject, reason)
 			 VALUES (?, ?, ?, ?, ?, ?)`
@@ -392,6 +395,7 @@ export async function recordUnroutedEmail(
 			input.reason
 		)
 		.run();
+	return (inserted.meta.changes ?? 0) === 1;
 }
 
 export async function listUnroutedEmails(db: D1Database, limit = 50) {

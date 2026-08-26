@@ -1,14 +1,16 @@
+import { MAX_ATTACHMENTS_PER_EMAIL } from '$lib/constants';
+
+export function remainingAttachmentSlots(uploadedCount: number, reservedCount = 0): number {
+	return Math.max(0, MAX_ATTACHMENTS_PER_EMAIL - uploadedCount - reservedCount);
+}
+
 export function isImageType(contentType: string): boolean {
 	return contentType.startsWith('image/');
 }
 
 export function isPreviewableInline(contentType: string): boolean {
-	return (
-		isImageType(contentType) ||
-		contentType === 'application/pdf' ||
-		contentType.startsWith('text/') ||
-		contentType === 'application/json'
-	);
+	const normalized = contentType.split(';', 1)[0]?.trim().toLowerCase();
+	return ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/avif'].includes(normalized);
 }
 
 export function attachmentHref(emailId: string, attachmentId: string, download = false): string {

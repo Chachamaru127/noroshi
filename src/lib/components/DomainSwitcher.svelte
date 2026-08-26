@@ -17,7 +17,7 @@
 	let switching = $state(false);
 
 	const active = $derived(domains.find((domain) => domain.id === activeDomainId) ?? null);
-	const label = $derived(active?.name ?? 'All domains');
+	const label = $derived(active?.name ?? 'すべてのドメイン');
 
 	async function select(domainId: string | null) {
 		if (domainId === activeDomainId) {
@@ -60,7 +60,7 @@
 			<button
 				type="button"
 				class="switcher-backdrop"
-				aria-label="Close domain menu"
+				aria-label="ドメインメニューを閉じる"
 				onclick={() => (open = false)}
 			></button>
 			<ul class="switcher-menu" role="listbox">
@@ -73,7 +73,7 @@
 						class:selected={activeDomainId === null}
 						onclick={() => select(null)}
 					>
-						<span>All domains</span>
+						<span>すべてのドメイン</span>
 						{#if activeDomainId === null}<Icon name="check-line" size={14} />{/if}
 					</button>
 				</li>
@@ -91,7 +91,7 @@
 							{#if activeDomainId === domain.id}
 								<Icon name="check-line" size={14} />
 							{:else if !domain.receiving_enabled}
-								<span class="item-flag" title="Receiving not enabled for this domain">send only</span>
+								<span class="item-flag" title="このドメインは受信が有効ではありません">送信のみ</span>
 							{/if}
 						</button>
 					</li>

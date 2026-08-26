@@ -2,18 +2,28 @@
 	import Icon from './Icon.svelte';
 	import { MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS_PER_EMAIL } from '$lib/constants';
 	import type { OutboundAttachmentInput } from '$lib/types';
+	import { remainingAttachmentSlots } from '$lib/utils/attachments';
 
 	let {
 		attachments = $bindable([]),
-		mode = 'full'
+		mode = 'full',
+		reservedCount = 0
 	}: {
 		attachments?: OutboundAttachmentInput[];
 		/** `button` is icon-only; `chips` lists files; `full` is both. */
 		mode?: 'full' | 'button' | 'chips';
+		/** Existing files selected elsewhere, such as attachments from a forwarded message. */
+		reservedCount?: number;
 	} = $props();
 
 	const showButton = $derived(mode === 'full' || mode === 'button');
 	const showChips = $derived(mode === 'full' || mode === 'chips');
+	const remainingSlots = $derived(remainingAttachmentSlots(attachments.length, reservedCount));
+	const attachLabel = $derived(
+		remainingSlots === 0
+			? `添付上限に達しました（合計${MAX_ATTACHMENTS_PER_EMAIL}件）`
+			: `ファイルを添付（残り${remainingSlots}件）`
+	);
 
 	let input = $state<HTMLInputElement | null>(null);
 	let error = $state('');
@@ -21,15 +31,15 @@
 	async function addFiles(files: FileList | null) {
 		if (!files?.length) return;
 		error = '';
+		let available = remainingAttachmentSlots(attachments.length, reservedCount);
 
 		for (const file of files) {
-			if (attachments.length >= MAX_ATTACHMENTS_PER_EMAIL) {
-				error = `Max ${MAX_ATTACHMENTS_PER_EMAIL} files`;
+			if (available === 0) {
 				break;
 			}
 			if (file.size > MAX_ATTACHMENT_BYTES) {
 				const limitMb = MAX_ATTACHMENT_BYTES / (1024 * 1024);
-				error = `"${file.name}" exceeds ${limitMb}MB`;
+				error = `「${file.name}」は${limitMb}MBを超えています`;
 				continue;
 			}
 
@@ -42,6 +52,7 @@
 					content
 				}
 			];
+			available -= 1;
 		}
 
 		if (input) input.value = '';
@@ -69,12 +80,14 @@
 		<button
 			type="button"
 			class="attach-btn"
-			aria-label="Attach"
+			aria-label={attachLabel}
+			title={attachLabel}
+			disabled={remainingSlots === 0}
 			onclick={() => input?.click()}
 		>
 			<Icon name="attachment-2" size={16} />
 			{#if mode !== 'button'}
-				<span>Attach</span>
+				<span>{remainingSlots === 0 ? '上限に達しました' : `添付（残り${remainingSlots}件）`}</span>
 			{/if}
 		</button>
 
@@ -82,6 +95,7 @@
 			bind:this={input}
 			type="file"
 			multiple
+			disabled={remainingSlots === 0}
 			class="hidden"
 			onchange={(event) => addFiles(event.currentTarget.files)}
 		/>
@@ -92,7 +106,7 @@
 			<span class="attachment-chip">
 				<Icon name="file-3-line" size={14} />
 				<span class="max-w-[140px] truncate">{file.filename}</span>
-				<button type="button" class="chip-remove" aria-label="Remove" onclick={() => remove(index)}>
+				<button type="button" class="chip-remove" aria-label="添付ファイルを削除" onclick={() => remove(index)}>
 					<Icon name="close-line" size={14} />
 				</button>
 			</span>
@@ -132,6 +146,11 @@
 	.attach-btn:hover {
 		color: var(--color-text);
 		background: var(--color-surface-hover);
+	}
+
+	.attach-btn:disabled {
+		cursor: not-allowed;
+		opacity: 0.55;
 	}
 
 	.attachment-chip {

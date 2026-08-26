@@ -6,7 +6,12 @@
 </script>
 
 <svelte:head>
-	<title>Starred — Mail</title>
+	<title>スター付き — QuickMail-ja</title>
 </svelte:head>
 
-<MailboxView view={data.view} mailbox={data.mailbox} filters={data.filters} />
+<MailboxView
+	view={data.view}
+	folders={data.folders}
+	mailbox={data.mailbox}
+	filters={data.filters}
+/>

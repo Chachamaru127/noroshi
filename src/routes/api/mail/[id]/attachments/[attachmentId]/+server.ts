@@ -30,11 +30,12 @@ export const GET: RequestHandler = async ({ params, locals, platform, url }) => 
 	const body = new Uint8Array(bytes);
 
 	return new Response(body, {
-		headers: {
+			headers: {
 			'Content-Type': attachment.content_type,
 			'Content-Disposition': `${inline ? 'inline' : 'attachment'}; filename="${encodeURIComponent(attachment.filename)}"`,
 			'Content-Length': String(bytes.length),
-			'Cache-Control': 'private, max-age=3600'
+			'Cache-Control': 'private, max-age=3600',
+			'X-Content-Type-Options': 'nosniff'
 		}
 	});
 };

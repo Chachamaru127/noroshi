@@ -69,8 +69,37 @@ export type MailAddress = {
 	created_at: string;
 };
 
-/** The mailboxes the sidebar can show. Drafts/Trash are flags, not folders. */
+/** The system mailboxes in the sidebar. Drafts/Trash are flags, not folders. */
 export type MailboxView = 'inbox' | 'starred' | 'drafts' | 'sent' | 'trash';
+
+export type MailFolder = {
+	id: string;
+	user_id: string;
+	name: string;
+	position: number;
+	conversation_count: number;
+	unread_count: number;
+	created_at: string;
+	updated_at: string;
+};
+
+export type MailFolderDeleteImpact = {
+	conversation_count: number;
+	rule_count: number;
+};
+
+export type MailSortRule = {
+	id: string;
+	user_id: string;
+	folder_id: string;
+	folder_name: string;
+	sender_contains: string | null;
+	subject_contains: string | null;
+	enabled: boolean;
+	position: number;
+	created_at: string;
+	updated_at: string;
+};
 
 export type MailboxCounts = {
 	inbox: number;

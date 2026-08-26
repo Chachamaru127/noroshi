@@ -9,7 +9,7 @@ import {
 } from './client.ts';
 import { clearConfig, loadConfig, saveConfig } from './config.ts';
 
-const HELP = `quickmail — operate a QuickMail instance from the terminal
+const HELP = `quickmail — operate a QuickMail-ja instance from the terminal
 
 Usage:
   quickmail login --url <https://mail.example.com> --token <qm_live_…>
@@ -348,7 +348,7 @@ async function run(argv: string[]): Promise<number> {
 					(message.includes('mcp') || message.includes('@modelcontextprotocol/sdk'))
 				) {
 					throw new Error(
-						'MCP is not installed. Re-run: curl -fsSL https://raw.githubusercontent.com/DivinPrince/quickmail/main/scripts/install.sh | sh'
+						'MCP dependencies are not installed. Run `bun install` in the QuickMail-ja source directory and try again.'
 					);
 				}
 				throw error;

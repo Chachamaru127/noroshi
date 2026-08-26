@@ -2,25 +2,70 @@
 	import { page } from '$app/stores';
 	import Icon from './Icon.svelte';
 	import DomainSwitcher from './DomainSwitcher.svelte';
+	import FolderNavigation from './FolderNavigation.svelte';
 	import { haptic, isMailboxPath, isMorePath } from '$lib/app-chrome';
-	import type { Domain, MailboxCounts } from '$lib/types';
+	import type { Domain, MailFolder, MailboxCounts } from '$lib/types';
 
 	let {
 		counts,
+		folders,
 		domains,
 		activeDomainId,
 		isAdmin
 	}: {
 		counts: MailboxCounts;
+		folders: MailFolder[];
 		domains: Domain[];
 		activeDomainId: string | null;
 		isAdmin: boolean;
 	} = $props();
 
 	let moreOpen = $state(false);
+	let folderDialogOpen = $state(false);
+	let folderDialogBusy = $state(false);
 	let sheetWasOpen = false;
-	let sheetEl: HTMLDivElement | undefined;
+	let sheetEl = $state<HTMLDivElement>();
 	let trigger: HTMLButtonElement | undefined;
+
+	function modalSheet(node: HTMLElement) {
+		const background = Array.from(document.body.children).filter(
+			(element): element is HTMLElement => element instanceof HTMLElement && element !== node
+		);
+		const previousInert = background.map((element) => element.inert);
+		document.body.appendChild(node);
+		for (const element of background) element.inert = true;
+
+		return {
+			destroy() {
+				background.forEach((element, index) => (element.inert = previousInert[index] ?? false));
+				node.remove();
+			}
+		};
+	}
+
+	function trapSheetFocus(event: KeyboardEvent) {
+		if (event.key !== 'Tab' || folderDialogOpen) return;
+		const focusable = Array.from(
+			sheetEl?.querySelectorAll<HTMLElement>(
+				'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'
+			) ?? []
+		);
+		if (focusable.length === 0) {
+			event.preventDefault();
+			sheetEl?.focus();
+			return;
+		}
+		const first = focusable[0];
+		const last = focusable[focusable.length - 1];
+		const active = document.activeElement;
+		if (event.shiftKey && (active === first || !sheetEl?.contains(active))) {
+			event.preventDefault();
+			last?.focus();
+		} else if (!event.shiftKey && (active === last || !sheetEl?.contains(active))) {
+			event.preventDefault();
+			first?.focus();
+		}
+	}
 
 	$effect(() => {
 		$page.url.pathname;
@@ -42,16 +87,19 @@
 	$effect(() => {
 		if (!moreOpen) return;
 		const onKey = (event: KeyboardEvent) => {
-			if (event.key === 'Escape') moreOpen = false;
+			if (event.key === 'Escape') {
+				if (folderDialogOpen || folderDialogBusy) return;
+				moreOpen = false;
+			}
 		};
 		window.addEventListener('keydown', onKey);
 		return () => window.removeEventListener('keydown', onKey);
 	});
 
 	const tabs = $derived([
-		{ href: '/inbox', icon: 'inbox-line', iconActive: 'inbox-fill', label: 'Inbox', badge: counts.inbox_unread },
-		{ href: '/starred', icon: 'star-line', iconActive: 'star-fill', label: 'Starred' },
-		{ href: '/sent', icon: 'send-plane-line', iconActive: 'send-plane-fill', label: 'Sent' }
+		{ href: '/inbox', icon: 'inbox-line', iconActive: 'inbox-fill', label: '受信トレイ', badge: counts.inbox_unread },
+		{ href: '/starred', icon: 'star-line', iconActive: 'star-fill', label: 'スター付き' },
+		{ href: '/sent', icon: 'send-plane-line', iconActive: 'send-plane-fill', label: '送信済み' }
 	]);
 
 	function isTabActive(href: string): boolean {
@@ -62,7 +110,7 @@
 	const showFab = $derived(isMailboxPath($page.url.pathname));
 </script>
 
-<nav class="bottom-nav" aria-label="Primary">
+<nav class="bottom-nav" aria-label="メインナビゲーション">
 	{#each tabs as tab (tab.href)}
 		<a
 			href={tab.href}
@@ -99,7 +147,7 @@
 				<span class="tab-dot"></span>
 			{/if}
 		</span>
-		<span class="tab-label">More</span>
+		<span class="tab-label">その他</span>
 	</button>
 </nav>
 
@@ -107,57 +155,76 @@
 	href="/compose"
 	class="compose-fab"
 	class:hidden={moreOpen || !showFab}
-	aria-label="New message"
+	aria-label="新規メール"
 	onclick={() => haptic(8)}
 >
 	<Icon name="pencil-fill" size={22} />
 </a>
 
 {#if moreOpen}
-	<button type="button" class="sheet-scrim" aria-label="Close menu" onclick={() => (moreOpen = false)}
-	></button>
 	<div
-		bind:this={sheetEl}
-		class="sheet"
-		id="more-sheet"
-		role="dialog"
-		aria-label="More"
-		aria-modal="true"
+		use:modalSheet
+		class="sheet-layer"
 	>
+		<div
+			class="sheet-scrim"
+			aria-hidden="true"
+			onclick={() => {
+				if (!folderDialogOpen && !folderDialogBusy) moreOpen = false;
+			}}
+		></div>
+		<div
+			bind:this={sheetEl}
+			class="sheet"
+			id="more-sheet"
+			role="dialog"
+			aria-label="その他のメニュー"
+			aria-modal="true"
+			tabindex="-1"
+			onkeydown={trapSheetFocus}
+		>
 		<div class="sheet-handle" aria-hidden="true"></div>
 		<nav class="sheet-nav">
 			<a href="/drafts" class="sheet-link" class:active={$page.url.pathname === '/drafts'}>
 				<Icon name="draft-line" size={20} />
-				<span>Drafts</span>
+				<span>下書き</span>
 				{#if counts.drafts}
 					<span class="sheet-count">{counts.drafts}</span>
 				{/if}
 			</a>
 			<a href="/trash" class="sheet-link" class:active={$page.url.pathname === '/trash'}>
 				<Icon name="delete-bin-line" size={20} />
-				<span>Trash</span>
+				<span>ゴミ箱</span>
 				{#if counts.trash}
 					<span class="sheet-count">{counts.trash}</span>
 				{/if}
 			</a>
 			<a href="/settings" class="sheet-link" class:active={$page.url.pathname === '/settings'}>
 				<Icon name="user-settings-line" size={20} />
-				<span>Settings</span>
+				<span>設定</span>
 			</a>
 			{#if isAdmin}
 				<a href="/admin" class="sheet-link" class:active={$page.url.pathname === '/admin'}>
 					<Icon name="settings-3-line" size={20} />
-					<span>Admin</span>
+					<span>管理</span>
 				</a>
 			{/if}
 		</nav>
+		<FolderNavigation
+			{folders}
+			variant="mobile"
+			bind:dialogOpen={folderDialogOpen}
+			bind:dialogBusy={folderDialogBusy}
+			onNavigate={() => (moreOpen = false)}
+		/>
 
 		{#if domains.length > 1}
 			<div class="sheet-section">
-				<p class="sheet-title">Domains</p>
+			<p class="sheet-title">ドメイン</p>
 				<DomainSwitcher {domains} {activeDomainId} block />
 			</div>
 		{/if}
+		</div>
 	</div>
 {/if}
 
@@ -171,6 +238,10 @@
 	}
 
 	@media (max-width: 900px) {
+		.sheet-layer {
+			display: contents;
+		}
+
 		.bottom-nav {
 			position: fixed;
 			right: 0;
@@ -274,7 +345,6 @@
 			position: fixed;
 			inset: 0;
 			z-index: 45;
-			border: 0;
 			background: var(--color-scrim);
 			animation: sheet-fade 180ms ease-out;
 		}
@@ -285,6 +355,8 @@
 			bottom: 0;
 			left: 0;
 			z-index: 50;
+			max-height: calc(88vh - env(safe-area-inset-top));
+			overflow-y: auto;
 			padding: 0.5rem 1rem calc(1rem + env(safe-area-inset-bottom));
 			background: var(--color-surface);
 			border-radius: 1.25rem 1.25rem 0 0;

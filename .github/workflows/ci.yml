@@ -24,8 +24,20 @@ jobs:
       - name: Check the template is clean
         run: bun run check:clean
 
+      - name: Unit and integration tests
+        run: bun test
+
+      - name: D1 forwarding race test
+        run: bun run test:d1-forwarding
+
       - name: Typecheck
         run: bun run check
 
+      - name: Format check
+        run: bun run format:check
+
       - name: Build
         run: bun run build
+
+      - name: Extracted release archive smoke test
+        run: bun run test:archive

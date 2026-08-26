@@ -7,11 +7,19 @@ import {
 	type ResendDomain
 } from '../resend';
 import type { EmailProvider, ProviderDomain } from '../email-provider';
-import { ProviderError } from '../email-provider';
+import { parseMailDomains, ProviderError } from '../email-provider';
 import type { OutboundMailInput, OutboundMailResult } from '../send-mail';
 
-export function createResendProvider(apiKey: string): EmailProvider {
+export function createResendProvider(apiKey: string, cloudflareInboundDomains?: string): EmailProvider {
 	const client = createResendClient(apiKey);
+	const usesCloudflareInbound = cloudflareInboundDomains !== undefined;
+	const inboundDomains = new Set(parseMailDomains(cloudflareInboundDomains));
+	const withInboundCapability = (domain: ProviderDomain): ProviderDomain => ({
+		...domain,
+		receivingEnabled: usesCloudflareInbound
+			? inboundDomains.has(domain.name.toLowerCase())
+			: domain.receivingEnabled
+	});
 
 	return {
 		kind: 'resend',
@@ -23,7 +31,7 @@ export function createResendProvider(apiKey: string): EmailProvider {
 						to: input.to,
 						...(input.cc?.length ? { cc: input.cc } : {}),
 						...(input.bcc?.length ? { bcc: input.bcc } : {}),
-						reply_to: input.from.address,
+						reply_to: input.replyTo ?? input.from.address,
 						subject: input.subject,
 						text: input.text,
 						html: input.html,
@@ -51,14 +59,14 @@ export function createResendProvider(apiKey: string): EmailProvider {
 		async listDomains(): Promise<ProviderDomain[]> {
 			try {
 				const remote = await client.listDomains();
-				return remote.map(toProviderDomain);
+				return remote.map((domain) => withInboundCapability(toProviderDomain(domain)));
 			} catch (error) {
 				throw wrapResendError(error);
 			}
 		},
 		async getDomain(id: string): Promise<ProviderDomain> {
 			try {
-				return toProviderDomain(await client.getDomain(id));
+				return withInboundCapability(toProviderDomain(await client.getDomain(id)));
 			} catch (error) {
 				throw wrapResendError(error);
 			}

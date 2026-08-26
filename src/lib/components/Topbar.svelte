@@ -20,7 +20,9 @@
 	// Search applies to whichever mailbox is open; anywhere else it lands in Inbox.
 	const MAILBOXES = ['/inbox', '/sent', '/starred', '/drafts', '/trash'];
 	const searchTarget = $derived(
-		MAILBOXES.find((path) => $page.url.pathname === path) ?? '/inbox'
+		$page.url.pathname.startsWith('/folders/')
+			? $page.url.pathname
+			: (MAILBOXES.find((path) => $page.url.pathname === path) ?? '/inbox')
 	);
 
 	let query = $state('');
@@ -64,11 +66,11 @@
 		<input
 			type="search"
 			bind:value={query}
-			placeholder="Search messages"
-			aria-label="Search messages"
+			placeholder="メールを検索"
+			aria-label="メールを検索"
 		/>
 		{#if query}
-			<button type="button" class="search-clear" aria-label="Clear search" onclick={clearSearch}>
+			<button type="button" class="search-clear" aria-label="検索をクリア" onclick={clearSearch}>
 				<Icon name="close-line" size={15} />
 			</button>
 		{/if}
@@ -78,7 +80,7 @@
 		<a
 			href="/settings"
 			class="icon-btn"
-			aria-label="Settings"
+			aria-label="設定"
 			class:active={$page.url.pathname === '/settings'}
 		>
 			<Icon name="settings-3-line" size={17} />
@@ -106,7 +108,7 @@
 				<button
 					type="button"
 					class="menu-backdrop"
-					aria-label="Close account menu"
+					aria-label="アカウントメニューを閉じる"
 					onclick={() => (menuOpen = false)}
 				></button>
 				<div class="menu" role="menu">
@@ -115,10 +117,10 @@
 						<span class="menu-address">{primaryAddress}</span>
 					</p>
 					<a href="/settings" class="menu-item" role="menuitem" onclick={() => (menuOpen = false)}>
-						<Icon name="user-settings-line" size={15} /> Settings
+						<Icon name="user-settings-line" size={15} /> 設定
 					</a>
 					<button type="button" class="menu-item" role="menuitem" onclick={onLogout}>
-						<Icon name="logout-box-r-line" size={15} /> Log out
+						<Icon name="logout-box-r-line" size={15} /> ログアウト
 					</button>
 				</div>
 			{/if}

@@ -3,8 +3,8 @@
 		localPart = $bindable(''),
 		domainId = $bindable(''),
 		domains,
-		placeholder = 'you',
-		label = 'Your address'
+		placeholder = 'あなたの名前',
+		label = 'メールアドレス'
 	}: {
 		localPart: string;
 		domainId: string;
@@ -30,7 +30,7 @@
 		class="local-input"
 	/>
 	<span class="at">@</span>
-	<select bind:value={domainId} class="domain-select" aria-label="Domain">
+	<select bind:value={domainId} class="domain-select" aria-label="ドメイン">
 		{#each domains as domain (domain.id)}
 			<option value={domain.id}>{domain.name}</option>
 		{/each}

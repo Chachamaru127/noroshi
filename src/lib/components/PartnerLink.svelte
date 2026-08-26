@@ -6,7 +6,7 @@
 
 	let {
 		size = 44,
-		caption = 'Connected via Cloudflare Email',
+		caption = 'Cloudflare Emailに接続',
 		kind = 'cloudflare'
 	}: {
 		size?: number;
@@ -17,7 +17,7 @@
 
 <div class="partner" aria-label={caption}>
 	<div class="partner-marks">
-		<span class="mark" title="Mail">
+		<span class="mark" title="メール">
 			<Logo {size} />
 		</span>
 

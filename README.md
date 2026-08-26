@@ -1,300 +1,273 @@
-# QuickMail
+# QuickMail-ja
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/DivinPrince/quickmail)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE.md)
 
-Self-hosted email for your own domain, running on Cloudflare Workers.
-Get `you@yourdomain.com` with a full web client — no third-party mailbox,
-no servers to maintain.
+QuickMail-jaは、独自ドメインのメールを自分のCloudflare環境で管理する、日本語固定UIのセルフホスト型Webメールです。受信メール、送信履歴、添付ファイルを自分のCloudflareアカウントに保存します。
 
-## Features
+QuickMail-jaの公開リポジトリのURLは未設定です。そのため、リモートインストーラーやDeployボタンは提供していません。現在は、このソース一式を入手した環境でセットアップしてください。
 
-- **Real mail in and out** — the provider delivers straight into the Worker, nothing is polled
-- **Threads** — replies group into conversations, quoted history collapses
-- **Attachments** — inbound files land in R2, outbound files upload from the composer
-- **Safe HTML** — received HTML renders in a sandboxed iframe
-- **Multiple domains and users** — per-user addresses, admin catch-all, unrouted-mail view
-- **Delivery status** — delivered / bounced / complained tracking
-- **REST API, CLI, and MCP server** — send and read mail from scripts, the terminal, or AI agents
-- Light and dark themes
+## 構成
 
-## Quick start
+標準構成は受信と送信を分けます。
 
-Click **Deploy to Cloudflare** above, or run the setup wizard locally:
+| 役割 | 使用サービス | 保存先 |
+| --- | --- | --- |
+| 受信 | Cloudflare Email Routing → Workerの`email()` | 本文・索引はD1、添付はR2 |
+| 送信 | Resend API | 送信履歴はD1、添付はR2 |
+| 配信結果 | Resend Webhook | D1 |
+| Web UI/API | Cloudflare Workers | セッション・APIキーはD1 |
+
+`INBOUND_EMAIL_PROVIDER=cloudflare`、`EMAIL_PROVIDER=resend`が標準です。受信には、対象ドメインのDNSゾーンをCloudflareで管理する必要があります。Resendは送信だけに使い、Resend Receivingは有効にしません。
+
+初回リリースの送信はResendのみをサポートします。Cloudflare Email Routingは受信専用です。
+
+## 主な機能
+
+- 送受信、返信、スレッド、下書き、添付、配信状態
+- 複数ドメイン・複数ユーザー・複数アドレス
+- 署名と差出人名
+- 1通ずつの手動転送
+- 保存後の自動転送。有効・無効、宛先確認、状態表示、二重送信防止
+- フォルダー、差出人・件名による自動振り分け
+- 管理画面からのEML取り込み
+- REST API、CLI、MCPサーバー
+- ライト・ダークテーマ、デスクトップ通知
+
+## セットアップ
+
+### 必要なもの
+
+1. DNSをCloudflareで管理できる独自ドメイン
+2. Cloudflareアカウント
+3. Resendアカウント
+4. [Bun](https://bun.sh)
+
+最短手順は次のとおりです。
 
 ```bash
+bun install
 bun run setup
-# if bun isn't installed yet:
+```
+
+Bunが未導入なら、次の補助スクリプトを使えます。
+
+```bash
 bash scripts/setup.sh
 ```
 
-The wizard creates the D1 database and R2 bucket, writes config, and onboards
-your domain. Budget about 30 minutes — most of that is waiting on DNS.
+`scripts/setup.sh`は、Bunがない場合に対話画面で確認してからbun.shの公式インストーラーを実行します。明示的に承認しなければ何も導入せず終了します。非対話環境では自動承認せず停止するため、先にBunを手動導入してください。QuickMail-jaがサポートするパッケージ管理・実行環境はBunだけです。
 
-You need:
+ウィザードは次を行います。
 
-1. A domain you control
-2. A [Cloudflare](https://dash.cloudflare.com) account
-3. Either a [Resend](https://resend.com) account, **or** the domain on Cloudflare DNS plus a Workers paid plan
+1. Cloudflareへログイン
+2. メールドメインを指定。受信はCloudflare Email Routing、送信はResendに固定
+3. D1 `quickmail-ja`とR2 `quickmail-ja-attachments`を作成
+4. `wrangler.jsonc`とローカル用`.dev.vars`を更新
+5. セットアップキーを生成または入力
+6. `BOOTSTRAP_SECRET`をWorkerシークレットへ保存
+7. Cloudflare Email RoutingとResend送信を設定
+8. D1マイグレーションを適用し、確認後にデプロイ
 
-## Choosing a mail provider
+セットアップキーは、最初の管理者を作るときに使います。ウィザードで1回だけ表示されます。安全な場所に保存し、`/setup`で管理者を作成した後は破棄してください。ローカル開発では同じ値をgitignoredの`.dev.vars`へ保存します。値をコミットしないでください。
 
-One provider is active per deploy, selected by `EMAIL_PROVIDER` (`resend` is
-the default, `cloudflare` is the alternative). Do not point the same domain's
-apex MX at both.
-
-|                 | [Resend](https://resend.com)             | [Cloudflare Email Service](https://developers.cloudflare.com/email-service/) |
-| --------------- | ---------------------------------------- | ---------------------------------------------------------------------------- |
-| Outbound        | Resend API                               | Workers `env.EMAIL.send()`                                                    |
-| Inbound         | Webhook → `/api/webhooks/resend`         | Worker `email()` handler                                                      |
-| DNS             | Any DNS host                             | **Cloudflare DNS required**                                                   |
-| Cost            | Resend free tier + Cloudflare            | Requires a **Workers paid** plan                                              |
-| Delivery events | `delivered`, `bounced`, `complained`, …  | Accepted send is stored as `sent`                                             |
-
-Pick Resend if your DNS lives elsewhere or you already use it. Pick Cloudflare
-Email if the zone is already on Cloudflare and you want everything on one account.
-
-## Manual setup
-
-Only needed if you cannot run the wizard.
-
-### 1. Install
+対話なしで既定値を使う場合は、ドメインを明示します。
 
 ```bash
-bun install          # or: npm install
+bun run setup -- --yes --domain example.com
+```
+
+### 手動でCloudflareリソースを作る場合
+
+```bash
+bun install
 bunx wrangler login
+bunx wrangler d1 create quickmail-ja
+bunx wrangler r2 bucket create quickmail-ja-attachments
 ```
 
-Cloudflare Email Sending needs **Wrangler 4.123+** (older versions hit a
-removed API path and 404).
+D1作成時に表示された`database_id`を`wrangler.jsonc`の`REPLACE_WITH_YOUR_D1_DATABASE_ID`と置き換えます。デプロイ前に、同じファイルの`vars`を次のように設定します。`CLOUDFLARE_MAIL_DOMAINS`が空だと、Workerは受信ドメインを許可しません。
 
-### 2. Create D1 and R2
-
-```bash
-bunx wrangler d1 create quickmail
-bunx wrangler r2 bucket create quickmail-attachments
+```json
+"vars": {
+  "EMAIL_PROVIDER": "resend",
+  "INBOUND_EMAIL_PROVIDER": "cloudflare",
+  "CLOUDFLARE_MAIL_DOMAINS": "example.com"
+}
 ```
 
-Copy the printed `database_id` into `wrangler.jsonc` (replacing
-`REPLACE_WITH_YOUR_D1_DATABASE_ID`), then run migrations:
+続いて、セットアップキーとResendのシークレットを入力します。
 
 ```bash
-bun run db:migrate:remote
-```
-
-To serve from your own hostname, uncomment the `routes` block in
-`wrangler.jsonc` — the zone must be on the same Cloudflare account.
-
-Then follow **exactly one** provider track below.
-
-### Track A — Resend
-
-1. **Verify the domain** in Resend (**Domains → Add Domain**) and add every
-   record they show, including the apex `MX` — without it, mail never arrives.
-   Enable **sending and receiving** on the domain.
-
-2. **Set the API key** (create it with full access — send + domains + receiving):
-
-   ```bash
-   bunx wrangler secret put RESEND_API_KEY
-   ```
-
-3. **Deploy, then create the webhook** (the URL must be public):
-
-   ```bash
-   bun run deploy
-   ```
-
-   In [Resend → Webhooks](https://resend.com/webhooks) add a webhook pointing to
-   `https://<your-worker-url>/api/webhooks/resend` with the events
-   `email.received`, `email.sent`, `email.delivered`, `email.bounced`,
-   `email.complained`, `email.delivery_delayed`, `email.failed`.
-
-4. **Save the signing secret** (shown once) and redeploy:
-
-   ```bash
-   bunx wrangler secret put RESEND_WEBHOOK_SECRET
-   bun run deploy
-   ```
-
-While testing, a DMARC record on `_dmarc` is recommended:
-`v=DMARC1; p=none; rua=mailto:you@yourdomain.com; pct=100; adkim=s; aspf=s`
-(tighten to `p=quarantine` later).
-
-### Track B — Cloudflare Email Service
-
-The zone must use **Cloudflare DNS**.
-
-1. **Onboard the domain** for both
-   [Email Sending](https://dash.cloudflare.com/?to=/:account/email-service/sending)
-   and [Email Routing](https://dash.cloudflare.com/?to=/:account/email-service/routing)
-   in the dashboard, or with Wrangler 4.123+:
-
-   ```bash
-   bunx wrangler email sending enable yourdomain.com
-   bunx wrangler email routing enable yourdomain.com
-   ```
-
-2. **Route inbound mail to the Worker.** In the Email Routing dashboard, enable
-   **Catch-all** with the action **Send to a Worker** → this app. The catch-all
-   is what lets users create arbitrary addresses in Settings. (This step is
-   dashboard-only — the CLI can't set a Worker as the catch-all action.)
-
-3. **Configure the Worker** in `wrangler.jsonc` and deploy:
-
-   ```jsonc
-   "vars": {
-     "EMAIL_PROVIDER": "cloudflare",
-     "CLOUDFLARE_MAIL_DOMAINS": "yourdomain.com" // comma-separate multiple domains
-   }
-   ```
-
-   ```bash
-   bun run deploy
-   ```
-
-Inbound mail only works on a **deployed** Worker (or `bun run preview`) —
-`vite dev` never runs the `email()` handler.
-
-## First run
-
-1. Open the deployed URL.
-2. Visit `/setup` — pick a domain and create the admin account (name,
-   address, password). That address is both the inbox and the login.
-3. Later users claim addresses through `/onboarding`.
-
-Send yourself a message from another account — it should land within seconds.
-
-### Desktop notifications (optional)
-
-QuickMail can push-notify users about new mail even with no tab open:
-
-```bash
-bunx web-push generate-vapid-keys
-bunx wrangler secret put VAPID_PUBLIC_KEY
-bunx wrangler secret put VAPID_PRIVATE_KEY
-bunx wrangler secret put VAPID_SUBJECT   # e.g. mailto:admin@example.com
+bunx wrangler secret put BOOTSTRAP_SECRET
+bunx wrangler secret put RESEND_API_KEY
 bun run db:migrate:remote
 bun run deploy
 ```
 
-Users opt in under **Settings → Desktop notifications**. Don't rotate the key
-pair after users subscribe, or they'll have to re-enable.
+デプロイ後、Cloudflare Email Routingで対象ドメインを有効化します。受信用MXを設定し、`Catch-all → Send to a Worker`でデプロイしたQuickMail-ja Workerを選びます。Catch-allをWorkerへ接続するまで受信メールはQuickMail-jaに入りません。
 
-## Development
+ローカル開発では次の手順を使います。
 
 ```bash
-cp .dev.vars.example .dev.vars    # fill in the provider you're using
-bun install
+cp .dev.vars.example .dev.vars
 bun run db:migrate:local
 bun run dev
 ```
 
-| Command           | Purpose                                                  |
-| ----------------- | -------------------------------------------------------- |
-| `bun run dev`     | Vite dev server (D1/R2 via platformProxy)                |
-| `bun run preview` | Production build + `wrangler dev` (Cloudflare inbound)   |
-| `bun run check`   | svelte-check                                             |
-| `bun run test`    | Unit tests                                               |
-| `bun run deploy`  | Build, wrap the Worker with `email()`, deploy            |
+受信の動作確認には`bun run preview`またはデプロイ済みWorkerを使います。Viteの開発サーバーだけではCloudflare Email Routingからメールを受信できません。
 
-**Testing inbound with Resend:** webhooks can't reach `localhost`, so tunnel it
-(`cloudflared tunnel --url http://localhost:5173`) and point a **throwaway**
-webhook at the tunnel — never repoint production.
+## DNS と MX
 
-**Testing inbound with Cloudflare Email:** use `bun run preview` or a deploy.
+### 受信: Cloudflare Email Routing
 
-**Forgot the admin password:**
+対象ドメインの権威DNSをCloudflareへ置き、CloudflareダッシュボードのEmail Routingでドメインを有効にします。
+
+1. Cloudflareが表示した受信用MXレコードをapexへ設定
+2. Catch-allを有効化
+3. `Catch-all → Send to a Worker`でQuickMail-jaのWorkerを選択
+4. 外部アドレスから受信テスト
+
+apexの受信用MXはCloudflareが表示した値だけにします。以前のメールサービスのMXを混在させると、配信先は保証されません。切り替え前に既存DNSを保存してください。
+
+### 送信: Resend
+
+Resendへドメインを追加し、Resendが表示した送信用DKIM、SPF、Return-Pathのレコードだけを設定します。Return-Path用MXは送信用サブドメインに置かれるため、Cloudflareのapex MXとは役割が異なります。
+
+- Resend Receivingを有効にしない
+- Resendの受信用MXをapexへ追加しない
+- SPF TXTを複数作らない。既存SPFがある場合は仕様に沿って統合する
+- デプロイ後、`/api/webhooks/resend`へResend Webhookを設定する
+
+Webhookの対象イベントは`email.sent`、`email.delivered`、`email.bounced`、`email.complained`、`email.delivery_delayed`、`email.failed`です。署名シークレットは1回だけ表示されるため、`RESEND_WEBHOOK_SECRET`として保存します。
+
+## コスト
+
+QuickMail-ja自体はMITライセンスで無料です。実費は利用者自身のCloudflare、Resend、ドメイン契約に発生します。
+
+- Cloudflare Email Routingは無料で利用できます。
+- Workers、D1、R2は各無料枠があります。メール件数、Worker実行数、D1読み書き、R2保存量・操作数が枠を超えるとCloudflare側の課金対象です。
+- Resendには無料枠と有料枠があります。送信通数、ドメイン数、ログ保持などは契約プランに従います。
+- ドメインの取得・更新費用はレジストラに発生します。
+
+無料枠や料金は変更されるため、公開前に[Cloudflare料金](https://www.cloudflare.com/plans/developer-platform/)と[Resend料金](https://resend.com/pricing)を確認してください。QuickMail-jaは利用量の上限設定や請求代行を行いません。
+
+## 制限事項
+
+- IMAP、POP、Gmailとの双方向同期はありません。
+- Google WorkspaceやMicrosoft 365の代替互換を保証しません。
+- エンタープライズアーカイブ、法的保全、コンプライアンスSLA、マルウェア検査、配信到達保証は提供しません。
+- UIは初回公開版では日本語固定です。実行時の多言語切り替えやテナント別ブランド変更はありません。
+- 自動転送は初回送信1回に加え、失敗時の再試行が最大3回です。プロバイダー呼び出しは合計最大4回です。同じidempotency keyで二重送信を抑止します。
+- 受信メールを保存できた後に自動転送します。転送失敗で元の受信を巻き戻しません。
+- 大量配信、メルマガ配信、マーケティングオートメーション用途は対象外です。
+- セルフホスト製品です。監視、障害対応、バックアップ、DNS復旧は運用者の責任です。
+
+## バックアップとエクスポート
+
+完全な復旧にはD1とR2の両方が必要です。D1だけでは添付ファイルの実体が戻りません。可能な限り同じ時刻帯で取得し、Cloudflareアカウントとは別の暗号化済み保管先へ置いてください。
+
+D1はWranglerでSQLへエクスポートできます。
 
 ```bash
-bun scripts/reset-admin-password.mjs you@example.com newpassword --local
+mkdir -p exports
+bunx wrangler d1 export quickmail-ja --remote --output=exports/quickmail-ja.sql
 ```
 
-## API access
+R2はCloudflareのS3互換APIに対応したバックアップツールで`quickmail-ja-attachments`の全オブジェクトをコピーします。アクセスキーをソースやシェル履歴へ保存しないでください。
 
-Any user can mint a long-lived API key under **Settings → API keys** and use it
-as a bearer token:
+過去メールは管理画面の「Outlook / EML取り込み」から読み込めます。メールボックスアドレス、ドメイン、受信・アーカイブのEML、送信済みのEMLを明示して実行します。取り込み中は外部送信、自動転送、通知を行いません。
 
-```sh
-curl https://your-worker/api/mail \
-  -H "Authorization: Bearer qm_live_..." \
-  -H "Content-Type: application/json" \
-  -d '{"to": "you@example.com", "subject": "hello", "text": "hi"}'
-```
+APIキー、Resendキー、Webhook署名、セットアップキーなどのシークレットはD1/R2のエクスポートに含まれない場合があります。パスワード管理ツール等で別管理してください。
 
-`GET /api/mail?view=inbox` lists conversations. Keys are scoped (`mail:read`,
-`mail:send`, admin) and only the SHA-256 hash is stored — the raw value is
-shown once. Revoking a key takes effect immediately.
+## 復旧とロールバック
 
-## CLI and MCP
+### 復旧
+
+1. 新しいD1とR2を作成
+2. `wrangler.jsonc`の名前とD1 IDを復旧先へ変更
+3. 必要なWorkerシークレットを再登録
+4. D1マイグレーションを適用
+5. D1 SQLとR2オブジェクトを復元
+6. デプロイし、管理者ログイン、受信、送信、添付、返信を確認
+7. 最後にCloudflare Email RoutingのCatch-allを復旧Workerへ向ける
+
+本番DNSを切り替える前に、復旧先のデータ件数と添付取得を確認してください。
+
+### 更新失敗時のロールバック
+
+更新前のWorkerデプロイ、D1/R2のバックアップ、DNSレコードを保持します。障害時はCloudflare Workersのデプロイ履歴から直前版へ戻します。D1マイグレーションは原則として追加型です。マイグレーション適用後にテーブルや列を削除して戻さないでください。
+
+メール経路を戻す場合は、切り替え前に保存したMX/TXTをそのまま復元します。推測した値へ置き換えないでください。D1、R2、Worker、Resendドメインは調査が終わるまで削除しません。
+
+## 更新
+
+公開リポジトリのURLが未設定のため、現時点では自動更新や正式なリリース配布はありません。入手元から新しいソース一式を受け取り、差分を確認して更新します。公開後はQuickMail-ja専用のリリースURLをREADMEへ追加します。元の英語版をQuickMail-jaとして導入するリンクは掲載しません。
+
+更新手順:
+
+1. 現行コミットID、Workerデプロイ、D1/R2バックアップを記録
+2. 新旧ソースの差分とマイグレーションを確認
+3. `bun install --frozen-lockfile`
+4. `bun test`、`bun run test:d1-forwarding`、`bun run check`、`bun run format:check`、`bun run check:clean`、`bun run build`、`bun run test:archive`
+5. 先に検証環境へ反映
+6. リモートD1マイグレーションを適用してデプロイ
+7. ログイン、受信、送信、添付、自動転送を確認
+
+### 開発者向けの上流同期
+
+元の英語版から取り込むときは、直接デプロイせず同期用ブランチで差分を確認します。
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/DivinPrince/quickmail/main/scripts/install.sh | sh
-quickmail login --url https://<your-instance> --token <key from Settings>
-quickmail inbox
-quickmail send --to someone@example.com --subject "Hi" --body "Hello"
+git fetch upstream
+git switch -c sync-upstream-YYYYMMDD
+git log --oneline HEAD..upstream/main
 ```
 
-The same credentials drive an MCP server for Claude, Cursor, and other agents:
+上流の変更をQuickMail-jaの日本語UI、受信・送信構成、テストに再適用し、全検証後に取り込みます。特定環境のドメイン、リソースID、バックアップ、運用ログ、秘密値は個別の下流リポジトリにだけ置き、QuickMail-jaへ戻しません。
+
+## API・CLI・MCP
+
+ユーザーは設定画面でAPIキーを作成できます。キーは`mail:read`、`mail:send`、管理権限のスコープを持ちます。生のキーは1回だけ表示され、D1にはSHA-256ハッシュだけを保存します。
+
+```bash
+bun run quickmail -- login --url https://mail.example.com --token <APIキー>
+bun run quickmail -- inbox
+bun run quickmail -- send --to recipient@example.net --subject "確認" --body "本文"
+```
+
+公開リポジトリURLができるまでは、このソースツリーからCLIとMCPを起動します。
 
 ```json
 {
   "mcpServers": {
-    "quickmail": {
-      "command": "quickmail",
-      "args": ["mcp"],
+    "quickmail-ja": {
+      "command": "bun",
+      "args": ["run", "quickmail", "--", "mcp"],
+      "cwd": "/path/to/QuickMail-ja",
       "env": {
         "QUICKMAIL_URL": "https://mail.example.com",
-        "QUICKMAIL_TOKEN": "qm_live_…"
+        "QUICKMAIL_TOKEN": "qm_live_xxxx"
       }
     }
   }
 }
 ```
 
-`quickmail` is the launcher from the install script (`~/.local/bin/quickmail`). Login once, or set `QUICKMAIL_URL` and `QUICKMAIL_TOKEN` as above.
+## 開発と検証
 
-Tools: `list_threads`, `get_thread`, `search_mail`, `send_message`, `reply`,
-`list_attachments`.
-
-## How inbound routing works
-
-Both providers accept every address on a connected domain. The app then routes:
-
-1. Exact match in `addresses` → that user
-2. Else the domain's catch-all owner (admin) → that user
-3. Else stored as unrouted and listed in the admin view
-
-## Project structure
-
-```
-src/
-  worker.ts          SvelteKit fetch + Cloudflare email() inbound
-  routes/            inbox, compose, drafts, settings, admin, setup
-  lib/
-    components/      sidebar, mailbox, composer, thread view
-    server/          providers, inbound, D1, auth
-scripts/
-  setup.sh / setup.mjs         first-run wizard
-  wrap-cloudflare-worker.mjs   attach email() after the SvelteKit build
-cli/                 quickmail CLI + MCP server
-migrations/          D1 schema, applied in order
-```
-
-## Troubleshooting
-
-| Symptom | Fix |
+| コマンド | 内容 |
 | --- | --- |
-| `wrangler email sending enable` → 404 | Wrangler too old — upgrade to 4.123+ |
-| Mail never arrives (Resend) | `dig MX yourdomain.com` must point at Resend; enable receiving on the domain |
-| Mail never arrives (Cloudflare) | Apex MX must be Cloudflare Routing, catch-all must target this Worker, `EMAIL_PROVIDER=cloudflare`, Worker must be deployed |
-| Webhook 401 | `RESEND_WEBHOOK_SECRET` mismatch — secrets are shown once; recreate the webhook |
-| Webhook 500 | `bunx wrangler tail` |
-| Attachments missing | R2 bucket must exist and match `bucket_name` in `wrangler.jsonc` |
-| `database_id` errors on deploy | Paste the id from `wrangler d1 create` into `wrangler.jsonc` |
-| Setup shows no Cloudflare domains | Set `CLOUDFLARE_MAIL_DOMAINS` and `EMAIL_PROVIDER=cloudflare`, restart the dev server |
+| `bun run dev` | Vite開発サーバー |
+| `bun run preview` | 本番ビルド + `wrangler dev` |
+| `bun test` | 単体・統合テスト |
+| `bun run test:d1-forwarding` | D1自動転送の競合テスト |
+| `bun run check` | Svelte/TypeScript確認 |
+| `bun run format:check` | フォーマット確認 |
+| `bun run check:clean` | 秘密値・実運用識別子・有効routeの混入確認 |
+| `bun run build` | Cloudflare Worker向け本番ビルド |
 
-## License
+## ライセンスと由来
 
-[MIT](LICENSE.md) — use it, modify it, ship it, commercially or not.
-Copyright © 2026 Irasubiza Divin Prince.
+MIT Licenseです。原文は[LICENSE.md](LICENSE.md)を参照してください。
+
+QuickMail-jaは[DivinPrince/quickmail](https://github.com/DivinPrince/quickmail)を上流として、日本語UIとセルフホスト運用機能を追加した派生版です。上流の著作権表示とMITライセンスを維持します。このリンクは由来とライセンスの明示であり、QuickMail-jaのインストール先ではありません。

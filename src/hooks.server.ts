@@ -10,8 +10,8 @@ const PUBLIC_PREFIXES = [
 	'/setup',
 	'/api/auth',
 	'/api/setup',
-	'/api/webhooks',
-	'/install.sh'
+	'/api/forwarding/verify',
+	'/api/webhooks'
 ];
 
 function isPublicPath(pathname: string): boolean {
@@ -101,11 +101,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	const needsSetup = db ? (await countUsers(db)) === 0 : false;
 
-	if (
-		needsSetup &&
-		pathname !== '/setup' &&
-		pathname !== '/install.sh'
-	) {
+	if (needsSetup && pathname !== '/setup') {
 		throw redirect(303, '/setup');
 	}
 

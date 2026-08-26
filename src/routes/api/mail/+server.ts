@@ -4,6 +4,11 @@ import {
 	getEmailProvider,
 	statusForProviderError
 } from '$lib/server/context';
+import { authorizeManualForward } from '$lib/server/api-access';
+import {
+	ManualForwardError,
+	prepareManualForward
+} from '$lib/server/manual-forward';
 import { deleteDraft, listMailbox } from '$lib/server/mail-store';
 import { sendAndStore } from '$lib/server/outbox';
 import type { MailboxView, OutboundAttachmentInput } from '$lib/types';
@@ -19,6 +24,8 @@ type SendMailBody = {
 	text?: string;
 	html?: string;
 	attachments?: OutboundAttachmentInput[];
+	forwardOfId?: string;
+	forwardAttachmentIds?: string[];
 };
 
 function mailboxView(url: URL): MailboxView {
@@ -73,9 +80,55 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 	}
 
 	const body = (await request.json()) as SendMailBody;
+	if (body.attachments !== undefined && !Array.isArray(body.attachments)) {
+		return json({ error: 'Invalid attachments' }, { status: 400 });
+	}
 
 	if (!body.to?.trim() || !body.subject?.trim() || (!body.text?.trim() && !body.html?.trim())) {
 		return json({ error: 'To, subject, and message are required' }, { status: 400 });
+	}
+
+	const forwarding = body.forwardOfId !== undefined || body.forwardAttachmentIds !== undefined;
+	let attachments = body.attachments ?? [];
+	if (forwarding) {
+		if (
+			typeof body.forwardOfId !== 'string' ||
+			!body.forwardOfId.trim() ||
+			(body.forwardAttachmentIds !== undefined &&
+				(!Array.isArray(body.forwardAttachmentIds) ||
+					!body.forwardAttachmentIds.every((id) => typeof id === 'string')))
+		) {
+			return json({ error: 'Invalid forward request' }, { status: 400 });
+		}
+
+		if (!locals.authMethod) {
+			return json({ error: 'Unauthorized' }, { status: 401 });
+		}
+		const access = authorizeManualForward({
+			authMethod: locals.authMethod,
+			scopes: locals.apiScopes
+		});
+		if (!access.ok) {
+			return json({ error: access.error }, { status: access.status });
+		}
+
+		try {
+			attachments = (
+				await prepareManualForward(
+				db,
+				bucket,
+				locals.user.id,
+				body.forwardOfId,
+				body.forwardAttachmentIds ?? [],
+				attachments
+				)
+			).attachments;
+		} catch (error) {
+			if (error instanceof ManualForwardError) {
+				return json({ error: error.message }, { status: error.status });
+			}
+			throw error;
+		}
 	}
 
 	try {
@@ -92,7 +145,8 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 				subject: body.subject,
 				text: body.text,
 				html: body.html,
-				attachments: body.attachments
+				attachments,
+				startNewThread: forwarding
 			}
 		);
 

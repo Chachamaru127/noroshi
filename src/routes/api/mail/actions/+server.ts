@@ -76,7 +76,8 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 				db,
 				platform?.env.ATTACHMENTS,
 				locals.user.id,
-				ids
+				ids,
+				{ onlyTrashed: true }
 			);
 			break;
 		case 'read-all':

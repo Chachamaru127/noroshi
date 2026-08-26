@@ -41,7 +41,9 @@ export function createCloudflareProvider(
 				const response = await email.send({
 					to: input.to,
 					from: { email: input.from.address, name: input.senderName },
-					replyTo: input.from.address,
+					replyTo: Array.isArray(input.replyTo)
+						? input.replyTo[0] ?? input.from.address
+						: input.replyTo ?? input.from.address,
 					subject: input.subject,
 					text: input.text,
 					html: input.html,

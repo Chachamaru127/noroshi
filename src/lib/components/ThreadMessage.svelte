@@ -3,6 +3,7 @@
 	import AttachmentList from './AttachmentList.svelte';
 	import DeliveryStatus from './DeliveryStatus.svelte';
 	import EmailBody from './EmailBody.svelte';
+	import { deliveryFailureMessage } from '$lib/mail-ui-errors';
 	import { formatFullDate, formatRelativeDate } from '$lib/utils/date';
 	import { splitQuotedText } from '$lib/utils/quotes';
 	import type { ThreadMessage } from '$lib/types';
@@ -18,7 +19,7 @@
 	} = $props();
 
 	const outbound = $derived(message.direction === 'outbound');
-	const sender = $derived(outbound ? 'me' : message.from_addr);
+	const sender = $derived(outbound ? '自分' : message.from_addr);
 	const senderEmail = $derived(emailOf(message.from_addr));
 	const initial = $derived((message.from_addr[0] ?? '?').toUpperCase());
 
@@ -82,7 +83,7 @@
 <article class="message" class:collapsed={!expanded}>
 	{#if expanded}
 		<header class="head">
-			<div class="avatar" class:self={outbound}>{outbound ? 'me' : initial}</div>
+			<div class="avatar" class:self={outbound}>{outbound ? '自分' : initial}</div>
 
 			<div class="who">
 				<p class="name">
@@ -90,7 +91,7 @@
 						class="sender"
 						role="button"
 						tabindex="0"
-						title={copied ? 'Copied' : `Copy ${senderEmail}`}
+						title={copied ? 'コピーしました' : `${senderEmail}をコピー`}
 						onclick={copySender}
 						onkeydown={onSenderKeydown}
 					>
@@ -100,20 +101,30 @@
 						type="button"
 						class="copy-sender"
 						class:copied
-						aria-label={copied ? 'Copied' : `Copy ${senderEmail}`}
+						aria-label={copied ? 'コピーしました' : `${senderEmail}をコピー`}
 						onclick={copySender}
 					>
 						<Icon name={copied ? 'check-line' : 'file-copy-line'} size={13} />
 					</button>
-					<button type="button" class="direction" onclick={onToggle}>to {message.to_addr}</button>
+					<button type="button" class="direction" onclick={onToggle}>宛先: {message.to_addr}</button
+					>
 				</p>
 				<button type="button" class="when" onclick={onToggle}>
 					{formatFullDate(message.created_at)}
 				</button>
 			</div>
 
+			<a
+				href={`/compose?forward=${encodeURIComponent(message.id)}`}
+				class="forward-link"
+				aria-label={`${sender}からのメールを転送`}
+			>
+				<Icon name="share-forward-line" size={15} />
+				<span>転送</span>
+			</a>
+
 			{#if outbound}
-				<DeliveryStatus status={message.status} detail={message.status_detail} />
+				<DeliveryStatus status={message.status} />
 			{/if}
 		</header>
 
@@ -127,7 +138,7 @@
 						type="button"
 						class="quote-toggle"
 						aria-expanded={quoteOpen}
-						aria-label={quoteOpen ? 'Hide quoted text' : 'Show quoted text'}
+						aria-label={quoteOpen ? '引用文を隠す' : '引用文を表示'}
 						onclick={() => (quoteOpen = !quoteOpen)}
 					>
 						···
@@ -137,7 +148,7 @@
 					{/if}
 				{/if}
 			{:else}
-				<p class="empty">Empty message</p>
+				<p class="empty">本文のないメールです</p>
 			{/if}
 		</div>
 
@@ -146,12 +157,12 @@
 		{#if message.status === 'bounced' || message.status === 'failed'}
 			<p class="failure">
 				<Icon name="error-warning-line" size={13} />
-				{message.status_detail ?? "This message didn't reach the recipient."}
+				{deliveryFailureMessage(message.status)}
 			</p>
 		{/if}
 	{:else}
 		<button type="button" class="summary" onclick={onToggle}>
-			<span class="avatar small" class:self={outbound}>{outbound ? 'me' : initial}</span>
+			<span class="avatar small" class:self={outbound}>{outbound ? '自分' : initial}</span>
 			<span class="name">{sender}</span>
 			<span class="snippet">{snippet}</span>
 			{#if message.attachments.length > 0}
@@ -293,6 +304,45 @@
 	.body {
 		margin-top: 1rem;
 		font-size: 0.9375rem;
+	}
+
+	.forward-link {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.375rem;
+		flex-shrink: 0;
+		min-height: var(--touch-target);
+		padding: 0 0.625rem;
+		border-radius: 0.75rem;
+		font-size: 0.75rem;
+		font-weight: 500;
+		color: var(--color-text-secondary);
+	}
+
+	.forward-link:hover,
+	.forward-link:focus-visible {
+		color: var(--color-accent-text);
+		background: var(--color-surface-hover);
+	}
+
+	@media (max-width: 520px) {
+		.forward-link {
+			width: var(--touch-target);
+			padding: 0;
+		}
+
+		.forward-link span {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			padding: 0;
+			margin: -1px;
+			overflow: hidden;
+			clip: rect(0, 0, 0, 0);
+			white-space: nowrap;
+			border: 0;
+		}
 	}
 
 	.empty {

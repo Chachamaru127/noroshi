@@ -25,7 +25,7 @@
 	<section class="attachments" class:compact>
 		<h2 class="attachments-title">
 			<Icon name="attachment-2" size={15} />
-			{attachments.length} {attachments.length === 1 ? 'attachment' : 'attachments'}
+			添付ファイル {attachments.length}件
 		</h2>
 
 		<div class="attachments-grid">
@@ -53,7 +53,7 @@
 								class="action"
 								download={file.filename}
 							>
-								Download
+								ダウンロード
 							</a>
 						</figcaption>
 					</figure>
@@ -75,7 +75,7 @@
 									class="action"
 								>
 									<Icon name="external-link-line" size={14} />
-									Open
+									開く
 								</a>
 							{/if}
 							<a
@@ -84,7 +84,7 @@
 								download={file.filename}
 							>
 								<Icon name="download-2-line" size={14} />
-								Download
+								ダウンロード
 							</a>
 						</div>
 					</div>

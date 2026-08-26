@@ -2,6 +2,8 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import StackHeader from '$lib/components/StackHeader.svelte';
 	import AddressField from '$lib/components/AddressField.svelte';
+	import { displayMailSubject } from '$lib/mail-ui-copy';
+	import { domainStatusLabel, safeProviderError } from '$lib/provider-copy';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -21,17 +23,46 @@
 
 	let connecting = $state<string | null>(null);
 	let domainError = $state('');
+	let inboundImportFiles = $state<File[]>([]);
+	let outboundImportFiles = $state<File[]>([]);
+	let importMailboxAddress = $state('');
+	let importingOutlook = $state(false);
+	let importProgress = $state('');
+	let importResult = $state('');
+	let importError = $state('');
 
 	const connectable = $derived(data.available.filter((domain) => !domain.connected));
+	const ownAddresses = $derived(
+		data.addresses.filter((address) => address.user_id === data.currentUserId)
+	);
+
+	$effect(() => {
+		if (!importMailboxAddress && ownAddresses[0]) {
+			importMailboxAddress = ownAddresses.find((address) => address.is_default)?.address ?? ownAddresses[0].address;
+		}
+	});
+
+	function safeAdminError(value: unknown): string {
+		if (typeof value !== 'string') return '処理を完了できませんでした。';
+		if (value.includes('Name, address, and domain are required')) return '名前、アドレス、ドメインを入力してください。';
+		if (value.includes('Password is required')) return 'パスワードを入力してください。';
+		if (value.includes('Password must be at least 8 characters')) return 'パスワードは8文字以上で入力してください。';
+		if (value.includes('Domain is not connected') || value.includes('Domain not connected')) return 'ドメインが接続されていません。';
+		if (value.includes('Failed to create user')) return 'ユーザーを作成できませんでした。';
+		if (value.includes('Could not connect that domain') || value.includes('Failed to connect domain')) return 'ドメインを接続できませんでした。';
+		if (value.includes('Update failed') || value.includes('Failed to refresh domain')) return '更新できませんでした。';
+		if (value.includes('Database unavailable')) return 'データベースを利用できません。';
+		return '処理を完了できませんでした。';
+	}
 
 	function addressesFor(domainId: string) {
 		return data.addresses.filter((address) => address.domain_id === domainId);
 	}
 
 	function userLabel(userId: string | null) {
-		if (!userId) return 'Nobody (unrouted mail is held)';
+		if (!userId) return 'なし（未振り分けメールは保留）';
 		const match = data.users.find((user) => user.id === userId);
-		return match ? `${match.name} (${match.email})` : 'Unknown user';
+		return match ? `${match.name}（${match.email}）` : '不明なユーザー';
 	}
 
 	async function createUser(event: SubmitEvent) {
@@ -47,12 +78,12 @@
 			});
 			const body = await res.json();
 			if (!res.ok) {
-				userError = body.error ?? 'Failed to create user';
+				userError = safeAdminError(body.error);
 				return;
 			}
 			window.location.reload();
 		} catch {
-			userError = 'Network error';
+			userError = 'ネットワークエラーが発生しました。';
 		} finally {
 			creatingUser = false;
 		}
@@ -70,12 +101,12 @@
 			});
 			const body = await res.json();
 			if (!res.ok) {
-				domainError = body.error ?? 'Could not connect that domain';
+				domainError = safeAdminError(body.error);
 				return;
 			}
 			window.location.reload();
 		} catch {
-			domainError = 'Network error';
+			domainError = 'ネットワークエラーが発生しました。';
 		} finally {
 			connecting = null;
 		}
@@ -90,39 +121,108 @@
 		});
 		const body = await res.json();
 		if (!res.ok) {
-			domainError = body.error ?? 'Update failed';
+			domainError = safeAdminError(body.error);
 			return;
 		}
 		window.location.reload();
 	}
 
 	async function disconnect(domainId: string, domainName: string) {
-		if (!confirm(`Stop using ${domainName} in this dashboard? Mail already received is kept.`)) {
+		if (!confirm(`${domainName}の利用をこのダッシュボードから停止しますか？すでに受信したメールは保持されます。`)) {
 			return;
 		}
 
 		const res = await fetch(`/api/domains/${domainId}`, { method: 'DELETE' });
 		if (res.ok) window.location.reload();
 	}
+
+	async function importOutlook(event: SubmitEvent) {
+		event.preventDefault();
+		importError = '';
+		importResult = '';
+		importingOutlook = true;
+
+		try {
+			const candidates = [
+				...inboundImportFiles.map((file) => ({ file, direction: 'inbound' as const })),
+				...outboundImportFiles.map((file) => ({ file, direction: 'outbound' as const }))
+			];
+			const unique = [] as typeof candidates;
+			const hashes = new Set<string>();
+			for (let index = 0; index < candidates.length; index += 1) {
+				importProgress = `重複を確認中 ${index + 1}/${candidates.length}`;
+				const digest = await crypto.subtle.digest('SHA-256', await candidates[index].file.arrayBuffer());
+				const hash = [...new Uint8Array(digest)]
+					.map((byte) => byte.toString(16).padStart(2, '0'))
+					.join('');
+				if (!hashes.has(hash)) {
+					hashes.add(hash);
+					unique.push(candidates[index]);
+				}
+			}
+
+			const dated = await Promise.all(
+				unique.map(async (entry) => ({ ...entry, timestamp: await emlTimestamp(entry.file) }))
+			);
+			dated.sort((a, b) => a.timestamp - b.timestamp || a.file.name.localeCompare(b.file.name));
+
+			let imported = 0;
+			let skipped = 0;
+			const failures: string[] = [];
+			for (let index = 0; index < dated.length; index += 1) {
+				const entry = dated[index];
+				importProgress = `取り込み中 ${index + 1}/${dated.length}`;
+				const form = new FormData();
+				form.set('file', entry.file);
+				form.set('direction', entry.direction);
+				form.set('mailboxAddress', importMailboxAddress);
+				try {
+					const response = await fetch('/api/admin/import-outlook', { method: 'POST', body: form });
+					const body = await response.json();
+					if (!response.ok) throw new Error(body.error || 'import_failed');
+					if (body.imported) imported += 1;
+					else skipped += 1;
+				} catch {
+					failures.push(entry.file.name);
+				}
+			}
+
+			if (failures.length > 0) {
+				importError = `${failures.length}通を取り込めませんでした。最初の失敗: ${failures[0]}`;
+			} else {
+				importResult = `${imported}通を取り込みました。重複または取込済み: ${candidates.length - unique.length + skipped}通`;
+			}
+		} finally {
+			importingOutlook = false;
+			importProgress = '';
+		}
+	}
+
+	async function emlTimestamp(file: File): Promise<number> {
+		const header = (await file.slice(0, 128 * 1024).text()).replace(/\r?\n[ \t]+/g, ' ');
+		const value = header.match(/^Date:\s*(.+)$/im)?.[1]?.trim();
+		const parsed = value ? Date.parse(value) : Number.NaN;
+		return Number.isFinite(parsed) ? parsed : file.lastModified;
+	}
 </script>
 
 <svelte:head>
-	<title>Admin — Mail</title>
+		<title>管理 — QuickMail-ja</title>
 </svelte:head>
 
 <div class="admin-page">
-	<StackHeader title="Admin" back={false} />
+		<StackHeader title="管理" back={false} />
 
 	{#if data.loadError}
 		<div class="surface-lg banner">
 			<Icon name="error-warning-line" size={16} />
-			<span>{data.loadError}</span>
+				<span>{safeProviderError(data.loadError)}</span>
 		</div>
 	{/if}
 
 	<section class="surface-lg admin-card">
-		<h2><Icon name="global-line" size={18} /> Domains</h2>
-		<p class="card-hint">Catch-all gets unmatched mail.</p>
+			<h2><Icon name="global-line" size={18} /> ドメイン</h2>
+			<p class="card-hint">キャッチオールで一致しないメールを受け取ります。</p>
 
 		<ul class="domain-list">
 			{#each data.domains as domain (domain.id)}
@@ -131,22 +231,20 @@
 						<div class="min-w-0">
 							<p class="domain-name">{domain.name}</p>
 							<p class="domain-sub">
-								{addressesFor(domain.id).length} address{addressesFor(domain.id).length === 1
-									? ''
-									: 'es'}
+								{addressesFor(domain.id).length}件のアドレス
 								{#if domain.region}· {domain.region}{/if}
 							</p>
 						</div>
 						<div class="chips">
-							<span class="chip" class:chip-on={domain.sending_enabled}>send</span>
-							<span class="chip" class:chip-on={domain.receiving_enabled}>receive</span>
-							<span class="chip" class:chip-ok={domain.status === 'verified'}>{domain.status}</span>
+							<span class="chip" class:chip-on={domain.sending_enabled}>送信</span>
+							<span class="chip" class:chip-on={domain.receiving_enabled}>受信</span>
+							<span class="chip" class:chip-ok={domain.status === 'verified'}>{domainStatusLabel(domain.status)}</span>
 						</div>
 					</div>
 
 					<div class="domain-controls">
 						<label class="control">
-							<span class="control-label">Catch-all</span>
+							<span class="control-label">キャッチオール</span>
 							<select
 								value={domain.catchall_user_id ?? ''}
 								onchange={(event) =>
@@ -154,7 +252,7 @@
 										catchallUserId: (event.currentTarget as HTMLSelectElement).value || null
 									})}
 							>
-								<option value="">Nobody (hold as unrouted)</option>
+								<option value="">なし（未振り分けとして保留）</option>
 								{#each data.users as user (user.id)}
 									<option value={user.id}>{user.name} — {user.email}</option>
 								{/each}
@@ -167,14 +265,14 @@
 								class="btn-ghost text-xs"
 								onclick={() => updateDomain(domain.id, { refresh: true })}
 							>
-								<Icon name="refresh-line" size={14} /> Re-sync
+								<Icon name="refresh-line" size={14} /> 再同期
 							</button>
 							<button
 								type="button"
 								class="btn-ghost text-xs"
 								onclick={() => disconnect(domain.id, domain.name)}
 							>
-								Disconnect
+								接続を解除
 							</button>
 						</div>
 					</div>
@@ -182,17 +280,14 @@
 					{#if !domain.receiving_enabled}
 						<p class="hint">
 							<Icon name="information-line" size={13} />
-							Inbound is off
-							{data.providerKind === 'cloudflare'
-								? '— point Email Routing’s catch-all at this Worker'
-								: '— add the MX record'}
-							to receive.
+							受信が無効です
+							。Cloudflare Email RoutingのキャッチオールをこのWorkerに向けてください。
 						</p>
 					{/if}
 					{#if domain.catchall_user_id}
 						<p class="hint">
 							<Icon name="user-received-line" size={13} />
-							Goes to {userLabel(domain.catchall_user_id)}.
+							{userLabel(domain.catchall_user_id)}に振り分けます。
 						</p>
 					{/if}
 				</li>
@@ -202,14 +297,14 @@
 		{#if connectable.length > 0}
 			<div class="connect-block">
 				<p class="connect-title">
-					Available in {data.providerKind === 'cloudflare' ? 'Cloudflare Email' : 'Resend'}
+						{data.providerKind === 'cloudflare' ? 'Cloudflare Email' : 'Resendで送信'}に利用可能
 				</p>
 				<ul class="connect-list">
 					{#each connectable as domain (domain.id)}
 						<li class="connect-row">
 							<div class="min-w-0">
 								<p class="domain-name">{domain.name}</p>
-								<p class="domain-sub">{domain.status}{#if domain.region} · {domain.region}{/if}</p>
+						<p class="domain-sub">{domainStatusLabel(domain.status)}{#if domain.region} · {domain.region}{/if}</p>
 							</div>
 							<button
 								type="button"
@@ -217,7 +312,7 @@
 								disabled={connecting === domain.id}
 								onclick={() => connect(domain.id)}
 							>
-								{connecting === domain.id ? 'Connecting…' : 'Connect'}
+							{connecting === domain.id ? '接続中…' : '接続'}
 							</button>
 						</li>
 					{/each}
@@ -230,36 +325,36 @@
 
 	<div class="admin-grid">
 		<section class="surface-lg admin-card">
-			<h2><Icon name="user-add-line" size={18} /> New user</h2>
-			<p class="card-hint">Address is their login.</p>
+			<h2><Icon name="user-add-line" size={18} /> 新しいユーザー</h2>
+			<p class="card-hint">アドレスがログインIDになります。</p>
 			<form class="mt-4 space-y-3" onsubmit={createUser}>
-				<input type="text" bind:value={name} required placeholder="Display name" class="admin-input" />
+				<input type="text" bind:value={name} required placeholder="表示名" class="admin-input" />
 				<AddressField
 					bind:localPart
 					bind:domainId={newUserDomainId}
 					domains={data.domains}
-					placeholder="name"
-					label="Address"
+					placeholder="info"
+					label="メールアドレス"
 				/>
 				<input
 					type="text"
 					bind:value={password}
 					required
 					minlength="8"
-					placeholder="Temporary password"
+					placeholder="仮パスワード"
 					class="admin-input"
 				/>
 
 				{#if userError}<p class="error">{userError}</p>{/if}
 
 				<button type="submit" disabled={creatingUser} class="btn-primary">
-					{creatingUser ? 'Creating…' : 'Create'}
+					{creatingUser ? '作成中…' : '作成'}
 				</button>
 			</form>
 		</section>
 
 		<section class="surface-lg admin-card">
-			<h2><Icon name="group-line" size={18} /> {data.users.length} users</h2>
+			<h2><Icon name="group-line" size={18} /> ユーザー {data.users.length}人</h2>
 			<ul class="user-list">
 				{#each data.users as user (user.id)}
 					<li class="user-row">
@@ -274,7 +369,7 @@
 							</p>
 						</div>
 						{#if user.is_admin}
-							<span class="admin-badge">Admin</span>
+						<span class="admin-badge">管理者</span>
 						{/if}
 					</li>
 				{/each}
@@ -282,15 +377,65 @@
 		</section>
 	</div>
 
+	<section class="surface-lg admin-card">
+		<h2><Icon name="archive-stack-line" size={18} /> Outlookメール移行</h2>
+		<p class="card-hint">
+			保存済みのEMLを日時順に取り込みます。取り込み中は通知・自動転送・外部送信を行いません。
+		</p>
+		<form class="import-form" onsubmit={importOutlook}>
+			<label class="control">
+				<span class="control-label">反映先アドレス</span>
+				<select bind:value={importMailboxAddress} required>
+					{#each ownAddresses as address (address.id)}
+						<option value={address.address}>{address.address}</option>
+					{/each}
+				</select>
+			</label>
+			<div class="import-files">
+				<label class="file-picker">
+					<span>受信・アーカイブのEML</span>
+					<input
+						type="file"
+						accept=".eml,message/rfc822"
+						multiple
+						onchange={(event) =>
+							(inboundImportFiles = Array.from(event.currentTarget.files ?? []))}
+					/>
+					<small>{inboundImportFiles.length}ファイル</small>
+				</label>
+				<label class="file-picker">
+					<span>送信済みのEML</span>
+					<input
+						type="file"
+						accept=".eml,message/rfc822"
+						multiple
+						onchange={(event) =>
+							(outboundImportFiles = Array.from(event.currentTarget.files ?? []))}
+					/>
+					<small>{outboundImportFiles.length}ファイル</small>
+				</label>
+			</div>
+			<button
+				type="submit"
+				class="btn-primary"
+				disabled={importingOutlook || !importMailboxAddress || inboundImportFiles.length + outboundImportFiles.length === 0}
+			>
+				{importingOutlook ? importProgress || '準備中…' : 'メールを取り込む'}
+			</button>
+			{#if importResult}<p class="success">{importResult}</p>{/if}
+			{#if importError}<p class="error">{importError}</p>{/if}
+		</form>
+	</section>
+
 	{#if data.unrouted.length > 0}
 		<section class="surface-lg admin-card">
-			<h2><Icon name="question-mark" size={18} /> Unrouted mail</h2>
-			<p class="card-hint">No matching address or catch-all.</p>
+			<h2><Icon name="question-mark" size={18} /> 未振り分けメール</h2>
+			<p class="card-hint">一致するアドレスまたはキャッチオールがありません。</p>
 			<ul class="user-list">
 				{#each data.unrouted as item (item.id)}
 					<li class="user-row">
 						<div class="min-w-0 flex-1">
-							<p class="user-name">{item.subject || '(no subject)'}</p>
+						<p class="user-name">{displayMailSubject(item.subject)}</p>
 							<p class="user-email">{item.from_addr} → {item.to_addr}</p>
 						</div>
 					</li>
@@ -548,6 +693,42 @@
 		margin-top: 0.5rem;
 		font-size: 0.8125rem;
 		color: var(--color-danger);
+	}
+
+	.import-form {
+		display: grid;
+		gap: 1rem;
+		margin-top: 1rem;
+	}
+
+	.import-files {
+		display: grid;
+		gap: 0.75rem;
+		grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+	}
+
+	.file-picker {
+		display: grid;
+		gap: 0.375rem;
+		padding: 0.875rem;
+		border-radius: 0.625rem;
+		font-size: 0.8125rem;
+		background: var(--color-surface-muted);
+		box-shadow: inset 0 0 0 1px var(--color-line);
+	}
+
+	.file-picker input {
+		max-width: 100%;
+		font-size: 0.75rem;
+	}
+
+	.file-picker small {
+		color: var(--color-muted);
+	}
+
+	.success {
+		font-size: 0.8125rem;
+		color: var(--tone-good-fg);
 	}
 
 	@media (max-width: 900px) {

@@ -3,9 +3,9 @@ export type ThemePreference = 'light' | 'dark' | 'system';
 export const THEME_STORAGE_KEY = 'mail:theme';
 
 export const THEME_OPTIONS: { value: ThemePreference; label: string; icon: string }[] = [
-	{ value: 'light', label: 'Light', icon: 'sun-line' },
-	{ value: 'dark', label: 'Dark', icon: 'moon-line' },
-	{ value: 'system', label: 'System', icon: 'computer-line' }
+	{ value: 'light', label: 'ライト', icon: 'sun-line' },
+	{ value: 'dark', label: 'ダーク', icon: 'moon-line' },
+	{ value: 'system', label: 'システム設定', icon: 'computer-line' }
 ];
 
 function isPreference(value: string | null): value is ThemePreference {

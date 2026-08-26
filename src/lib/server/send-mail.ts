@@ -10,6 +10,7 @@ export type OutboundMailInput = {
 	subject: string;
 	text: string;
 	html?: string;
+	replyTo?: string | string[];
 	inReplyTo?: string | null;
 	references?: string | null;
 	headers?: Record<string, string>;
@@ -56,7 +57,6 @@ export function formatReferences(value: string | null | undefined): string | und
 export function validateSubject(subject: string): string | null {
 	const trimmed = subject.trim();
 	if (!trimmed) return 'Subject is required';
-	if (trimmed.length > 200) return 'Subject must be 200 characters or fewer';
 	return null;
 }
 
@@ -120,6 +120,7 @@ export async function sendOutboundEmail(
 		subject: input.subject.trim(),
 		text: safeText,
 		html: buildHtmlEmail(bodyHtml),
+		...(input.replyTo ? { replyTo: input.replyTo } : {}),
 		inReplyTo,
 		references,
 		...(Object.keys(headers).length ? { headers } : {}),

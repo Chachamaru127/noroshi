@@ -19,6 +19,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '../..');
 test('treats mailbox roots as list screens', () => {
 	assert.equal(isMailboxPath('/inbox'), true);
 	assert.equal(isMailboxPath('/drafts'), true);
+	assert.equal(isMailboxPath('/folders/customer-support'), true);
 	assert.equal(isMailboxPath('/mail/abc'), false);
 });
 
@@ -48,6 +49,7 @@ test('puts secondary destinations under More', () => {
 	assert.equal(isMorePath('/trash'), true);
 	assert.equal(isMorePath('/settings'), true);
 	assert.equal(isMorePath('/admin'), true);
+	assert.equal(isMorePath('/folders/customer-support'), true);
 	assert.equal(isMorePath('/inbox'), false);
 	assert.equal(isMorePath('/sent'), false);
 });
@@ -76,6 +78,20 @@ test('stacked back controls do not trust the tab session history length', () => 
 		assert.match(source, /hasInAppHistory/, file);
 		assert.doesNotMatch(source, /history\.length/, file);
 	}
+});
+
+test('mail detail toolbar and edge swipe share the server-resolved fallback', () => {
+	const layout = readFileSync(join(root, 'src/routes/+layout.svelte'), 'utf8');
+	const mail = readFileSync(join(root, 'src/routes/mail/[id]/+page.svelte'), 'utf8');
+	const swipeBack = readFileSync(join(root, 'src/lib/components/SwipeBack.svelte'), 'utf8');
+	assert.match(
+		layout,
+		/SwipeBack href=\{stackedBackHref\} useHistoryBack=\{stackedUseHistoryBack\}/
+	);
+	assert.match(layout, /typeof \$page\.data\.useHistoryBack === 'boolean'/);
+	assert.match(swipeBack, /useHistoryBack = true/);
+	assert.match(swipeBack, /if \(useHistoryBack && hasInAppHistory\(\)\)/);
+	assert.match(mail, /const backHref = \$derived\(data\.backHref\)/);
 });
 
 test('slides forward into a stacked screen and back out of one', () => {
@@ -111,6 +127,9 @@ test('service worker is a classic worker, not a Vite module', () => {
 	assert.match(source, /addEventListener\('install'/);
 	assert.match(source, /addEventListener\('push'/);
 	assert.doesNotMatch(source, /import\s+['"]\/@fs/);
+	assert.match(source, /'新着メール'/);
+	assert.match(source, /'新着メールが届きました。'/);
+	assert.doesNotMatch(source, /New message|You received a new email/);
 });
 
 test('PWA manifest is standalone and points at real icons', () => {

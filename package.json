@@ -1,5 +1,5 @@
 {
-	"name": "quickmail",
+	"name": "quickmail-ja",
 	"private": true,
 	"version": "1.0.0",
 	"license": "MIT",
@@ -11,17 +11,21 @@
 		"dev": "vite dev",
 		"build": "vite build && bun scripts/wrap-cloudflare-worker.mjs",
 		"preview": "bun run build && wrangler dev",
-		"setup": "node scripts/setup.mjs",
+		"setup": "bun scripts/setup.mjs",
 		"deploy": "bun run build && wrangler deploy",
-		"db:migrate:local": "wrangler d1 migrations apply quickmail --local",
-		"db:migrate:remote": "wrangler d1 migrations apply quickmail --remote",
+		"db:migrate:local": "wrangler d1 migrations apply quickmail-ja --local",
+		"db:migrate:remote": "wrangler d1 migrations apply quickmail-ja --remote",
+		"test:d1-forwarding": "bun scripts/forwarding-d1-race.test.mjs",
+		"test:archive": "bun scripts/archive-smoke.mjs",
 		"prepare": "svelte-kit sync || echo ''",
-		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.check.json",
 		"check:clean": "bun scripts/check-template-clean.mjs",
-		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.check.json --watch",
+		"format": "prettier --write \"src/**/*.{ts,js,svelte}\" \"cli/**/*.ts\" \"scripts/**/*.{ts,mjs}\" \"*.{ts,js,json,jsonc}\" \".github/workflows/*.{yml,yaml}\"",
+		"format:check": "prettier --check \"src/**/*.{ts,js,svelte}\" \"cli/**/*.ts\" \"scripts/**/*.{ts,mjs}\" \"*.{ts,js,json,jsonc}\" \".github/workflows/*.{yml,yaml}\"",
 		"cf-typegen": "wrangler types",
 		"quickmail": "bun cli/main.ts",
-		"test": "bun test src/lib/email-signature.test.ts src/lib/mobile.test.ts src/lib/push-client.test.ts src/lib/utils/html.test.ts src/lib/server/api-access.test.ts src/lib/server/api-tokens.test.ts src/lib/server/outbox.test.ts src/lib/server/push-notifications.test.ts cli/client.test.ts"
+		"test": "bun test scripts/setup-config.test.mjs scripts/distribution-contract.test.mjs scripts/outlook-import-core.test.mjs src/lib/email-signature.test.ts src/lib/folder-a11y.test.ts src/lib/folder-ui.test.ts src/lib/japanese-ui.test.ts src/lib/mail-ui-copy.test.ts src/lib/mail-ui-errors.test.ts src/lib/mobile.test.ts src/lib/push-client.test.ts src/lib/settings-forwarding.test.ts src/lib/settings-sort-rules.test.ts src/lib/worker-boundary.test.ts src/lib/utils/attachments.test.ts src/lib/utils/html.test.ts src/lib/server/api-access.test.ts src/lib/server/api-tokens.test.ts src/lib/server/cloudflare-inbound.test.ts src/lib/server/context.test.ts src/lib/server/folder-rules.test.ts src/lib/server/folder-rules.integration.test.ts src/lib/server/folders-api.test.ts src/lib/server/folders.integration.test.ts src/lib/server/forwarding.test.ts src/lib/server/forwarding-delivery.test.ts src/lib/server/forwarding-delivery.integration.test.ts src/lib/server/manual-forward.test.ts src/lib/server/outbox.test.ts src/lib/server/outlook-import.test.ts src/lib/server/providers/resend-provider.test.ts src/lib/server/push-notifications.test.ts src/lib/server/setup-bootstrap.test.ts cli/client.test.ts"
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "^4.20260601.1",
@@ -32,6 +36,8 @@
 		"@tailwindcss/vite": "^4.2.2",
 		"@types/node": "^24.10.1",
 		"@types/web-push": "^3.6.4",
+		"prettier": "^3.9.6",
+		"prettier-plugin-svelte": "^4.1.1",
 		"svelte": "^5.55.2",
 		"svelte-check": "^4.4.6",
 		"tailwindcss": "^4.2.2",
@@ -55,16 +61,22 @@
 				"description": "R2 bucket for inbound and outbound attachments."
 			},
 			"EMAIL_PROVIDER": {
-				"description": "Mail provider: `resend` (default, any DNS host) or `cloudflare` (requires Cloudflare DNS + Workers paid plan)."
+				"description": "Outbound provider for the first release: `resend`."
+			},
+			"INBOUND_EMAIL_PROVIDER": {
+				"description": "Set to `cloudflare` to receive through Email Routing while Resend handles outbound mail."
 			},
 			"CLOUDFLARE_MAIL_DOMAINS": {
-				"description": "Only for `EMAIL_PROVIDER=cloudflare`: comma-separated domains onboarded in Email Service, e.g. `example.com`. Leave empty for Resend."
+				"description": "Comma-separated domains onboarded in Cloudflare Email Routing."
+			},
+			"BOOTSTRAP_SECRET": {
+				"description": "One-time setup key required to create the first administrator. Store it only as a Worker secret."
 			},
 			"RESEND_API_KEY": {
-				"description": "Only for `EMAIL_PROVIDER=resend`: full-access key from [Resend API keys](https://resend.com/api-keys). Keep the placeholder if using Cloudflare Email."
+				"description": "Full-access key from [Resend API keys](https://resend.com/api-keys) for sending, domain inspection, and webhook setup."
 			},
 			"RESEND_WEBHOOK_SECRET": {
-				"description": "Only for `EMAIL_PROVIDER=resend`: shown once when you create the webhook at [Resend webhooks](https://resend.com/webhooks). Keep the placeholder if using Cloudflare Email."
+				"description": "Shown once when you create the webhook at [Resend webhooks](https://resend.com/webhooks)."
 			}
 		}
 	}

@@ -1,11 +1,17 @@
 import type { D1Database, R2Bucket } from '@cloudflare/workers-types';
 import type { EmailAttachmentMeta, OutboundAttachmentInput } from '$lib/types';
-import { MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS_PER_EMAIL } from './constants';
+import {
+	MAX_ATTACHMENT_BYTES,
+	MAX_ATTACHMENTS_PER_EMAIL,
+	MAX_TOTAL_ATTACHMENT_BYTES
+} from './constants';
 
 type StoredAttachmentRow = EmailAttachmentMeta & {
 	storage_key: string | null;
 	content_base64: string | null;
 };
+
+export type StoredAttachment = StoredAttachmentRow;
 
 export async function insertAttachments(
 	db: D1Database,
@@ -62,6 +68,29 @@ export async function insertAttachmentBytes(
 		const limitMb = MAX_ATTACHMENT_BYTES / (1024 * 1024);
 		throw new Error(`"${input.filename}" exceeds ${limitMb}MB limit`);
 	}
+	await storeAttachmentBytes(db, bucket, emailId, input);
+}
+
+/** Historical EML import only. It never enters an outbound provider request. */
+export async function insertHistoricalAttachmentBytes(
+	db: D1Database,
+	bucket: R2Bucket,
+	emailId: string,
+	input: { filename: string; type: string; bytes: Uint8Array }
+): Promise<void> {
+	if (input.bytes.byteLength > MAX_TOTAL_ATTACHMENT_BYTES) {
+		const limitMb = MAX_TOTAL_ATTACHMENT_BYTES / (1024 * 1024);
+		throw new Error(`"${input.filename}" exceeds historical import limit of ${limitMb}MB`);
+	}
+	await storeAttachmentBytes(db, bucket, emailId, input);
+}
+
+async function storeAttachmentBytes(
+	db: D1Database,
+	bucket: R2Bucket,
+	emailId: string,
+	input: { filename: string; type: string; bytes: Uint8Array }
+): Promise<void> {
 
 	const id = crypto.randomUUID();
 	const storageKey = buildStorageKey(emailId, id, input.filename);
@@ -115,6 +144,25 @@ export async function getAttachmentForUser(
 		.first<StoredAttachmentRow>();
 
 	return row ?? null;
+}
+
+export async function listAttachmentsForUser(
+	db: D1Database,
+	userId: string,
+	emailId: string
+): Promise<StoredAttachment[]> {
+	const { results } = await db
+		.prepare(
+			`SELECT a.id, a.email_id, a.filename, a.content_type, a.size_bytes,
+			        a.storage_key, a.content_base64, a.created_at
+			 FROM email_attachments a
+			 JOIN emails e ON e.id = a.email_id
+			 WHERE a.email_id = ? AND e.user_id = ?
+			 ORDER BY a.created_at ASC`
+		)
+		.bind(emailId, userId)
+		.all<StoredAttachment>();
+	return results;
 }
 
 export async function readAttachmentBytes(

@@ -7,29 +7,41 @@
 	import DeliveryStatus from './DeliveryStatus.svelte';
 	import SwipeRow from './SwipeRow.svelte';
 	import PullToRefresh from './PullToRefresh.svelte';
+	import FolderMoveMenu from './FolderMoveMenu.svelte';
+	import { displayMailSubject } from '$lib/mail-ui-copy';
 	import { formatRelativeDate } from '$lib/utils/date';
 	import { haptic, isPrimaryTab } from '$lib/app-chrome';
-	import type { MailboxFilters, MailboxPage, MailboxView, ThreadSummary } from '$lib/types';
+	import type { MailFolder, MailboxFilters, MailboxPage, MailboxView, ThreadSummary } from '$lib/types';
 
 	let {
 		view,
+		folders,
+		folderName = '',
+		currentFolderId,
 		mailbox,
 		filters
 	}: {
-		view: MailboxView;
+		view: MailboxView | 'folder';
+		folders: MailFolder[];
+		folderName?: string;
+		currentFolderId?: string | null;
 		mailbox: MailboxPage;
 		filters: MailboxFilters;
 	} = $props();
 
 	const META: Record<MailboxView, { title: string; icon: string; empty: string }> = {
-		inbox: { title: 'Inbox', icon: 'inbox-line', empty: 'Your inbox is empty' },
-		starred: { title: 'Starred', icon: 'star-line', empty: 'No starred messages' },
-		drafts: { title: 'Drafts', icon: 'draft-line', empty: 'No drafts saved' },
-		sent: { title: 'Sent', icon: 'send-plane-line', empty: 'Nothing sent yet' },
-		trash: { title: 'Trash', icon: 'delete-bin-line', empty: 'Trash is empty' }
+		inbox: { title: '受信トレイ', icon: 'inbox-line', empty: '受信トレイは空です' },
+		starred: { title: 'スター付き', icon: 'star-line', empty: 'スター付きのメールはありません' },
+		drafts: { title: '下書き', icon: 'draft-line', empty: '保存された下書きはありません' },
+		sent: { title: '送信済み', icon: 'send-plane-line', empty: '送信済みのメールはありません' },
+		trash: { title: 'ゴミ箱', icon: 'delete-bin-line', empty: 'ゴミ箱は空です' }
 	};
 
-	const meta = $derived(META[view]);
+	const meta = $derived(
+		view === 'folder'
+			? { title: folderName, icon: 'folder-line', empty: 'このフォルダにメールはありません' }
+			: META[view]
+	);
 
 	// Local copy so stars and reads can flip before the server round trip lands.
 	let items = $state<ThreadSummary[]>([]);
@@ -44,6 +56,7 @@
 	let longPressFired = false;
 	let pressX = 0;
 	let pressY = 0;
+	let toolbar = $state<HTMLElement>();
 
 	$effect(() => {
 		items = mailbox.threads;
@@ -60,7 +73,7 @@
 		}
 	});
 
-	const hideMailboxTitle = $derived(isPrimaryTab(`/${view}`));
+	const hideMailboxTitle = $derived(view !== 'folder' && isPrimaryTab(`/${view}`));
 
 	const allSelected = $derived(items.length > 0 && selected.length === items.length);
 	const someSelected = $derived(selected.length > 0);
@@ -74,10 +87,12 @@
 	 */
 	function people(thread: ThreadSummary): string {
 		if (view === 'drafts' || (view === 'sent' && thread.participants.every((p) => p.self))) {
-			return recipientOf(thread) || (view === 'drafts' ? 'No recipient' : 'Unknown');
+			return recipientOf(thread) || (view === 'drafts' ? '宛先なし' : '不明');
 		}
 
-		return thread.participants.map((participant) => participant.label).join(', ');
+		return thread.participants
+			.map((participant) => (participant.self ? '自分' : participant.label))
+			.join(', ');
 	}
 
 	function recipientOf(thread: ThreadSummary): string {
@@ -92,7 +107,9 @@
 
 	/** Rows carry the newest message; opening it opens the whole conversation. */
 	function href(thread: ThreadSummary): string {
-		return thread.is_draft ? `/compose?draft=${thread.latest_id}` : `/mail/${thread.latest_id}`;
+		if (thread.is_draft) return `/compose?draft=${thread.latest_id}`;
+		const fromFolder = view === 'folder' && currentFolderId ? `?folder=${encodeURIComponent(currentFolderId)}` : '';
+		return `/mail/${thread.latest_id}${fromFolder}`;
 	}
 
 	function toggle(id: string) {
@@ -108,6 +125,10 @@
 	function selectWhere(predicate: (thread: ThreadSummary) => boolean) {
 		selected = items.filter(predicate).map((thread) => thread.latest_id);
 		selectMenuOpen = false;
+	}
+
+	function focusToolbar() {
+		toolbar?.focus({ preventScroll: true });
 	}
 
 	/** One entry point for every list action, so the UI always refreshes after. */
@@ -150,15 +171,15 @@
 	}
 
 	function swipeLeftAction(thread: ThreadSummary) {
-		if (view === 'trash') return { icon: 'delete-bin-2-line', label: 'Delete', tone: 'danger' as const };
-		return { icon: 'delete-bin-line', label: 'Trash', tone: 'danger' as const };
+		if (view === 'trash') return { icon: 'delete-bin-2-line', label: '削除', tone: 'danger' as const };
+		return { icon: 'delete-bin-line', label: 'ゴミ箱へ移動', tone: 'danger' as const };
 	}
 
 	function swipeRightAction(thread: ThreadSummary) {
-		if (view === 'trash') return { icon: 'arrow-go-back-line', label: 'Restore', tone: 'good' as const };
+		if (view === 'trash') return { icon: 'arrow-go-back-line', label: '復元', tone: 'good' as const };
 		return {
 			icon: thread.is_starred ? 'star-fill' : 'star-line',
-			label: thread.is_starred ? 'Unstar' : 'Star',
+			label: thread.is_starred ? 'スターを外す' : 'スターを付ける',
 			tone: 'star' as const
 		};
 	}
@@ -216,11 +237,11 @@
 
 <PullToRefresh onRefresh={invalidateAll}>
 <section class="mailbox" data-view={view} class:selecting class:primary-tab={hideMailboxTitle}>
-	<header class="toolbar">
+	<header bind:this={toolbar} class="toolbar" tabindex="-1" aria-label={`${meta.title}の操作`}>
 		<div class="toolbar-left">
 			<div class="select-all">
 				<Check
-					label="Select all messages"
+					label="すべてのメールを選択"
 					checked={allSelected}
 					indeterminate={someSelected && !allSelected}
 					onchange={selectAll}
@@ -228,7 +249,7 @@
 				<button
 					type="button"
 					class="caret"
-					aria-label="Selection options"
+					aria-label="選択オプション"
 					aria-expanded={selectMenuOpen}
 					onclick={() => (selectMenuOpen = !selectMenuOpen)}
 				>
@@ -239,37 +260,46 @@
 					<button
 						type="button"
 						class="backdrop"
-						aria-label="Close menu"
+						aria-label="メニューを閉じる"
 						onclick={() => (selectMenuOpen = false)}
 					></button>
 					<div class="menu menu-left" role="menu">
 						<button type="button" class="menu-item" onclick={() => selectWhere(() => true)}>
-							All
+							すべて
 						</button>
 						<button type="button" class="menu-item" onclick={() => selectWhere(() => false)}>
-							None
+							なし
 						</button>
 						<button type="button" class="menu-item" onclick={() => selectWhere((e) => !e.is_read)}>
-							Unread
+							未読
 						</button>
 						<button type="button" class="menu-item" onclick={() => selectWhere((e) => e.is_read)}>
-							Read
+							既読
 						</button>
 						<button type="button" class="menu-item" onclick={() => selectWhere((e) => e.is_starred)}>
-							Starred
+							スター付き
 						</button>
 					</div>
 				{/if}
 			</div>
 
 			{#if someSelected}
-				<span class="selected-count">{selected.length} selected</span>
+				<span class="selected-count">{selected.length}件を選択中</span>
 
 				<div class="bulk-actions">
+					{#if view !== 'drafts' && view !== 'trash'}
+						<FolderMoveMenu
+							{folders}
+							ids={selected}
+							{currentFolderId}
+							label={`${selected.length}件をフォルダへ移動`}
+							onFocusFallback={focusToolbar}
+						/>
+					{/if}
 					<button
 						type="button"
 						class="tool-btn"
-						title="Mark as read"
+						title="既読にする"
 						disabled={busy}
 						onclick={() => run('read')}
 					>
@@ -278,7 +308,7 @@
 					<button
 						type="button"
 						class="tool-btn"
-						title="Mark as unread"
+						title="未読にする"
 						disabled={busy}
 						onclick={() => run('unread')}
 					>
@@ -287,7 +317,7 @@
 					<button
 						type="button"
 						class="tool-btn"
-						title="Star"
+						title="スターを付ける"
 						disabled={busy}
 						onclick={() => run('star')}
 					>
@@ -296,7 +326,7 @@
 					<button
 						type="button"
 						class="tool-btn"
-						title="Remove star"
+						title="スターを外す"
 						disabled={busy}
 						onclick={() => run('unstar')}
 					>
@@ -307,7 +337,7 @@
 						<button
 							type="button"
 							class="tool-btn"
-							title="Restore"
+							title="復元"
 							disabled={busy}
 							onclick={() => run('restore')}
 						>
@@ -316,7 +346,7 @@
 						<button
 							type="button"
 							class="tool-btn danger"
-							title="Delete permanently"
+							title="完全に削除"
 							disabled={busy}
 							onclick={() => run('delete')}
 						>
@@ -326,7 +356,7 @@
 						<button
 							type="button"
 							class="tool-btn"
-							title="Move to trash"
+							title="ゴミ箱へ移動"
 							disabled={busy}
 							onclick={() => run('trash')}
 						>
@@ -344,7 +374,7 @@
 					<button
 						type="button"
 						class="tool-btn"
-						aria-label="Mailbox actions"
+						aria-label="メールボックスの操作"
 						aria-expanded={moreOpen}
 						onclick={() => (moreOpen = !moreOpen)}
 					>
@@ -355,7 +385,7 @@
 						<button
 							type="button"
 							class="backdrop"
-							aria-label="Close menu"
+							aria-label="メニューを閉じる"
 							onclick={() => (moreOpen = false)}
 						></button>
 						<div class="menu menu-left" role="menu">
@@ -370,7 +400,7 @@
 										moreOpen = false;
 									}}
 								>
-									<Icon name="close-line" size={15} /> Cancel selection
+									<Icon name="close-line" size={15} /> 選択をキャンセル
 								</button>
 							{:else}
 								<button
@@ -381,7 +411,7 @@
 										moreOpen = false;
 									}}
 								>
-									<Icon name="checkbox-multiple-line" size={15} /> Select
+									<Icon name="checkbox-multiple-line" size={15} /> 選択
 								</button>
 							{/if}
 							<button
@@ -393,7 +423,7 @@
 									name={filters.unreadOnly ? 'checkbox-fill' : 'checkbox-blank-line'}
 									size={15}
 								/>
-								Unread only
+									未読のみ
 							</button>
 							<button
 								type="button"
@@ -404,7 +434,7 @@
 									name={filters.starredOnly ? 'checkbox-fill' : 'checkbox-blank-line'}
 									size={15}
 								/>
-								Starred only
+									スター付きのみ
 							</button>
 							<button
 								type="button"
@@ -415,7 +445,7 @@
 									name={filters.attachmentsOnly ? 'checkbox-fill' : 'checkbox-blank-line'}
 									size={15}
 								/>
-								Has attachments
+									添付あり
 							</button>
 							{#if activeFilterCount > 0 || filters.q}
 								<button
@@ -424,14 +454,16 @@
 									onclick={() =>
 										apply({ unread: null, starred: null, attachments: null, q: null })}
 								>
-									<Icon name="close-circle-line" size={15} /> Clear filters
+									<Icon name="close-circle-line" size={15} /> 絞り込みを解除
 								</button>
 							{/if}
+						{#if view !== 'folder'}
 							<button type="button" class="menu-item" onclick={() => run('read-all', [])}>
-								<Icon name="mail-open-line" size={15} /> Mark all as read
+								<Icon name="mail-open-line" size={15} /> すべて既読にする
 							</button>
+						{/if}
 							<button type="button" class="menu-item" onclick={() => invalidateAll()}>
-								<Icon name="refresh-line" size={15} /> Refresh
+								<Icon name="refresh-line" size={15} /> 更新
 							</button>
 							{#if view === 'trash'}
 								<button
@@ -439,7 +471,7 @@
 									class="menu-item danger"
 									onclick={() => run('empty-trash', [])}
 								>
-									<Icon name="delete-bin-2-line" size={15} /> Empty trash
+									<Icon name="delete-bin-2-line" size={15} /> ゴミ箱を空にする
 								</button>
 							{/if}
 						</div>
@@ -455,7 +487,7 @@
 				class:pill-on={filters.unreadOnly}
 				onclick={() => apply({ unread: filters.unreadOnly ? null : '1' })}
 			>
-				Unread
+				未読
 			</button>
 
 			<div class="filter">
@@ -463,12 +495,12 @@
 					type="button"
 					class="pill"
 					class:pill-on={activeFilterCount > 0}
-					aria-label="Filter"
+								aria-label="絞り込み"
 					aria-expanded={filterOpen}
 					onclick={() => (filterOpen = !filterOpen)}
 				>
 					<Icon name="equalizer-line" size={14} />
-					<span class="filter-label">Filter</span>
+							<span class="filter-label">絞り込み</span>
 					{#if activeFilterCount > 0}<span class="filter-count">{activeFilterCount}</span>{/if}
 				</button>
 
@@ -476,7 +508,7 @@
 					<button
 						type="button"
 						class="backdrop"
-						aria-label="Close filters"
+						aria-label="絞り込みを閉じる"
 						onclick={() => (filterOpen = false)}
 					></button>
 					<div class="menu menu-right" role="menu">
@@ -489,7 +521,7 @@
 								name={filters.unreadOnly ? 'checkbox-fill' : 'checkbox-blank-line'}
 								size={15}
 							/>
-							Unread only
+								未読のみ
 						</button>
 						<button
 							type="button"
@@ -500,7 +532,7 @@
 								name={filters.starredOnly ? 'checkbox-fill' : 'checkbox-blank-line'}
 								size={15}
 							/>
-							Starred only
+								スター付きのみ
 						</button>
 						<button
 							type="button"
@@ -511,7 +543,7 @@
 								name={filters.attachmentsOnly ? 'checkbox-fill' : 'checkbox-blank-line'}
 								size={15}
 							/>
-							Has attachments
+								添付あり
 						</button>
 						{#if activeFilterCount > 0 || filters.q}
 							<button
@@ -520,7 +552,7 @@
 								onclick={() =>
 									apply({ unread: null, starred: null, attachments: null, q: null })}
 							>
-								<Icon name="close-circle-line" size={15} /> Clear all
+								<Icon name="close-circle-line" size={15} /> すべて解除
 							</button>
 						{/if}
 					</div>
@@ -532,7 +564,7 @@
 					class="pager-btn"
 					class:disabled={mailbox.page <= 1}
 					href={withParams({ page: mailbox.page - 1 })}
-					aria-label="Previous page"
+					aria-label="前のページ"
 				>
 					<Icon name="arrow-left-s-line" size={16} />
 				</a>
@@ -541,7 +573,7 @@
 					class="pager-btn"
 					class:disabled={mailbox.page >= mailbox.pageCount}
 					href={withParams({ page: mailbox.page + 1 })}
-					aria-label="Next page"
+					aria-label="次のページ"
 				>
 					<Icon name="arrow-right-s-line" size={16} />
 				</a>
@@ -550,15 +582,15 @@
 	</header>
 
 	{#if activeFilterCount > 0}
-		<div class="filter-chips" aria-label="Active filters">
+		<div class="filter-chips" aria-label="適用中の絞り込み">
 			{#if filters.unreadOnly}
-				<a href={withParams({ unread: null })} class="filter-chip">Unread</a>
+				<a href={withParams({ unread: null })} class="filter-chip">未読</a>
 			{/if}
 			{#if filters.starredOnly}
-				<a href={withParams({ starred: null })} class="filter-chip">Starred</a>
+				<a href={withParams({ starred: null })} class="filter-chip">スター付き</a>
 			{/if}
 			{#if filters.attachmentsOnly}
-				<a href={withParams({ attachments: null })} class="filter-chip">Attachments</a>
+				<a href={withParams({ attachments: null })} class="filter-chip">添付あり</a>
 			{/if}
 		</div>
 	{/if}
@@ -566,8 +598,8 @@
 	{#if filters.q}
 		<div class="search-note">
 			<Icon name="search-line" size={14} />
-			<span>{mailbox.total} result{mailbox.total === 1 ? '' : 's'} for “{filters.q}”</span>
-			<a href={withParams({ q: null })} class="search-clear">Clear</a>
+			<span>「{filters.q}」の検索結果：{mailbox.total}件</span>
+			<a href={withParams({ q: null })} class="search-clear">クリア</a>
 		</div>
 	{/if}
 
@@ -575,7 +607,7 @@
 		{#if items.length === 0}
 			<EmptyState
 				icon={filters.q ? 'search-line' : meta.icon}
-				title={filters.q ? 'No messages match that search' : meta.empty}
+				title={filters.q ? '検索条件に一致するメールはありません' : meta.empty}
 			/>
 		{:else}
 			<ul>
@@ -593,7 +625,7 @@
 							onRight={() => onSwipeLeft(thread)}
 						>
 						<Check
-							label={`Select conversation with ${people(thread)}`}
+							label={`${people(thread)}とのスレッドを選択`}
 							checked={selected.includes(thread.latest_id)}
 							onchange={() => toggle(thread.latest_id)}
 						/>
@@ -602,7 +634,7 @@
 							type="button"
 							class="star"
 							class:on={thread.is_starred}
-							aria-label={thread.is_starred ? 'Remove star' : 'Add star'}
+							aria-label={thread.is_starred ? 'スターを外す' : 'スターを付ける'}
 							onclick={() => toggleStar(thread)}
 						>
 							<Icon name={thread.is_starred ? 'star-fill' : 'star-line'} size={15} />
@@ -629,11 +661,11 @@
 								{#if thread.message_count > 1}
 									<span class="count">{thread.message_count}</span>
 								{/if}
-								{#if thread.is_draft}<span class="tag tag-draft">Draft</span>{/if}
+								{#if thread.is_draft}<span class="tag tag-draft">下書き</span>{/if}
 							</span>
 
 							<span class="body">
-								<span class="subject">{thread.subject || '(no subject)'}</span>
+								<span class="subject">{displayMailSubject(thread.subject)}</span>
 								{#if thread.preview}
 									<span class="preview">— {thread.preview}</span>
 								{/if}
@@ -656,7 +688,7 @@
 								<button
 									type="button"
 									class="tool-btn"
-									title="Restore"
+									title="復元"
 									onclick={() => run('restore', [thread.latest_id])}
 								>
 									<Icon name="arrow-go-back-line" size={15} />
@@ -664,16 +696,25 @@
 								<button
 									type="button"
 									class="tool-btn danger"
-									title="Delete permanently"
+									title="完全に削除"
 									onclick={() => run('delete', [thread.latest_id])}
 								>
 									<Icon name="delete-bin-2-line" size={15} />
 								</button>
-							{:else}
-								<button
+						{:else}
+							{#if view !== 'drafts'}
+								<FolderMoveMenu
+									{folders}
+									ids={[thread.latest_id]}
+									{currentFolderId}
+									label={`${people(thread)}との会話をフォルダへ移動`}
+									onFocusFallback={focusToolbar}
+								/>
+							{/if}
+							<button
 									type="button"
 									class="tool-btn"
-									title={thread.is_read ? 'Mark as unread' : 'Mark as read'}
+									title={thread.is_read ? '未読にする' : '既読にする'}
 									onclick={() => run(thread.is_read ? 'unread' : 'read', [thread.latest_id])}
 								>
 									<Icon name={thread.is_read ? 'mail-line' : 'mail-open-line'} size={15} />
@@ -681,7 +722,7 @@
 								<button
 									type="button"
 									class="tool-btn"
-									title="Move to trash"
+									title="ゴミ箱へ移動"
 									onclick={() => run('trash', [thread.latest_id])}
 								>
 									<Icon name="delete-bin-line" size={15} />
@@ -697,7 +738,7 @@
 
 	{#if mailbox.total > 0}
 		<footer class="list-foot">
-			<span>{rangeStart}–{rangeEnd} of {mailbox.total}</span>
+			<span>{mailbox.total}件中 {rangeStart}–{rangeEnd}件</span>
 		</footer>
 	{/if}
 </section>
@@ -1148,7 +1189,9 @@
 		background: linear-gradient(to right, transparent, var(--color-surface-muted) 1.5rem);
 	}
 
-	.row:hover .row-actions {
+	.row:hover .row-actions,
+	.row:focus-within .row-actions,
+	.row:has(:global(.move-trigger[aria-expanded='true'])) .row-actions {
 		display: flex;
 	}
 

@@ -1,17 +1,31 @@
 export function htmlToPlainText(html: string): string {
-	const doc = new DOMParser().parseFromString(html, 'text/html');
-	return (doc.body.textContent ?? '').replace(/\n{3,}/g, '\n\n').trim();
+	const withLineBreaks = html
+		.replace(/<br\s*\/?>[ \t]*\r?\n?/gi, '\n')
+		.replace(/(<\/(?:blockquote|div|h[1-6]|li|p|pre|section|tr)>)[ \t]*\r?\n?/gi, '$1\n');
+	const text =
+		typeof DOMParser === 'undefined'
+			? stripMarkup(withLineBreaks)
+			: (new DOMParser().parseFromString(withLineBreaks, 'text/html').body.textContent ?? '');
+	return text.replace(/\u00a0/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
 }
 
 /** Decode tags and whitespace entities when DOMParser is unavailable (SSR). */
 function stripMarkup(html: string): string {
-	return html.replace(/<[^>]+>/g, '').replace(/&nbsp;/gi, ' ').replace(
-		/&#(x)?([0-9a-f]+);/gi,
-		(_match, hex: string | undefined, value: string) => {
+	const namedEntities: Record<string, string> = {
+		amp: '&',
+		apos: "'",
+		gt: '>',
+		lt: '<',
+		nbsp: ' ',
+		quot: '"'
+	};
+	return html
+		.replace(/<[^>]+>/g, '')
+		.replace(/&(amp|apos|gt|lt|nbsp|quot);/gi, (_match, name: string) => namedEntities[name.toLowerCase()])
+		.replace(/&#(x)?([0-9a-f]+);/gi, (_match, hex: string | undefined, value: string) => {
 			const code = Number.parseInt(value, hex ? 16 : 10);
 			return Number.isNaN(code) ? '' : String.fromCharCode(code);
-		}
-	);
+		});
 }
 
 export function isHtmlEmpty(html: string): boolean {

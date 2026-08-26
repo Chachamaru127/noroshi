@@ -4,6 +4,9 @@
 	import RichTextEditor from '$lib/components/RichTextEditor.svelte';
 	import AttachmentPicker from '$lib/components/AttachmentPicker.svelte';
 	import ThreadMessage from '$lib/components/ThreadMessage.svelte';
+	import FolderMoveMenu from '$lib/components/FolderMoveMenu.svelte';
+	import { displayMailSubject } from '$lib/mail-ui-copy';
+	import { translateMailError } from '$lib/mail-ui-errors';
 	import { htmlToPlainText, isHtmlEmpty } from '$lib/utils/html';
 	import { hasInAppHistory, requestSkipViewTransition } from '$lib/app-chrome';
 	import type { OutboundAttachmentInput } from '$lib/types';
@@ -18,12 +21,11 @@
 	let error = $state('');
 
 	const messages = $derived(data.messages);
+	const displayedSubject = $derived(displayMailSubject(data.subject));
 	const latest = $derived(messages[messages.length - 1]);
 	const starred = $derived(messages.some((message) => message.is_starred));
 
-	const backHref = $derived(
-		data.trashed ? '/trash' : latest?.direction === 'outbound' ? '/sent' : '/inbox'
-	);
+	const backHref = $derived(data.backHref);
 
 	/**
 	 * Which messages are open: the newest one, whichever message was linked to,
@@ -79,12 +81,12 @@
 
 	async function restore() {
 		await patch({ trashed: false });
-		goto('/inbox');
+		goto(data.restoreHref);
 	}
 
 	function goBack() {
 		requestSkipViewTransition();
-		if (hasInAppHistory()) {
+		if (data.useHistoryBack && hasInAppHistory()) {
 			history.back();
 			return;
 		}
@@ -117,7 +119,7 @@
 			});
 			const body = await res.json();
 			if (!res.ok) {
-				error = body.error ?? 'Failed to send';
+				error = translateMailError(body.error, 'reply');
 				return;
 			}
 
@@ -127,7 +129,7 @@
 			// The sent reply is now part of this conversation.
 			await invalidateAll();
 		} catch {
-			error = 'Network error';
+			error = '通信エラーが発生しました';
 		} finally {
 			sending = false;
 		}
@@ -135,7 +137,7 @@
 </script>
 
 <svelte:head>
-	<title>{data.subject} — Mail</title>
+	<title>{displayedSubject} — QuickMail-ja</title>
 </svelte:head>
 
 <div class="mail-page">
@@ -143,7 +145,7 @@
 		<a
 			href={backHref}
 			class="btn-ghost back-btn"
-			aria-label="Back"
+			aria-label="戻る"
 			onclick={(event) => {
 				if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
 				event.preventDefault();
@@ -154,55 +156,65 @@
 		</a>
 
 		<div class="toolbar-actions">
+			{#if latest && !data.trashed}
+				<FolderMoveMenu
+					folders={data.folders}
+					ids={[latest.id]}
+					currentFolderId={data.assignedFolderId ?? undefined}
+					compact={false}
+					onMoved={(destinationId) =>
+						goto(destinationId ? `/folders/${destinationId}` : data.unfiledHref)}
+				/>
+			{/if}
 			<button
 				type="button"
 				class="icon-btn"
 				class:starred
-				aria-label={starred ? 'Remove star' : 'Add star'}
+				aria-label={starred ? 'スターを外す' : 'スターを付ける'}
 				onclick={toggleStar}
 			>
 				<Icon name={starred ? 'star-fill' : 'star-line'} size={16} />
 			</button>
 
 			{#if data.trashed}
-				<button type="button" class="icon-btn" aria-label="Restore" onclick={restore}>
+				<button type="button" class="icon-btn" aria-label="復元" onclick={restore}>
 					<Icon name="arrow-go-back-line" size={16} />
 				</button>
 				<button
 					type="button"
 					class="icon-btn danger"
-					aria-label="Delete permanently"
+					aria-label="完全に削除"
 					onclick={destroy}
 				>
 					<Icon name="delete-bin-2-line" size={16} />
 				</button>
 			{:else}
-				<button type="button" class="icon-btn" aria-label="Mark as unread" onclick={markUnread}>
+				<button type="button" class="icon-btn" aria-label="未読にする" onclick={markUnread}>
 					<Icon name="mail-line" size={16} />
 				</button>
-				<button type="button" class="icon-btn" aria-label="Move to trash" onclick={trash}>
+				<button type="button" class="icon-btn" aria-label="ゴミ箱へ移動" onclick={trash}>
 					<Icon name="delete-bin-line" size={16} />
 				</button>
 			{/if}
 
 			<button type="button" class="btn-primary reply-launch" onclick={() => (replyOpen = !replyOpen)}>
 				<Icon name="reply-line" size={16} />
-				{replyOpen ? 'Close' : 'Reply'}
+				{replyOpen ? '閉じる' : '返信'}
 			</button>
 		</div>
 	</header>
 
 	<article class="surface-lg mail-card">
 		<div class="subject-row">
-			<h1>{data.subject}</h1>
+			<h1>{displayedSubject}</h1>
 			{#if messages.length > 1}
-				<span class="thread-count">{messages.length} messages</span>
+				<span class="thread-count">{messages.length}件のメール</span>
 			{/if}
 		</div>
 
 		{#if collapsedCount > 0}
 			<button type="button" class="expand-all" onclick={expandAll}>
-				Expand all {messages.length} messages
+				すべてのメール（{messages.length}件）を展開
 			</button>
 		{/if}
 
@@ -220,31 +232,31 @@
 	{#if replyOpen}
 		<form class="reply-section" onsubmit={sendReply}>
 			<p class="reply-to">
-				Replying to
+				返信先:
 				<strong>
 					{latest?.direction === 'inbound' ? latest.from_addr : latest?.to_addr}
 				</strong>
 			</p>
 			{#if data.replyFrom}
 				<p class="reply-from">
-					From
+					差出人:
 					<strong>
 						{#if data.replyFromName}{data.replyFromName} · {/if}{data.replyFrom}
 					</strong>
 				</p>
 			{/if}
 
-			<RichTextEditor bind:html={replyHtml} embedded minHeight={160} placeholder="Reply…" />
+			<RichTextEditor bind:html={replyHtml} embedded minHeight={160} placeholder="返信を入力…" />
 
 			<div class="reply-footer">
 				<AttachmentPicker bind:attachments={replyAttachments} />
 				<div class="reply-actions">
 					<button type="button" class="btn-ghost" onclick={() => (replyOpen = false)}>
-						Cancel
+						キャンセル
 					</button>
 					<button type="submit" class="btn-primary" disabled={sending}>
 						<Icon name="send-plane-2-fill" size={16} />
-						{sending ? 'Sending…' : 'Send'}
+						{sending ? '送信中…' : '送信'}
 					</button>
 				</div>
 			</div>
@@ -256,7 +268,7 @@
 	{:else}
 		<button type="button" class="reply-prompt" onclick={() => (replyOpen = true)}>
 			<Icon name="reply-line" size={15} />
-			Reply
+			返信
 		</button>
 	{/if}
 </div>

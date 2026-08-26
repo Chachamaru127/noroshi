@@ -3,16 +3,19 @@
 	import Icon from './Icon.svelte';
 	import Logo from './Logo.svelte';
 	import DomainSwitcher from './DomainSwitcher.svelte';
-	import type { Domain, MailboxCounts } from '$lib/types';
+	import FolderNavigation from './FolderNavigation.svelte';
+	import type { Domain, MailFolder, MailboxCounts } from '$lib/types';
 
 	let {
 		counts,
+		folders,
 		domains,
 		activeDomainId,
 		isAdmin,
 		collapsed = $bindable(false)
 	}: {
 		counts: MailboxCounts;
+		folders: MailFolder[];
 		domains: Domain[];
 		activeDomainId: string | null;
 		isAdmin: boolean;
@@ -29,16 +32,16 @@
 	};
 
 	const mailboxes = $derived<NavItem[]>([
-		{ href: '/inbox', icon: 'inbox-line', label: 'Inbox', badge: counts.inbox_unread },
-		{ href: '/drafts', icon: 'draft-line', label: 'Drafts', count: counts.drafts },
-		{ href: '/sent', icon: 'send-plane-line', label: 'Sent' },
-		{ href: '/starred', icon: 'star-line', label: 'Starred', count: counts.starred },
-		{ href: '/trash', icon: 'delete-bin-line', label: 'Trash', count: counts.trash }
+		{ href: '/inbox', icon: 'inbox-line', label: '受信トレイ', badge: counts.inbox_unread },
+		{ href: '/drafts', icon: 'draft-line', label: '下書き', count: counts.drafts },
+		{ href: '/sent', icon: 'send-plane-line', label: '送信済み' },
+		{ href: '/starred', icon: 'star-line', label: 'スター付き', count: counts.starred },
+		{ href: '/trash', icon: 'delete-bin-line', label: 'ゴミ箱', count: counts.trash }
 	]);
 
 	const tools = $derived<NavItem[]>([
-		{ href: '/settings', icon: 'user-settings-line', label: 'Settings' },
-		...(isAdmin ? [{ href: '/admin', icon: 'settings-3-line', label: 'Admin' }] : [])
+		{ href: '/settings', icon: 'user-settings-line', label: '設定' },
+		...(isAdmin ? [{ href: '/admin', icon: 'settings-3-line', label: '管理' }] : [])
 	]);
 
 	function isActive(href: string): boolean {
@@ -48,15 +51,15 @@
 
 <aside class="sidebar" class:collapsed>
 	<div class="sidebar-top">
-		<a href="/inbox" class="brand" title="Mail">
+		<a href="/inbox" class="brand" title="QuickMail-ja">
 			<Logo size={30} />
-			{#if !collapsed}<span class="brand-name">Mail</span>{/if}
+			{#if !collapsed}<span class="brand-name">QuickMail-ja</span>{/if}
 		</a>
 	</div>
 
-	<a href="/compose" class="new-message" title="New message">
+	<a href="/compose" class="new-message" title="新規メール">
 		<Icon name="pencil-line" size={collapsed ? 18 : 16} />
-		{#if !collapsed}<span>New message</span>{/if}
+		{#if !collapsed}<span>新規メール</span>{/if}
 	</a>
 
 	<nav class="nav">
@@ -82,9 +85,13 @@
 		{/each}
 	</nav>
 
+	{#if !collapsed}
+		<FolderNavigation {folders} />
+	{/if}
+
 	{#if !collapsed && domains.length > 0}
 		<div class="section">
-			<p class="section-title">Domains</p>
+			<p class="section-title">ドメイン</p>
 			<div class="section-body">
 				<DomainSwitcher {domains} {activeDomainId} block />
 			</div>
@@ -109,7 +116,7 @@
 		<button
 			type="button"
 			class="collapse-btn"
-			aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+			aria-label={collapsed ? 'サイドバーを展開' : 'サイドバーを折りたたむ'}
 			onclick={() => (collapsed = !collapsed)}
 		>
 			<Icon name={collapsed ? 'arrow-right-double-line' : 'arrow-left-double-line'} size={15} />

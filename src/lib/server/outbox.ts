@@ -30,6 +30,8 @@ export type ComposeInput = {
 	references?: string | null;
 	replyToEmailId?: string | null;
 	attachments?: OutboundAttachmentInput[];
+	/** Manual forwards never join a prior conversation by normalized subject. */
+	startNewThread?: boolean;
 };
 
 /**
@@ -160,7 +162,8 @@ export async function sendAndStore(
 		domainId: from.domain_id,
 		providerId,
 		status: initialOutboundStatus(provider.kind),
-		isRead: true
+		isRead: true,
+		subjectMatch: input.startNewThread ? false : undefined
 	});
 
 	if (attachments.length > 0) {

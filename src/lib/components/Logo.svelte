@@ -17,7 +17,7 @@
 	viewBox="0 0 64 64"
 	xmlns="http://www.w3.org/2000/svg"
 	role="img"
-	aria-label="Mail"
+	aria-label="QuickMail-ja"
 >
 	<rect width="64" height="64" rx="16.5" fill="#90ac9a" />
 	<g

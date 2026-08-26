@@ -1,6 +1,15 @@
 import { json, text, type RequestHandler } from '@sveltejs/kit';
-import { getResendClient, getWebhookSecret } from '$lib/server/context';
-import { claimWebhookEvent, handleResendWebhook, type ResendWebhookEvent } from '$lib/server/inbound';
+import {
+	getInboundEmailProviderKind,
+	getResendClient,
+	getWebhookSecret
+} from '$lib/server/context';
+import {
+	claimWebhookEvent,
+	createResendWebhookInboundEnv,
+	handleResendWebhook,
+	type ResendWebhookEvent
+} from '$lib/server/inbound';
 import { verifyWebhookSignature } from '$lib/server/webhook';
 
 /**
@@ -41,6 +50,10 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 		return json({ error: 'Missing event type' }, { status: 400 });
 	}
 
+	if (event.type === 'email.received' && getInboundEmailProviderKind(platform) === 'cloudflare') {
+		return json({ ok: true, handled: false, note: 'Inbound is handled by Cloudflare Email Routing' });
+	}
+
 	const eventId =
 		request.headers.get('svix-id') ?? request.headers.get('webhook-id') ?? crypto.randomUUID();
 
@@ -52,18 +65,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 
 	try {
 		const client = getResendClient(platform);
-		const outcome = await handleResendWebhook(
-			event,
-			{
-				DB: db,
-				ATTACHMENTS: bucket,
-				VAPID_PUBLIC_KEY: platform?.env.VAPID_PUBLIC_KEY,
-				VAPID_PRIVATE_KEY: platform?.env.VAPID_PRIVATE_KEY,
-				VAPID_SUBJECT: platform?.env.VAPID_SUBJECT,
-				waitUntil: platform?.ctx ? (promise) => platform.ctx.waitUntil(promise) : undefined
-			},
-			client
-		);
+		const outcome = await handleResendWebhook(event, createResendWebhookInboundEnv(platform!), client);
 		return json({ ok: true, ...outcome });
 	} catch (error) {
 		// Release the claim so Resend's retry can succeed.

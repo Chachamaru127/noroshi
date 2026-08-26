@@ -1,10 +1,16 @@
 node_modules
+backup/
+.claude/
+.harness/
+.harness-*/
+.harness-mem/
+out/
 
 # Output
 .output
 .vercel
 .netlify
-.wrangler
+.wrangler/
 worker-wrapper.js
 wrangler.deploy.jsonc
 /.svelte-kit

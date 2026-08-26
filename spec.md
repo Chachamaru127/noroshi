@@ -18,7 +18,7 @@ QuickMail-ja is a generic open-source product. It must not contain customer name
 - Send, receive, reply, threads, drafts, attachments, delivery status, signatures, API keys, CLI, and MCP
 - Multiple domains, addresses, and users
 - Manual forwarding of one saved message
-- Automatic forwarding after inbound mail is saved, with an idempotency key, a minimal atomic D1 claim, and at most three provider attempts
+- Automatic forwarding after inbound mail is saved, with an idempotency key, a minimal atomic D1 claim, and at most three retries (four provider calls total)
 - User-managed forwarding destination, enable/disable control, and delivery status
 - Custom folders and automatic sorting rules based on sender or subject
 - Setup-key protected first-admin onboarding

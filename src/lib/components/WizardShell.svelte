@@ -10,7 +10,7 @@
 		current = 1,
 		/** Show Mail ↔ provider marks above the title (domain connect screens). */
 		partner = false,
-		partnerCaption = 'Connected via Cloudflare Email',
+		partnerCaption = 'Cloudflare Emailに接続',
 		partnerKind = 'cloudflare',
 		children
 	}: {
@@ -39,7 +39,7 @@
 		{/if}
 
 		{#if steps.length > 1}
-			<ol class="steps" aria-label="Setup progress">
+			<ol class="steps" aria-label="セットアップの進行状況">
 				{#each steps as label, index (label)}
 					<li class:active={current === index + 1} class:done={current > index + 1}>
 						<span class="step-dot">{current > index + 1 ? '✓' : index + 1}</span>

@@ -7,6 +7,14 @@
 	let error = $state('');
 	let loading = $state(false);
 
+	function safeLoginError(value: unknown): string {
+		if (typeof value !== 'string') return 'ログインに失敗しました。';
+		if (value.includes('Email and password are required')) return 'メールアドレスとパスワードを入力してください。';
+		if (value.includes('Invalid email or password')) return 'メールアドレスまたはパスワードが正しくありません。';
+		if (value.includes('Database unavailable')) return 'データベースを利用できません。';
+		return 'ログインに失敗しました。';
+	}
+
 	async function submit(event: SubmitEvent) {
 		event.preventDefault();
 		error = '';
@@ -20,7 +28,7 @@
 			});
 			const data = await res.json();
 			if (!res.ok) {
-				error = data.error ?? 'Login failed';
+				error = safeLoginError(data.error);
 				return;
 			}
 			try {
@@ -30,7 +38,7 @@
 			}
 			window.location.href = '/inbox';
 		} catch {
-			error = 'Network error';
+			error = 'ネットワークエラーが発生しました。';
 		} finally {
 			loading = false;
 		}
@@ -38,23 +46,23 @@
 </script>
 
 <svelte:head>
-	<title>Sign in — Mail</title>
+		<title>ログイン — QuickMail-ja</title>
 </svelte:head>
 
 <div class="auth-shell">
 	<div class="auth-card">
 		<div class="auth-brand">
 			<div class="brand-icon"><Logo size={48} /></div>
-			<h1>Sign in</h1>
+			<h1>ログイン</h1>
 		</div>
 
 		<form class="mt-8 space-y-4" onsubmit={submit}>
 			<div>
-				<label for="email" class="text-sm text-[var(--color-text-secondary)]">Email</label>
+				<label for="email" class="text-sm text-[var(--color-text-secondary)]">メールアドレス</label>
 				<input id="email" type="email" bind:value={email} required autocomplete="username" class="auth-input" />
 			</div>
 			<div>
-				<label for="password" class="text-sm text-[var(--color-text-secondary)]">Password</label>
+				<label for="password" class="text-sm text-[var(--color-text-secondary)]">パスワード</label>
 				<input
 					id="password"
 					type="password"
@@ -70,7 +78,7 @@
 			{/if}
 
 			<button type="submit" disabled={loading} class="btn-primary mt-2 w-full py-2.5">
-				{loading ? 'Signing in…' : 'Continue'}
+				{loading ? 'ログイン中…' : 'ログイン'}
 			</button>
 		</form>
 	</div>

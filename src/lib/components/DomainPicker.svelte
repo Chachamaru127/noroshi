@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon from './Icon.svelte';
+	import { domainStatusLabel } from '$lib/provider-copy';
 	import type { AvailableDomain } from '$lib/types';
 
 	let {
@@ -43,17 +44,17 @@
 				<span class="domain-main">
 					<span class="domain-name">{domain.name}</span>
 					<span class="domain-meta">
-						<span class="chip" class:chip-ok={domain.status === 'verified'}>{domain.status}</span>
+						<span class="chip" class:chip-ok={domain.status === 'verified'}>{domainStatusLabel(domain.status)}</span>
 						{#if domain.region}<span class="chip">{domain.region}</span>{/if}
 					</span>
 				</span>
 
 				<span class="domain-caps">
 					<span class="cap" class:cap-on={domain.can_send}>
-						<Icon name="send-plane-line" size={13} /> Send
+						<Icon name="send-plane-line" size={13} /> 送信
 					</span>
 					<span class="cap" class:cap-on={domain.can_receive}>
-						<Icon name="inbox-line" size={13} /> Receive
+						<Icon name="inbox-line" size={13} /> 受信
 					</span>
 				</span>
 			</button>
@@ -64,8 +65,8 @@
 {#if selected.some((id) => domains.find((d) => d.id === id && !d.can_receive))}
 	<p class="hint">
 		<Icon name="information-line" size={14} />
-		Receiving is off for a selected domain. Enable inbound on it at the mail provider to get
-		mail — sending still works.
+		選択したドメインでは受信が無効です。メールプロバイダーで受信を有効にするとメールを受け取れます。
+		送信は引き続き利用できます。
 	</p>
 {/if}
 

@@ -1,3 +1,5 @@
+const JA_LOCALE = 'ja-JP';
+
 export function formatRelativeDate(value: string): string {
 	const date = new Date(value);
 	const now = new Date();
@@ -6,19 +8,19 @@ export function formatRelativeDate(value: string): string {
 	const diffHours = Math.floor(diffMs / 3_600_000);
 	const diffDays = Math.floor(diffMs / 86_400_000);
 
-	if (diffMins < 1) return 'Now';
-	if (diffMins < 60) return `${diffMins}m`;
+	if (diffMins < 1) return 'たった今';
+	if (diffMins < 60) return `${diffMins}分前`;
 	if (diffHours < 24 && date.getDate() === now.getDate()) {
-		return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+		return date.toLocaleTimeString(JA_LOCALE, { hour: 'numeric', minute: '2-digit' });
 	}
 	if (diffDays < 7) {
-		return date.toLocaleDateString([], { weekday: 'short' });
+		return date.toLocaleDateString(JA_LOCALE, { weekday: 'short' });
 	}
-	return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+	return date.toLocaleDateString(JA_LOCALE, { month: 'short', day: 'numeric' });
 }
 
 export function formatFullDate(value: string): string {
-	return new Date(value).toLocaleString([], {
+	return new Date(value).toLocaleString(JA_LOCALE, {
 		weekday: 'short',
 		month: 'short',
 		day: 'numeric',
