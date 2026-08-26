@@ -2,6 +2,7 @@ import type { AiSupportStage } from './ai-support';
 
 export type AiSupportKnowledge = Readonly<{
 	patternIds: readonly string[];
+	reviewBy: string;
 	safeSteps: readonly string[];
 	expectedEvidence: readonly string[];
 }>;
@@ -14,11 +15,13 @@ export const AI_SUPPORT_KNOWLEDGE_LIMITS = Object.freeze({
 
 function reviewed(
 	patternIds: string[],
+	reviewBy: string,
 	safeSteps: string[],
 	expectedEvidence: string[]
 ): AiSupportKnowledge {
 	return Object.freeze({
 		patternIds: Object.freeze(patternIds),
+		reviewBy,
 		safeSteps: Object.freeze(safeSteps),
 		expectedEvidence: Object.freeze(expectedEvidence)
 	});
@@ -32,6 +35,7 @@ export const AI_SUPPORT_KNOWLEDGE: Readonly<Record<AiSupportStage, AiSupportKnow
 	Object.freeze({
 		deploy: reviewed(
 			['deploy.banner.boundary'],
+			'2026-09-26',
 			[
 				'デプロイ完了とメール開通を分けて確認します。',
 				'未完了の設定を受信、送信、初回管理者の順に一覧化します。'
@@ -40,6 +44,7 @@ export const AI_SUPPORT_KNOWLEDGE: Readonly<Record<AiSupportStage, AiSupportKnow
 		),
 		'email-routing': reviewed(
 			['cloudflare.email.routing', 'cloudflare.worker.route'],
+			'2026-09-26',
 			[
 				'変更前のDNSレコードとRouting Rulesを保存します。',
 				'現在のRouting RulesとWorker名を読み取ります。'
@@ -51,6 +56,7 @@ export const AI_SUPPORT_KNOWLEDGE: Readonly<Record<AiSupportStage, AiSupportKnow
 		),
 		resend: reviewed(
 			['resend.domain.verification', 'resend.receiving.conflict'],
+			'2026-09-26',
 			[
 				'Resend画面の現在値と権威DNSの差分を作ります。',
 				'apex MXと送信用サブドメインのMXを別々に一覧化します。'
@@ -62,6 +68,7 @@ export const AI_SUPPORT_KNOWLEDGE: Readonly<Record<AiSupportStage, AiSupportKnow
 		),
 		'first-admin': reviewed(
 			['onboarding.setup.key'],
+			'2026-11-25',
 			[
 				'秘密値を表示せず、設定有無と初回管理者の有無だけを確認します。',
 				'未設定なら新しい一回限りの値を秘密入力経路で登録する計画を作ります。'

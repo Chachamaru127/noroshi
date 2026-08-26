@@ -26,6 +26,8 @@ export type AiSupportClipboard = {
 	writeText(value: string): Promise<void>;
 };
 
+export type AiSupportClock = () => Date;
+
 export type AiSupportCopyResult = 'copied' | 'unavailable' | 'failed';
 
 export type AiSupportInputErrorCode =
@@ -57,6 +59,9 @@ const JWT = /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/u;
 const BEARER_TOKEN = /\bBearer\s+\S+/iu;
 const PRIVATE_KEY = /-----BEGIN [A-Z ]*PRIVATE KEY-----/u;
 const GENERIC_TOKEN = /(?:^|[^A-Za-z0-9_-])[A-Za-z0-9_-]{32,256}(?=$|[^A-Za-z0-9_-])/u;
+const ISO_CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/u;
+const SYSTEM_CLOCK: AiSupportClock = () => new Date();
+const EXPIRED_KNOWLEDGE_MESSAGE = '外部変更せず公式一次資料を再確認してください。';
 
 function codePointLength(value: string): number {
 	return [...value].length;
@@ -64,6 +69,21 @@ function codePointLength(value: string): number {
 
 function isAiSupportStage(value: unknown): value is AiSupportStage {
 	return typeof value === 'string' && AI_SUPPORT_STAGES.some((stage) => stage === value);
+}
+
+function calendarDate(clock: AiSupportClock): string {
+	const now = clock();
+	if (!(now instanceof Date) || !Number.isFinite(now.getTime())) {
+		throw new AiSupportInputError('unsafe-url');
+	}
+	return now.toISOString().slice(0, 10);
+}
+
+function isKnowledgeCurrent(reviewBy: string, today: string): boolean {
+	if (!ISO_CALENDAR_DATE.test(reviewBy) || !ISO_CALENDAR_DATE.test(today)) {
+		throw new AiSupportInputError('unsafe-url');
+	}
+	return today <= reviewBy;
 }
 
 export function validateAiSupportQuestion(value: string): string {
@@ -89,8 +109,16 @@ export function validateAiSupportQuestion(value: string): string {
 	return question;
 }
 
-function promptPrefix(stage: AiSupportStage): string {
+function promptPrefix(stage: AiSupportStage, today: string): string {
 	const knowledge = AI_SUPPORT_KNOWLEDGE[stage];
+	const supportLines = isKnowledgeCurrent(knowledge.reviewBy, today)
+		? [
+				'確認済みサポート要点:',
+				...knowledge.safeSteps.map((step) => `- ${step}`),
+				'確認できる状態:',
+				...knowledge.expectedEvidence.map((evidence) => `- ${evidence}`)
+			]
+		: ['確認期限を過ぎたサポート要点:', `- ${EXPIRED_KNOWLEDGE_MESSAGE}`];
 	return [
 		PROMPT_START,
 		'この文章はQuickMail-jaが画面に表示した内容です。AIの公式サポートではありません。',
@@ -98,16 +126,13 @@ function promptPrefix(stage: AiSupportStage): string {
 		`現在の手順: ${STAGE_COPY[stage]}`,
 		'前提: 受信はCloudflare Email Routing、送信はResendです。Resend Receivingやapexの受信用MXは使いません。',
 		'公式情報を優先し、非エンジニアにも分かるよう一度に一つずつ説明してください。秘密情報や個人情報の入力を求めないでください。ログイン、MFA、規約同意、課金、デプロイ、DNS変更は利用者本人が内容を確認して操作します。',
-		'確認済みサポート要点:',
-		...knowledge.safeSteps.map((step) => `- ${step}`),
-		'確認できる状態:',
-		...knowledge.expectedEvidence.map((evidence) => `- ${evidence}`),
+		...supportLines,
 		'質問: '
 	].join('\n');
 }
 
-function composeAiSupportPrompt(stage: AiSupportStage, question: string): string {
-	return `${promptPrefix(stage)}${question}\n${PROMPT_END}`;
+function composeAiSupportPrompt(stage: AiSupportStage, question: string, today: string): string {
+	return `${promptPrefix(stage, today)}${question}\n${PROMPT_END}`;
 }
 
 function assertPromptLength(prompt: string): void {
@@ -116,22 +141,34 @@ function assertPromptLength(prompt: string): void {
 	}
 }
 
-export function buildAiSupportPrompt(stage: AiSupportStage, value: string): string {
+export function buildAiSupportPrompt(
+	stage: AiSupportStage,
+	value: string,
+	clock: AiSupportClock = SYSTEM_CLOCK
+): string {
 	if (!isAiSupportStage(stage)) throw new AiSupportInputError('unsafe-url');
-	const prompt = composeAiSupportPrompt(stage, validateAiSupportQuestion(value));
+	const prompt = composeAiSupportPrompt(
+		stage,
+		validateAiSupportQuestion(value),
+		calendarDate(clock)
+	);
 	assertPromptLength(prompt);
 	return prompt;
 }
 
 /** Rebuilds the complete envelope so a marker or TypeScript brand alone can never authorize output. */
-export function validateBuiltAiSupportPrompt(value: string): string {
+export function validateBuiltAiSupportPrompt(
+	value: string,
+	clock: AiSupportClock = SYSTEM_CLOCK
+): string {
 	assertPromptLength(value);
+	const today = calendarDate(clock);
 	for (const stage of AI_SUPPORT_STAGES) {
-		const prefix = promptPrefix(stage);
+		const prefix = promptPrefix(stage, today);
 		const suffix = `\n${PROMPT_END}`;
 		if (!value.startsWith(prefix) || !value.endsWith(suffix)) continue;
 		const question = validateAiSupportQuestion(value.slice(prefix.length, -suffix.length));
-		if (composeAiSupportPrompt(stage, question) === value) return value;
+		if (composeAiSupportPrompt(stage, question, today) === value) return value;
 	}
 	throw new AiSupportInputError('unsafe-url');
 }
@@ -151,9 +188,10 @@ function assertFixedDestination(url: URL, origin: string, pathname: string): voi
 
 export function buildAiSupportDestination(
 	provider: AiSupportProvider,
-	prompt: string
+	prompt: string,
+	clock: AiSupportClock = SYSTEM_CLOCK
 ): AiSupportDestination {
-	const safePrompt = validateBuiltAiSupportPrompt(prompt);
+	const safePrompt = validateBuiltAiSupportPrompt(prompt, clock);
 	if (!AI_SUPPORT_PROVIDERS.some(({ id }) => id === provider)) {
 		throw new AiSupportInputError('unsafe-url');
 	}
@@ -177,9 +215,10 @@ export function buildAiSupportDestination(
 
 export async function copyAiSupportPrompt(
 	prompt: string,
-	clipboard: AiSupportClipboard | null | undefined
+	clipboard: AiSupportClipboard | null | undefined,
+	clock: AiSupportClock = SYSTEM_CLOCK
 ): Promise<AiSupportCopyResult> {
-	const safePrompt = validateBuiltAiSupportPrompt(prompt);
+	const safePrompt = validateBuiltAiSupportPrompt(prompt, clock);
 	if (!clipboard?.writeText) return 'unavailable';
 	try {
 		await clipboard.writeText(safePrompt);
