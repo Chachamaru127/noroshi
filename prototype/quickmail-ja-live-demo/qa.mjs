@@ -1,15 +1,28 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import AxeBuilder from '@axe-core/playwright';
+import pixelmatch from 'pixelmatch';
 import { chromium, firefox, webkit } from 'playwright';
+import { PNG } from 'pngjs';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const htmlPath = path.join(directory, 'index.html');
 const pageUrl = pathToFileURL(htmlPath).href;
-const artifacts = '/tmp/qmj-12c-artifacts';
+const artifactOverride = process.env.QMJ12C_ARTIFACT_DIR;
+const artifacts = artifactOverride
+	? path.resolve(artifactOverride)
+	: fs.mkdtempSync(path.join(os.tmpdir(), 'qmj-12c-artifacts-'));
+const baselineDirectory = path.join(directory, 'baselines', 'playwright-1.59.1-noble');
+const updateBaselines = process.argv.includes('--update-baselines');
+const pinnedContainer = 'mcr.microsoft.com/playwright:v1.59.1-noble';
+const baselineMode =
+	process.env.QMJ12C_BASELINE_MODE || (process.platform === 'linux' ? 'exact' : 'threshold');
+const allowedMismatchRatio = Number(process.env.QMJ12C_PIXEL_THRESHOLD || '0.025');
 const profiles = ['calm', 'command', 'classic'];
 const themes = ['light', 'dark'];
 const axeStates = ['inbox', 'selected', 'compose', 'error'];
@@ -24,9 +37,97 @@ const snapshotWidths = [
 ];
 const fixedClock = '2026-08-27T03:04:05.000Z';
 const flowLog = [];
+const evidence = {
+	axeCells: [],
+	mobileCells: [],
+	scenarioStructures: [],
+	screenshots: [],
+	contrasts: [],
+	browserCells: {},
+	browserVersions: {},
+	errors: []
+};
 
-fs.rmSync(artifacts, { recursive: true, force: true });
+function gitCommit() {
+	try {
+		return execFileSync('git', ['rev-parse', 'HEAD'], {
+			cwd: path.resolve(directory, '../..'),
+			encoding: 'utf8',
+			stdio: ['ignore', 'pipe', 'ignore']
+		}).trim();
+	} catch {
+		return process.env.QMJ12C_COMMIT || process.env.GITHUB_SHA || 'unknown';
+	}
+}
+
+function dependencyVersion(name) {
+	return JSON.parse(
+		fs.readFileSync(path.resolve(directory, '../..', 'node_modules', name, 'package.json'), 'utf8')
+	).version;
+}
+
+assert.ok(
+	!fs.existsSync(path.join(artifacts, 'manifest.json')),
+	`artifact directory must be unique or empty: ${artifacts}`
+);
+assert.ok(
+	!updateBaselines ||
+		(process.platform === 'linux' &&
+			process.arch === 'x64' &&
+			process.env.QMJ12C_REFERENCE_CONTAINER === pinnedContainer),
+	`--update-baselines is restricted to x86_64 ${pinnedContainer}`
+);
 fs.mkdirSync(path.join(artifacts, 'screenshots'), { recursive: true });
+
+function compareBaseline(actualFile, filename) {
+	const baselineFile = path.join(baselineDirectory, filename);
+	if (updateBaselines) {
+		fs.mkdirSync(baselineDirectory, { recursive: true });
+		fs.copyFileSync(actualFile, baselineFile);
+	}
+	assert.ok(
+		fs.existsSync(baselineFile),
+		`${filename} reviewed baseline is missing; use --update-baselines only in the pinned Playwright container`
+	);
+	const actual = PNG.sync.read(fs.readFileSync(actualFile));
+	const expected = PNG.sync.read(fs.readFileSync(baselineFile));
+	assert.deepEqual(
+		{ width: actual.width, height: actual.height },
+		{ width: expected.width, height: expected.height },
+		`${filename} dimensions must match its reviewed baseline`
+	);
+	const diff = new PNG({ width: actual.width, height: actual.height });
+	const mismatchPixels = pixelmatch(
+		expected.data,
+		actual.data,
+		diff.data,
+		actual.width,
+		actual.height,
+		{
+			threshold: 0.1,
+			includeAA: false
+		}
+	);
+	const mismatchRatio = mismatchPixels / (actual.width * actual.height);
+	if (mismatchPixels > 0) {
+		fs.mkdirSync(path.join(artifacts, 'diffs'), { recursive: true });
+		fs.writeFileSync(path.join(artifacts, 'diffs', filename), PNG.sync.write(diff));
+	}
+	const allowed = baselineMode === 'exact' ? 0 : allowedMismatchRatio;
+	assert.ok(
+		mismatchRatio <= allowed,
+		`${filename} differs from baseline by ${(mismatchRatio * 100).toFixed(3)}% (allowed ${(allowed * 100).toFixed(3)}%)`
+	);
+	return {
+		baselineFile,
+		baselineSha256: crypto.createHash('sha256').update(fs.readFileSync(baselineFile)).digest('hex'),
+		mismatchPixels,
+		mismatchRatio,
+		allowedMismatchRatio: allowed,
+		mode: baselineMode,
+		updated: updateBaselines
+	};
+}
 
 function log(event, detail = {}) {
 	flowLog.push({ event, ...detail });
@@ -61,13 +162,101 @@ async function setScenario(page, { profile, theme, state }) {
 			dispatch({ type: 'PROFILE', value: profile });
 			dispatch({ type: 'THEME', value: theme });
 			dispatch({ type: 'NAVIGATE', view: 'inbox' });
-			if (state === 'selected') dispatch({ type: 'OPEN_MAIL', id: 'm2' });
+			if (state === 'selected') {
+				const inline =
+					matchMedia('(min-width: 768px)').matches && ['command', 'classic'].includes(profile);
+				dispatch({ type: inline ? 'SELECT_MAIL' : 'OPEN_MAIL', id: 'm2' });
+			}
 			if (state === 'compose' || state === 'error') dispatch({ type: 'OPEN_COMPOSE', mode: 'new' });
 			if (state === 'error') dispatch({ type: 'REQUEST_SEND' });
 		},
 		{ profile, theme, state }
 	);
 	await page.locator('.app').waitFor();
+}
+
+async function assertAccessibleState(page) {
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await setScenario(page, { profile: 'command', theme: 'light', state: 'inbox' });
+	const initial = await page.evaluate(() => ({
+		currentNav: document.querySelector('.nav-btn.active')?.getAttribute('aria-current'),
+		currentMessage: document
+			.querySelector('.mail-row[data-message-id="m1"] .mail-open')
+			?.getAttribute('aria-current'),
+		currentName: document
+			.querySelector('.mail-row[data-message-id="m1"] .mail-open')
+			?.getAttribute('aria-label'),
+		unreadName: document
+			.querySelector('.mail-row[data-message-id="m2"] .mail-open')
+			?.getAttribute('aria-label')
+	}));
+	assert.equal(
+		initial.currentNav,
+		'page',
+		'active mailbox navigation must expose aria-current=page'
+	);
+	assert.equal(
+		initial.currentMessage,
+		'true',
+		'the current message control must expose aria-current'
+	);
+	assert.match(
+		initial.currentName || '',
+		/未読.*選択中/u,
+		'current unread message name must expose both states'
+	);
+	assert.match(initial.unreadName || '', /未読/u, 'unread message name must expose unread state');
+	await page.evaluate(() => dispatch({ type: 'SELECT_MAIL', id: 'm2' }));
+	const selected = await page
+		.locator('.mail-row[data-message-id="m2"] .mail-open')
+		.evaluate((element) => ({
+			current: element.getAttribute('aria-current'),
+			name: element.getAttribute('aria-label')
+		}));
+	assert.equal(selected.current, 'true', 'newly selected message must expose aria-current');
+	assert.match(
+		selected.name || '',
+		/選択中/u,
+		'newly selected message name must expose selected state'
+	);
+	assert.doesNotMatch(
+		selected.name || '',
+		/未読/u,
+		'opening a message must remove unread from its name'
+	);
+}
+
+async function assertOfflineState(page) {
+	await page.evaluate(() => dispatch({ type: 'SET_OFFLINE', value: true }));
+	assert.equal(
+		await page.evaluate(() => state.offline),
+		true,
+		'demo state must explicitly record offline mode'
+	);
+	const status = page.locator('[data-status="offline"][role="status"][aria-live="polite"]');
+	assert.equal(await status.count(), 1, 'offline mode must render one polite live status');
+	assert.match(await status.textContent(), /オフライン.*送受信できません/u);
+}
+
+async function assertScenarioStructure(page, { profile, state, viewport, label }) {
+	if (state !== 'selected') return null;
+	const actual = await page.evaluate(() => ({
+		view: state.view,
+		selectedMessageId: state.selectedMessageId,
+		messageLists: document.querySelectorAll('[data-pane="message-list"],[data-pane="thread-list"]')
+			.length,
+		readingPanes: document.querySelectorAll('[data-pane="reading"]').length,
+		fullMessage: document.querySelectorAll('.message-body').length
+	}));
+	const inline = viewport.name === 'desktop' && ['command', 'classic'].includes(profile);
+	assert.deepEqual(
+		actual,
+		inline
+			? { view: 'inbox', selectedMessageId: 'm2', messageLists: 1, readingPanes: 1, fullMessage: 0 }
+			: { view: 'mail', selectedMessageId: 'm2', messageLists: 0, readingPanes: 0, fullMessage: 1 },
+		`${label} selected scenario must exercise its real responsive profile structure`
+	);
+	return actual;
 }
 
 async function scanMobileTargets(page, label) {
@@ -155,6 +344,10 @@ function rgb(value) {
 		assert.match(hex, /^[0-9a-f]{6}$/iu, `unsupported color: ${value}`);
 		return hex.match(/../gu).map((pair) => Number.parseInt(pair, 16));
 	}
+	const srgb = String(value).match(
+		/color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*[\d.]+)?\)/u
+	);
+	if (srgb) return srgb.slice(1, 4).map((channelValue) => Number(channelValue) * 255);
 	const match = String(value).match(/rgba?\((\d+)[, ]+(\d+)[, ]+(\d+)/u);
 	assert.ok(match, `unsupported color: ${value}`);
 	return match.slice(1, 4).map(Number);
@@ -170,31 +363,59 @@ function ratio(foreground, background) {
 
 async function contrastRecord(page, profile, theme) {
 	await setScenario(page, { profile, theme, state: 'inbox' });
-	await page.hover('.mail-row[data-message-id="m2"]');
-	const values = await page.evaluate(() => {
-		const style = (selector) => getComputedStyle(document.querySelector(selector));
-		const root = style('.app');
-		const base = style('.mail-row[data-message-id="m2"] .mail-open');
-		const hover = style('.mail-row[data-message-id="m2"]');
-		const unreadText = style('.mail-row[data-message-id="m1"] .mail-open');
-		const unread = style('.mail-row[data-message-id="m1"]');
+	const sample = async (selector) =>
+		page.$eval(
+			selector,
+			(element, selectorLabel) => {
+				const opaqueBackground = (start) => {
+					let current = start;
+					while (current) {
+						const color = getComputedStyle(current).backgroundColor;
+						if (color !== 'rgba(0, 0, 0, 0)' && color !== 'transparent') return color;
+						current = current.parentElement;
+					}
+					return 'rgb(255, 255, 255)';
+				};
+				const style = getComputedStyle(element);
+				return {
+					selector: selectorLabel,
+					text: style.color,
+					background: opaqueBackground(element),
+					border: style.borderColor,
+					boxShadow: style.boxShadow,
+					fontSize: style.fontSize,
+					fontWeight: style.fontWeight
+				};
+			},
+			selector
+		);
+	const normal = await sample('.mail-row[data-message-id="m3"] .mail-open');
+	const unread = await sample('.mail-row[data-message-id="m2"] .mail-open');
+	await page.hover('.mail-row[data-message-id="m3"]');
+	const hover = await sample('.mail-row[data-message-id="m3"] .mail-open');
+	await page.focus('.search-input');
+	const focus = await sample('.search-input');
+	await page.click('[data-action="filter"][data-filter="unread"]');
+	const component = await sample('.filter-pill.active');
+
+	await setScenario(page, { profile, theme, state: 'selected' });
+	if (!(await page.locator('.mail-detail-head h1').count())) {
+		await page.evaluate(() => dispatch({ type: 'OPEN_MAIL', id: 'm2' }));
+	}
+	const large = await sample('.mail-detail-head h1');
+	await page.evaluate(() => dispatch({ type: 'RETURN_TO_MAILBOX' }));
+	const selected = await page.$eval('.mail-row[data-message-id="m2"]', (element) => {
+		const style = getComputedStyle(element);
+		const control = getComputedStyle(element.querySelector('.mail-open'));
+		const indicator = style.boxShadow.match(/rgba?\([^)]*\)/u)?.[0] || '';
 		return {
-			surface: root.getPropertyValue('--surface').trim(),
-			accent: root.getPropertyValue('--accent').trim(),
-			focus: root.getPropertyValue('--accent').trim(),
-			defaultText: base.color,
-			defaultBackground: root.getPropertyValue('--surface').trim(),
-			hoverText: base.color,
-			hoverBackground: hover.backgroundColor,
-			unreadText: unreadText.color,
-			unreadBackground: unread.backgroundColor
+			text: control.color,
+			background: style.backgroundColor,
+			indicator,
+			boxShadow: style.boxShadow
 		};
 	});
-	await page.focus('.search-input');
-	const focusBorder = await page.$eval(
-		'.search-input',
-		(element) => getComputedStyle(element).borderColor
-	);
+
 	await page.evaluate(() => {
 		dispatch({ type: 'VERIFY_FORWARD' });
 		dispatch({ type: 'NAVIGATE', view: 'settings' });
@@ -204,20 +425,41 @@ async function contrastRecord(page, profile, theme) {
 		return { opacity: style.opacity, text: style.color, background: style.backgroundColor };
 	});
 	const samples = {
-		default: ratio(values.defaultText, values.defaultBackground),
-		hover: ratio(values.hoverText, values.hoverBackground),
-		unread: ratio(values.unreadText, values.unreadBackground),
-		selectedBoundary: ratio(values.accent, values.surface),
-		focusIndicator: ratio(focusBorder, values.surface),
+		normalText: { ...normal, ratio: ratio(normal.text, normal.background) },
+		largeText: { ...large, ratio: ratio(large.text, large.background) },
+		hover: { ...hover, ratio: ratio(hover.text, hover.background) },
+		unread: { ...unread, ratio: ratio(unread.text, unread.background) },
+		selected: {
+			...selected,
+			textRatio: ratio(selected.text, selected.background),
+			indicatorRatio: ratio(selected.indicator, selected.background)
+		},
+		componentBoundary: { ...component, ratio: ratio(component.border, component.background) },
+		focusIndicator: { ...focus, ratio: ratio(focus.border, focus.background) },
 		disabled: { ...disabled, wcagContrastExempt: true }
 	};
-	for (const key of ['default', 'hover', 'unread'])
+	for (const key of ['normalText', 'hover', 'unread'])
 		assert.ok(
-			samples[key] >= 4.5,
+			samples[key].ratio >= 4.5,
 			`${profile}/${theme}/${key} normal text contrast must be >= 4.5:1`
 		);
-	for (const key of ['selectedBoundary', 'focusIndicator'])
-		assert.ok(samples[key] >= 3, `${profile}/${theme}/${key} contrast must be >= 3:1`);
+	assert.ok(samples.largeText.ratio >= 3, `${profile}/${theme}/largeText contrast must be >= 3:1`);
+	assert.ok(
+		samples.selected.textRatio >= 4.5,
+		`${profile}/${theme}/selected text contrast must be >= 4.5:1`
+	);
+	assert.ok(
+		samples.selected.indicatorRatio >= 3,
+		`${profile}/${theme}/selected indicator contrast must be >= 3:1`
+	);
+	assert.ok(
+		samples.componentBoundary.ratio >= 3,
+		`${profile}/${theme}/component boundary contrast must be >= 3:1`
+	);
+	assert.ok(
+		samples.focusIndicator.ratio >= 3,
+		`${profile}/${theme}/focus indicator contrast must be >= 3:1`
+	);
 	return { profile, theme, samples };
 }
 
@@ -335,148 +577,275 @@ async function reducedMotionCheck(page, profile) {
 	);
 }
 
-async function runChromium() {
-	const browser = await chromium.launch({ headless: true });
-	const context = await newContext(browser, snapshotWidths[0]);
-	const tracePath = path.join(artifacts, 'trace.zip');
-	await context.tracing.start({ screenshots: true, snapshots: true, sources: true });
-	const page = await context.newPage();
-	const pageErrors = [];
-	page.on('pageerror', (error) => pageErrors.push(error.message));
-	await openDemo(page);
+async function closeResources(phase, primaryError, steps) {
+	let cleanupError = null;
+	for (const [name, close] of steps) {
+		try {
+			await close();
+		} catch (error) {
+			cleanupError ||= error;
+			log('cleanup-failure', { phase, resource: name, message: error.message });
+		}
+	}
+	if (!primaryError && cleanupError) throw cleanupError;
+}
 
-	const axeResults = [];
-	const mobileResults = [];
-	for (const profile of profiles) {
-		for (const theme of themes) {
-			for (const state of axeStates) {
-				for (const viewport of axeWidths) {
-					await page.setViewportSize({ width: viewport.width, height: viewport.height });
-					await setScenario(page, { profile, theme, state });
-					const label = `${profile}/${theme}/${state}/${viewport.name}`;
-					axeResults.push(await axeScan(page, label));
-					const overflow = await page.evaluate(() => ({
-						viewport: innerWidth,
-						document: document.documentElement.scrollWidth,
-						body: document.body.scrollWidth
-					}));
-					assert.ok(
-						overflow.document <= overflow.viewport + 0.5 &&
-							overflow.body <= overflow.viewport + 0.5,
-						`${label} must not overflow horizontally`
-					);
-					if (viewport.name === 'mobile')
-						mobileResults.push({ label, ...(await scanMobileTargets(page, label)) });
+async function runChromium() {
+	const tracePath = path.join(artifacts, 'trace.zip');
+	let browser;
+	let context;
+	let page;
+	let traceStarted = false;
+	let primaryError = null;
+	try {
+		browser = await chromium.launch({ headless: true });
+		evidence.browserVersions.chromium = browser.version();
+		context = await newContext(browser, snapshotWidths[0]);
+		await context.tracing.start({ screenshots: true, snapshots: true, sources: true });
+		traceStarted = true;
+		page = await context.newPage();
+		const pageErrors = [];
+		page.on('pageerror', (error) => pageErrors.push(error.message));
+		await openDemo(page);
+		await assertAccessibleState(page);
+		await assertOfflineState(page);
+
+		for (const profile of profiles) {
+			for (const theme of themes) {
+				for (const state of axeStates) {
+					for (const viewport of axeWidths) {
+						await page.setViewportSize({ width: viewport.width, height: viewport.height });
+						await setScenario(page, { profile, theme, state });
+						const label = `${profile}/${theme}/${state}/${viewport.name}`;
+						const structure = await assertScenarioStructure(page, {
+							profile,
+							state,
+							viewport,
+							label
+						});
+						if (structure) evidence.scenarioStructures.push({ label, ...structure });
+						const axe = await axeScan(page, label);
+						evidence.axeCells.push(axe);
+						const overflow = await page.evaluate(() => ({
+							viewport: innerWidth,
+							document: document.documentElement.scrollWidth,
+							body: document.body.scrollWidth
+						}));
+						assert.ok(
+							overflow.document <= overflow.viewport + 0.5 &&
+								overflow.body <= overflow.viewport + 0.5,
+							`${label} must not overflow horizontally`
+						);
+						if (viewport.name === 'mobile') {
+							const mobile = { label, ...(await scanMobileTargets(page, label)) };
+							evidence.mobileCells.push(mobile);
+						}
+					}
 				}
 			}
 		}
-	}
-	assert.equal(axeResults.length, 48, 'the full axe matrix must contain exactly 48 runs');
+		assert.equal(evidence.axeCells.length, 48, 'the full axe matrix must contain exactly 48 runs');
 
-	const screenshots = [];
-	for (const profile of profiles) {
-		for (const theme of themes) {
-			for (const viewport of snapshotWidths) {
-				await page.setViewportSize({ width: viewport.width, height: viewport.height });
-				await setScenario(page, { profile, theme, state: 'inbox' });
-				const file = path.join(
-					artifacts,
-					'screenshots',
-					`${profile}-${theme}-${viewport.name}.png`
-				);
-				await page.screenshot({
-					path: file,
-					fullPage: false,
-					animations: 'disabled',
-					caret: 'hide'
-				});
-				screenshots.push({
-					profile,
-					theme,
-					viewport: `${viewport.width}x${viewport.height}`,
-					file,
-					sha256: crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')
-				});
+		for (const profile of profiles) {
+			for (const theme of themes) {
+				for (const viewport of snapshotWidths) {
+					await page.setViewportSize({ width: viewport.width, height: viewport.height });
+					await setScenario(page, { profile, theme, state: 'inbox' });
+					const filename = `${profile}-${theme}-${viewport.name}.png`;
+					const file = path.join(artifacts, 'screenshots', filename);
+					await page.screenshot({
+						path: file,
+						fullPage: false,
+						animations: 'disabled',
+						caret: 'hide'
+					});
+					const comparison = compareBaseline(file, filename);
+					evidence.screenshots.push({
+						profile,
+						theme,
+						viewport: `${viewport.width}x${viewport.height}`,
+						file,
+						sha256: crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex'),
+						comparison
+					});
+				}
 			}
 		}
-	}
-	assert.equal(
-		screenshots.length,
-		18,
-		'the deterministic default-state screenshot matrix must contain exactly 18 files'
-	);
+		assert.equal(
+			evidence.screenshots.length,
+			18,
+			'the baseline comparison must contain exactly 18 files'
+		);
 
-	const contrasts = [];
-	await page.setViewportSize({ width: 1440, height: 900 });
-	for (const profile of profiles)
-		for (const theme of themes) contrasts.push(await contrastRecord(page, profile, theme));
-	for (const profile of profiles) {
-		await keyboardFlow(page, profile);
-		await restorationAndAnchor(page, profile);
-		await reducedMotionCheck(page, profile);
+		await page.setViewportSize({ width: 1440, height: 900 });
+		for (const profile of profiles)
+			for (const theme of themes)
+				evidence.contrasts.push(await contrastRecord(page, profile, theme));
+		for (const profile of profiles) {
+			await keyboardFlow(page, profile);
+			await restorationAndAnchor(page, profile);
+			await reducedMotionCheck(page, profile);
+		}
+		assert.deepEqual(pageErrors, [], 'Chromium must report zero page errors');
+		return { tracePath };
+	} catch (error) {
+		primaryError = error;
+		if (page) {
+			await page
+				.screenshot({ path: path.join(artifacts, 'failure.png'), fullPage: false })
+				.catch(() => undefined);
+		}
+		throw error;
+	} finally {
+		await closeResources('chromium', primaryError, [
+			...(context && traceStarted
+				? [['trace', () => context.tracing.stop({ path: tracePath })]]
+				: []),
+			...(context ? [['context', () => context.close()]] : []),
+			...(browser ? [['browser', () => browser.close()]] : [])
+		]);
 	}
-	assert.deepEqual(pageErrors, [], 'Chromium must report zero page errors');
-	await context.tracing.stop({ path: tracePath });
-	await context.close();
-	await browser.close();
-	return { axeResults, mobileResults, screenshots, contrasts, tracePath };
 }
 
 async function runBrowserSmoke(name, browserType) {
-	const browser = await browserType.launch({ headless: true });
-	const context = await newContext(browser, axeWidths[1]);
-	const page = await context.newPage();
-	await openDemo(page);
-	const results = [];
-	for (const profile of profiles) {
-		await setScenario(page, { profile, theme: 'dark', state: 'inbox' });
-		results.push(await axeScan(page, `${name}/${profile}/dark/inbox/mobile`));
-		await scanMobileTargets(page, `${name}/${profile}/dark/inbox/mobile`);
-		await page.locator('.mail-row[data-message-id="m2"] .mail-open').focus();
-		await page.keyboard.press('Enter');
-		assert.equal(
-			await page.evaluate(() => state.selectedMessageId),
-			'm2',
-			`${name}/${profile} must select a message`
-		);
-		await page.evaluate(() => dispatch({ type: 'OPEN_COMPOSE', mode: 'new' }));
-		assert.equal(
-			await page.locator('[data-compose="from"]').count(),
-			1,
-			`${name}/${profile} must open compose`
-		);
+	let browser;
+	let context;
+	let primaryError = null;
+	try {
+		browser = await browserType.launch({ headless: true });
+		evidence.browserVersions[name] = browser.version();
+		context = await newContext(browser, axeWidths[1]);
+		const page = await context.newPage();
+		await openDemo(page);
+		const results = [];
+		for (const profile of profiles) {
+			for (const viewport of axeWidths) {
+				await page.setViewportSize({ width: viewport.width, height: viewport.height });
+				await setScenario(page, { profile, theme: 'dark', state: 'inbox' });
+				const label = `${name}/${profile}/dark/inbox/${viewport.name}`;
+				const axe = await axeScan(page, label);
+				const overflow = await page.evaluate(() => ({
+					viewport: innerWidth,
+					document: document.documentElement.scrollWidth,
+					body: document.body.scrollWidth
+				}));
+				assert.ok(
+					overflow.document <= overflow.viewport + 0.5 && overflow.body <= overflow.viewport + 0.5,
+					`${label} must not overflow horizontally`
+				);
+				const mobile = viewport.name === 'mobile' ? await scanMobileTargets(page, label) : null;
+				await setScenario(page, { profile, theme: 'dark', state: 'selected' });
+				const structure = await assertScenarioStructure(page, {
+					profile,
+					state: 'selected',
+					viewport,
+					label
+				});
+				await page.evaluate(() => dispatch({ type: 'OPEN_COMPOSE', mode: 'new' }));
+				assert.equal(
+					await page.locator('[data-compose="from"]').count(),
+					1,
+					`${label} must open compose`
+				);
+				results.push({
+					label,
+					profile,
+					viewport: viewport.name,
+					axe,
+					overflow,
+					mobile,
+					structure,
+					compose: true
+				});
+			}
+		}
+		evidence.browserCells[name] = results;
+		return results;
+	} catch (error) {
+		primaryError = error;
+		throw error;
+	} finally {
+		await closeResources(name, primaryError, [
+			...(context ? [['context', () => context.close()]] : []),
+			...(browser ? [['browser', () => browser.close()]] : [])
+		]);
 	}
-	await context.close();
-	await browser.close();
-	return results;
 }
 
-const chromiumResults = await runChromium();
-const browserSmoke = {
-	firefox: await runBrowserSmoke('firefox', firefox),
-	webkit: await runBrowserSmoke('webkit', webkit)
-};
+let failure = null;
+let tracePath = path.join(artifacts, 'trace.zip');
+try {
+	const chromiumResult = await runChromium();
+	tracePath = chromiumResult.tracePath;
+	await runBrowserSmoke('firefox', firefox);
+	await runBrowserSmoke('webkit', webkit);
+} catch (error) {
+	failure = error;
+	evidence.errors.push({ name: error.name, message: error.message, stack: error.stack });
+	fs.writeFileSync(path.join(artifacts, 'failure.log'), `${error.stack || error.message}\n`);
+} finally {
+	const flowLogPath = path.join(artifacts, 'ui-flow-log.json');
+	fs.writeFileSync(flowLogPath, JSON.stringify(flowLog, null, 2) + '\n');
+	const manifest = {
+		status: failure ? 'FAIL_AUTOMATED' : 'PASS_AUTOMATED_VOICEOVER_PENDING',
+		generatedAtFixtureClock: fixedClock,
+		environment: {
+			locale: 'ja-JP',
+			timezone: 'Asia/Tokyo',
+			deviceScaleFactor: 1,
+			platform: process.platform,
+			arch: process.arch,
+			osRelease: os.release(),
+			node: process.version,
+			pinnedReferenceContainer: pinnedContainer,
+			baselineMode,
+			allowedMismatchRatio,
+			updateBaselines
+		},
+		identity: {
+			commit: gitCommit(),
+			package: JSON.parse(fs.readFileSync(path.resolve(directory, '../..', 'package.json'), 'utf8'))
+				.version,
+			dependencies: {
+				playwright: dependencyVersion('playwright'),
+				axeCorePlaywright: dependencyVersion('@axe-core/playwright'),
+				pixelmatch: dependencyVersion('pixelmatch'),
+				pngjs: dependencyVersion('pngjs')
+			},
+			browsers: evidence.browserVersions
+		},
+		matrix: {
+			axe: { expected: 48, completed: evidence.axeCells.length, cells: evidence.axeCells },
+			mobile: { expected: 24, completed: evidence.mobileCells.length, cells: evidence.mobileCells },
+			selectedScenarios: evidence.scenarioStructures,
+			browserSmoke: evidence.browserCells
+		},
+		screenshots: {
+			expected: 18,
+			completed: evidence.screenshots.length,
+			cells: evidence.screenshots
+		},
+		contrasts: evidence.contrasts,
+		errors: evidence.errors,
+		artifacts: {
+			directory: artifacts,
+			trace: fs.existsSync(tracePath) ? tracePath : null,
+			screenshots: path.join(artifacts, 'screenshots'),
+			diffs: fs.existsSync(path.join(artifacts, 'diffs')) ? path.join(artifacts, 'diffs') : null,
+			failureLog: failure ? path.join(artifacts, 'failure.log') : null,
+			uiFlowLog: flowLogPath
+		},
+		visualReview: {
+			status: 'PENDING_HUMAN_REVIEW',
+			receiptSchema: path.join(directory, 'baseline-review-receipt.schema.json')
+		},
+		voiceOver: {
+			status: 'UNVERIFIED_HUMAN_GATE',
+			checklist: path.join(directory, 'VOICEOVER-CHECKLIST.md')
+		}
+	};
+	fs.writeFileSync(path.join(artifacts, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
+	console.log(JSON.stringify(manifest, null, 2));
+}
 
-fs.writeFileSync(path.join(artifacts, 'ui-flow-log.json'), JSON.stringify(flowLog, null, 2) + '\n');
-const manifest = {
-	status: 'PASS_AUTOMATED',
-	generatedAtFixtureClock: fixedClock,
-	environment: { locale: 'ja-JP', timezone: 'Asia/Tokyo', deviceScaleFactor: 1 },
-	axeRuns: chromiumResults.axeResults.length,
-	screenshots: chromiumResults.screenshots,
-	contrasts: chromiumResults.contrasts,
-	browserSmoke: Object.fromEntries(
-		Object.entries(browserSmoke).map(([name, values]) => [name, values.length])
-	),
-	artifacts: {
-		trace: chromiumResults.tracePath,
-		screenshots: path.join(artifacts, 'screenshots'),
-		uiFlowLog: path.join(artifacts, 'ui-flow-log.json')
-	},
-	voiceOver: {
-		status: 'UNVERIFIED_HUMAN_GATE',
-		checklist: path.join(directory, 'VOICEOVER-CHECKLIST.md')
-	}
-};
-fs.writeFileSync(path.join(artifacts, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
-console.log(JSON.stringify(manifest, null, 2));
+if (failure) throw failure;

@@ -7,6 +7,35 @@ on:
   workflow_dispatch:
 
 jobs:
+  live-demo-qa:
+    name: Live demo visual and accessibility QA
+    runs-on: ubuntu-latest
+    container: mcr.microsoft.com/playwright:v1.59.1-noble
+    env:
+      QMJ12C_ARTIFACT_DIR: /tmp/qmj-12c-artifacts-ci
+      QMJ12C_BASELINE_MODE: exact
+      QMJ12C_REFERENCE_CONTAINER: mcr.microsoft.com/playwright:v1.59.1-noble
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Compare live demo with reviewed baselines
+        run: bun run test:live-demo:qa
+
+      - name: Upload live demo QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-demo-qa-${{ github.run_id }}
+          path: /tmp/qmj-12c-artifacts-ci
+          if-no-files-found: error
+
   verify:
     name: Verify the template
     runs-on: ubuntu-latest

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow,noarchive,nosnippet,noimageindex">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-IpoJtT1nxLZJT9ZMRhKp1Ak+X2hek7pD3t7EJ9lUHZ0='; img-src data:; connect-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-DVKfcge7wTuvzhmhzDG42DqyQy1Vpk/0Ioz2KWJMbsc='; img-src data:; connect-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="color-scheme" content="light dark">
   <title>QuickMail-ja 操作可能デモ</title>
   <style>
@@ -281,6 +281,7 @@
     .modal p { color:var(--sub); font-size:.82rem; }
     .modal-actions { display:flex; justify-content:flex-end; gap:.55rem; margin-top:1rem; }
     .toast { position:fixed; right:1rem; bottom:1rem; z-index:120; max-width:390px; padding:.8rem 1rem; color:#fff; background:#29352f; border-radius:12px; box-shadow:var(--shadow); font-size:.78rem; }
+    .offline-status { position:fixed; top:calc(var(--banner-height) + .5rem); right:1rem; z-index:90; max-width:min(390px,calc(100vw - 2rem)); padding:.65rem .85rem; color:var(--warn); background:var(--warn-bg); border:1px solid currentColor; border-radius:10px; font-size:.78rem; font-weight:600; }
     .mobile-nav { display:none; }
     .mobile-drawer-backdrop,.mobile-drawer { display:none; }
     @media (min-width:768px) and (max-width:1279px) {
@@ -418,6 +419,7 @@
       selected: [],
       accountOpen: false,
       mobileMenuOpen: false,
+      offline: false,
       toast: "",
       modal: null,
       theme: "light",
@@ -640,6 +642,7 @@
           }
           return next;
         case "SEARCH": next.search = action.value; return next;
+        case "SET_OFFLINE": next.offline = Boolean(action.value); return next;
         case "SEARCH_SUBMIT":
           next.search = action.value;
           if (!["inbox","drafts","sent","starred","trash","folder"].includes(next.view)) {
@@ -1016,7 +1019,7 @@
 
     function navButton(view,label,icon,count) {
       const active = state.view === view || (view === "inbox" && state.view === "mail" && state.previousView === "inbox");
-      return '<button class="nav-btn' + (active ? ' active' : '') + '" data-action="navigate" data-view="' + esc(view) + '" aria-label="' + esc(label) + '" title="' + esc(label) + '"><span class="nav-icon" aria-hidden="true">' + icon + '</span><span>' + esc(label) + '</span>' + (count ? '<span class="count">' + count + '</span>' : '') + '</button>';
+      return '<button class="nav-btn' + (active ? ' active' : '') + '" data-action="navigate" data-view="' + esc(view) + '" aria-label="' + esc(label) + '" title="' + esc(label) + '"' + (active ? ' aria-current="page"' : '') + '><span class="nav-icon" aria-hidden="true">' + icon + '</span><span>' + esc(label) + '</span>' + (count ? '<span class="count">' + count + '</span>' : '') + '</button>';
     }
     function visibleMessages() {
       let items = state.messages.filter(function(item){
@@ -1090,11 +1093,12 @@
       const folderButtons = state.folders.map(function(folder){
         const count = state.messages.filter(function(item){ return item.folder === folder.id; }).length;
         const active = state.view === "folder" && state.activeMailId === folder.id;
-        return '<div class="folder-row"><button class="nav-btn' + (active ? ' active' : '') + '" data-action="folder-open" data-id="' + esc(folder.id) + '" aria-label="' + esc(folder.name) + '" title="' + esc(folder.name) + '"><span class="nav-icon" aria-hidden="true">▰</span><span>' + esc(folder.name) + '</span>' + (count ? '<span class="count">' + count + '</span>' : '') + '</button><button class="icon-button folder-tools" data-action="folder-menu" data-id="' + esc(folder.id) + '" aria-label="' + esc(folder.name) + 'を編集" title="' + esc(folder.name) + 'を編集">•••</button></div>';
+        return '<div class="folder-row"><button class="nav-btn' + (active ? ' active' : '') + '" data-action="folder-open" data-id="' + esc(folder.id) + '" aria-label="' + esc(folder.name) + '" title="' + esc(folder.name) + '"' + (active ? ' aria-current="page"' : '') + '><span class="nav-icon" aria-hidden="true">▰</span><span>' + esc(folder.name) + '</span>' + (count ? '<span class="count">' + count + '</span>' : '') + '</button><button class="icon-button folder-tools" data-action="folder-menu" data-id="' + esc(folder.id) + '" aria-label="' + esc(folder.name) + 'を編集" title="' + esc(folder.name) + 'を編集">•••</button></div>';
       }).join("");
       const profileSwitcher = '<div class="demo-profile-switcher" aria-label="画面構成">' + Object.values(UI_PROFILES).map(function(profile){ return '<button class="' + (state.profile === profile.id ? 'active' : '') + '" data-action="profile" data-profile="' + profile.id + '" data-focus-anchor="profile-selector" aria-pressed="' + String(state.profile === profile.id) + '">' + profile.publicLabel + '</button>'; }).join("") + '</div>';
       return '<div class="demo-banner"><span class="demo-dot"></span><span class="demo-copy">非公式の比較デモです。架空データのみを使用し、実際のメールは送受信しません。AI相談は押した時だけ外部サービスを開きます</span>' + profileSwitcher + '</div>' +
         '<div class="app" data-theme="' + esc(state.theme === "system" ? "light" : state.theme) + '" data-profile="' + esc(state.profile) + '">' +
+        (state.offline ? '<div class="offline-status" data-status="offline" role="status" aria-live="polite">オフラインです。接続が戻るまでメールを送受信できません。</div>' : '') +
         '<aside class="sidebar"' + (state.profile === "calm" ? '' : ' data-pane="navigation"') + ' aria-label="メールメニュー">' +
           '<div class="brand"><span class="brand-mark">✉</span><span>QuickMail-ja</span></div>' +
           '<button class="compose-new" data-action="compose-new"><span aria-hidden="true">✎</span><span class="compose-label">新規メール</span></button>' +
@@ -1131,7 +1135,8 @@
 
     function renderMobileNav() {
       const item = function(view,label,icon) {
-        return '<button class="' + (state.view === view ? 'active' : '') + '" data-action="navigate" data-view="' + view + '"><span class="mobile-icon">' + icon + '</span><span>' + label + '</span></button>';
+        const active = state.view === view;
+        return '<button class="' + (active ? 'active' : '') + '" data-action="navigate" data-view="' + view + '"' + (active ? ' aria-current="page"' : '') + '><span class="mobile-icon">' + icon + '</span><span>' + label + '</span></button>';
       };
       return '<nav class="mobile-nav" aria-label="モバイルメニュー">' +
         item("inbox","受信","▣") + item("starred","スター","☆") +
@@ -1175,12 +1180,15 @@
       const allSelected = items.length > 0 && selected.length === items.length;
       const rows = items.map(function(item){
         const sender = item.folder === "sent" || item.folder === "drafts" ? (item.to || "宛先なし") : item.from;
+        const current = item.id === state.selectedMessageId;
+        const accessibleState = (item.unread ? "未読、" : "") + (current ? "選択中、" : "");
+        const accessibleName = accessibleState + sender + "、" + item.subject;
         return '<li class="mail-row' + (item.unread ? ' unread' : '') + (item.id === state.selectedMessageId ? ' current' : '') + '" data-message-id="' + esc(item.id) + '"' + (item.id === state.listAnchorId ? ' data-list-anchor="true"' : '') + '>' +
           '<span class="select-wrap"><input class="select-box" data-change="select" data-id="' + esc(item.id) + '" type="checkbox" ' + (selected.includes(item.id) ? 'checked' : '') + ' aria-label="' + esc(sender) + 'のメールを選択"></span>' +
           '<button class="star' + (item.starred ? ' on' : '') + '" data-action="star" data-id="' + esc(item.id) + '" aria-label="' + (item.starred ? 'スターを外す' : 'スターを付ける') + '">' + (item.starred ? '★' : '☆') + '</button>' +
           '<button class="row-avatar" data-action="' + (item.draft ? 'open-draft' : 'open-mail') + '" data-id="' + esc(item.id) + '">' + esc(sender.slice(0,1).toUpperCase()) + '</button>' +
           '<button class="sender" data-action="' + (item.draft ? 'open-draft' : 'open-mail') + '" data-id="' + esc(item.id) + '">' + esc(sender) + '</button>' +
-          '<button class="subject mail-open" data-action="' + (item.draft ? 'open-draft' : 'open-mail') + '" data-id="' + esc(item.id) + '" data-focus-key="message-' + esc(item.id) + '"><span class="subject-main" data-sender="' + esc(sender) + '">' + esc(item.subject) + '</span><span class="preview">— ' + esc(item.preview) + '</span>' + (item.attachment ? '<span class="tag">添付</span>' : '') + '</button>' +
+          '<button class="subject mail-open" data-action="' + (item.draft ? 'open-draft' : 'open-mail') + '" data-id="' + esc(item.id) + '" data-focus-key="message-' + esc(item.id) + '" aria-label="' + esc(accessibleName) + '"' + (current ? ' aria-current="true"' : '') + '><span class="subject-main" data-sender="' + esc(sender) + '">' + esc(item.subject) + '</span><span class="preview">— ' + esc(item.preview) + '</span>' + (item.attachment ? '<span class="tag">添付</span>' : '') + '</button>' +
           '<span class="row-date">' + esc(item.date) + '</span>' +
         '</li>';
       }).join("");
