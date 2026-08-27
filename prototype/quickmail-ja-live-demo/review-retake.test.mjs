@@ -9,6 +9,8 @@ const root = path.resolve(directory, '../..');
 const html = fs.readFileSync(path.join(directory, 'index.html'), 'utf8');
 const qa = fs.readFileSync(path.join(directory, 'qa.mjs'), 'utf8');
 const release = fs.readFileSync(path.join(root, '.github/workflows/release.yml'), 'utf8');
+const ci = fs.readFileSync(path.join(root, '.github/workflows/ci.yml'), 'utf8');
+const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 
 assert.match(html, /class="demo-profile-switcher"[^>]*role="group"/u);
 assert.match(html, /data-action="offline-toggle"/u);
@@ -34,6 +36,12 @@ assert.match(release, /keys == \["archiveSha256", "commitSha", "tag", "version"\
 assert.match(release, /ACTUAL_ARCHIVE_SHA/u);
 assert.match(release, /EXPECTED_SHA: \$\{\{ needs\.preflight\.outputs\.commit_sha \}\}/u);
 assert.doesNotMatch(release, /uses:\s+[^\s]+@(v\d+|main|master)/u);
+assert.equal(
+	packageJson.scripts['test:live-demo:contracts'],
+	'node prototype/quickmail-ja-live-demo/test.mjs && node prototype/quickmail-ja-live-demo/review-retake.test.mjs && node prototype/quickmail-ja-live-demo/release-workflow-security.test.mjs && node prototype/quickmail-ja-live-demo/release-gates.test.mjs'
+);
+assert.match(ci, /run: bun run test:live-demo:contracts/u);
+assert.match(release, /run: bun run test:live-demo:contracts/u);
 
 const rejectedRoot = path.join(root, `.qmj12c-rejected-${process.pid}`);
 const rejected = spawnSync('node', [path.join(directory, 'qa.mjs')], {

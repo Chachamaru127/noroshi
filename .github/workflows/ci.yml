@@ -68,6 +68,9 @@ jobs:
       - name: Check the template is clean
         run: bun run check:clean
 
+      - name: Live demo contract tests
+        run: bun run test:live-demo:contracts
+
       - name: Unit and integration tests
         run: bun test
 

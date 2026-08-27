@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -43,6 +44,28 @@ assert.equal(validateBaselineReceipt(baseline, { checkGit: false }), true);
 assert.equal(validateBaselineSchema({ ...baseline, decision: 'PENDING_HUMAN_REVIEW' }), false);
 assert.throws(() =>
 	validateBaselineReceipt({ ...baseline, decision: 'PENDING_HUMAN_REVIEW' }, { checkGit: false })
+);
+
+const repoRoot = path.resolve(directory, '../..');
+const currentCommit = execFileSync('git', ['rev-parse', 'HEAD'], {
+	cwd: repoRoot,
+	encoding: 'utf8'
+}).trim();
+const currentCommitTime = Number(
+	execFileSync('git', ['show', '-s', '--format=%ct', currentCommit], {
+		cwd: repoRoot,
+		encoding: 'utf8'
+	}).trim()
+);
+const beforeCurrentCommit = new Date((currentCommitTime - 1) * 1000).toISOString();
+assert.throws(
+	() =>
+		validateBaselineReceipt({
+			...baseline,
+			reviewedCommit: currentCommit,
+			reviewedAt: beforeCurrentCommit
+		}),
+	/reviewedAt must not predate reviewedCommit/u
 );
 assert.throws(() =>
 	validateBaselineReceipt(
@@ -101,6 +124,15 @@ assert.throws(() =>
 		{ ...voiceOver, profiles: voiceOver.profiles.map((item) => ({ ...item, status: 'FAIL' })) },
 		{ checkGit: false }
 	)
+);
+assert.throws(
+	() =>
+		validateVoiceOverReceipt({
+			...voiceOver,
+			reviewedCommit: currentCommit,
+			reviewedAt: beforeCurrentCommit
+		}),
+	/reviewedAt must not predate reviewedCommit/u
 );
 
 console.log('QuickMail-ja release receipt validators: PASS');

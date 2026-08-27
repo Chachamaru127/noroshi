@@ -56,6 +56,20 @@ function assertGitReviewBoundary(commit, paths) {
 	});
 }
 
+function assertReviewNotBeforeCommit(commit, reviewDate) {
+	const commitTime = Number(
+		execFileSync('git', ['show', '-s', '--format=%ct', commit], {
+			cwd: repoRoot,
+			encoding: 'utf8'
+		}).trim()
+	);
+	assert.ok(Number.isFinite(commitTime), 'reviewedCommit must have a valid committer time');
+	assert.ok(
+		Date.parse(reviewDate) >= commitTime * 1000,
+		'reviewedAt must not predate reviewedCommit'
+	);
+}
+
 export function expectedBaselineScreenshots() {
 	return profiles
 		.flatMap((profile) =>
@@ -104,6 +118,7 @@ export function validateBaselineReceipt(receipt, { checkGit = true } = {}) {
 		);
 	}
 	if (checkGit) {
+		assertReviewNotBeforeCommit(receipt.reviewedCommit, receipt.reviewedAt);
 		assertGitReviewBoundary(receipt.reviewedCommit, [
 			'prototype/quickmail-ja-live-demo/index.html',
 			'prototype/quickmail-ja-live-demo/baselines'
@@ -146,6 +161,7 @@ export function validateVoiceOverReceipt(receipt, { checkGit = true } = {}) {
 		assert.equal(typeof item.notes, 'string');
 	}
 	if (checkGit) {
+		assertReviewNotBeforeCommit(receipt.reviewedCommit, receipt.reviewedAt);
 		assertGitReviewBoundary(receipt.reviewedCommit, [
 			'prototype/quickmail-ja-live-demo/index.html',
 			'prototype/quickmail-ja-live-demo/VOICEOVER-CHECKLIST.md'
