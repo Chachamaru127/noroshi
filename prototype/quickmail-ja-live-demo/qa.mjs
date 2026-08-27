@@ -103,8 +103,9 @@ let currentCell = 'preflight';
 
 function gitCommit() {
 	try {
-		return execFileSync('git', ['rev-parse', 'HEAD'], {
-			cwd: path.resolve(directory, '../..'),
+		const root = path.resolve(directory, '../..');
+		return execFileSync('git', ['-c', `safe.directory=${root}`, 'rev-parse', 'HEAD'], {
+			cwd: root,
 			encoding: 'utf8',
 			stdio: ['ignore', 'pipe', 'ignore']
 		}).trim();
