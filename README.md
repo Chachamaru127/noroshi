@@ -26,15 +26,33 @@ Cloudflare公式の[Deploy to Cloudflareボタン](https://developers.cloudflare
 
 ### 日本語セットアップサポートの3段階
 
-| 導線                         | できること                                                                                | 現在の状態                                                       |
-| ---------------------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| AIに相談（提供中）           | 質問文をChatGPT、Claude、Geminiの新規チャットへ渡し、日本語の説明を受ける                 | QuickMail-ja、Cloudflare、Resendを読む・変更する権限はありません |
+| 導線                          | できること                                                                                | 現在の状態                                                       |
+| ----------------------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| AIに相談（提供中）            | 質問文をChatGPT、Claude、Geminiの新規チャットへ渡し、日本語の説明を受ける                 | QuickMail-ja、Cloudflare、Resendを読む・変更する権限はありません |
 | Setup Skill（準備中・未提供） | 導入順、確認項目、停止条件をAIへ教える再利用可能な手順書                                  | QMJ-11で実装予定。現在はインストールできません                   |
 | Setup MCP（将来・未提供）     | 許可された確認・設定だけをツールとして実行し、1操作ごとに対象、差分、戻し方を確認する予定 | 公開前の安全強化とクライアント別検証が必要です                   |
 
 現在利用できるAI相談ドックは、**デプロイ後のResend設定と最初の管理者作成**だけを支援します。デプロイ前の導線、Email Routing支援、Setup Skill、MCPは未提供で、QMJ-8以降の公開前工程です。
 
-AI相談ボタンはサーバーやQuickMail-jaのAPIキーを使わず、質問文を各サービスへ渡すだけです。質問文は細かな操作手順を固定せず、対象段階のCloudflare、Resend、QuickMail公式ドキュメントを回答前に開き、確認日と実際に参照したURLを示すようAIへ依頼します。Deploy完了とメール開通の違い、MXの役割分担、セットアップキーの用途など、変わりにくく頻出するつまずきだけは短く添えます。事前入力URLは各サービスと利用クライアントの仕様に依存するため、常に機能するとは保証しません。質問文のプレビューとコピー手段を残し、回答内容を確認してから作業してください。
+## AIに質問
+
+AI相談ボタンは、サーバーやQuickMail-jaのAPIキーを使わず、画面に表示した質問文をChatGPT、Claude、Geminiへ渡す補助機能です。各ボタンを押すと質問文のクリップボードへのコピーを開始し、対応するHTTPSページを新しいタブで開きます。
+
+- ChatGPTとClaudeは、質問文を`q`パラメータにも入れて事前入力を試みます。
+- GeminiはWebページを開き、コピーした質問文を利用者が貼り付けます。
+- 事前入力やクリップボードは、ブラウザの仕様、権限、ログイン状態によって利用できない場合があります。画面には質問文を選択できる形で残します。
+- 端末やOSの関連付けによって、インストール済みアプリまたはブラウザで開く場合があります。QuickMail-jaは起動先を保証せず、独自URLスキームも使いません。
+- 質問文は自動送信しません。利用者が内容と送信先を確認し、AIの入力欄から送信します。
+
+AIには、回答するたびに公式ドキュメントを実際に開き、確認日と参照URLを示すよう依頼します。AIの記憶や検索結果の要約だけを設定根拠にはしません。入口として使う公式案内は、[ChatGPT Help Center](https://help.openai.com/en/articles/12677804-what-is-chatgpt-faq)、[Claude Help Center](https://support.claude.com/en/articles/8114491-get-started-with-claude)、[Gemini Apps Help](https://support.google.com/gemini/answer/13275745?hl=ja)です。各サービスの画面や利用条件は変更されるため、回答内容を確認してから作業してください。
+
+質問文に添える、変わりにくく頻出するトラブルは次の範囲に限定します。
+
+- デプロイ完了とメール開通は別です。Workerの配置だけでは送受信できません。
+- Cloudflareのapex MXは受信用です。ResendのReturn-Path用MXは送信用サブドメインに置きます。
+- Resend Receivingは有効にしません。受信はCloudflare Email Routingを使います。
+- Email RoutingのCatch-allは、QuickMail-ja Workerへ接続するまで受信を保存しません。
+- セットアップキーは最初の管理者作成に使う一回限りの秘密値です。
 
 質問文はブラウザ履歴や利用中のAIサービスに保存される場合があります。**APIキー、パスワード、メール本文、DNS値、アカウントID、個人情報は入力しないでください。** ChatGPT、Claude、Gemini、Cloudflare、ResendとQuickMail-jaは提携・公式サポート関係にありません。各サービスの回答、保存、利用条件はそれぞれの提供元に従います。
 
@@ -42,12 +60,12 @@ AI相談ボタンはサーバーやQuickMail-jaのAPIキーを使わず、質問
 
 標準構成は受信と送信を分けます。
 
-| 役割 | 使用サービス | 保存先 |
-| --- | --- | --- |
-| 受信 | Cloudflare Email Routing → Workerの`email()` | 本文・索引はD1、添付はR2 |
-| 送信 | Resend API | 送信履歴はD1、添付はR2 |
-| 配信結果 | Resend Webhook | D1 |
-| Web UI/API | Cloudflare Workers | セッション・APIキーはD1 |
+| 役割       | 使用サービス                                 | 保存先                   |
+| ---------- | -------------------------------------------- | ------------------------ |
+| 受信       | Cloudflare Email Routing → Workerの`email()` | 本文・索引はD1、添付はR2 |
+| 送信       | Resend API                                   | 送信履歴はD1、添付はR2   |
+| 配信結果   | Resend Webhook                               | D1                       |
+| Web UI/API | Cloudflare Workers                           | セッション・APIキーはD1  |
 
 `INBOUND_EMAIL_PROVIDER=cloudflare`、`EMAIL_PROVIDER=resend`が標準です。受信には、対象ドメインのDNSゾーンをCloudflareで管理する必要があります。Resendは送信だけに使い、Resend Receivingは有効にしません。
 
@@ -271,33 +289,33 @@ bun run quickmail -- send --to recipient@example.net --subject "確認" --body "
 
 ```json
 {
-  "mcpServers": {
-    "quickmail-ja": {
-      "command": "bun",
-      "args": ["run", "quickmail", "--", "mcp"],
-      "cwd": "/path/to/QuickMail-ja",
-      "env": {
-        "QUICKMAIL_URL": "https://mail.example.com",
-        "QUICKMAIL_TOKEN": "qm_live_xxxx"
-      }
-    }
-  }
+	"mcpServers": {
+		"quickmail-ja": {
+			"command": "bun",
+			"args": ["run", "quickmail", "--", "mcp"],
+			"cwd": "/path/to/QuickMail-ja",
+			"env": {
+				"QUICKMAIL_URL": "https://mail.example.com",
+				"QUICKMAIL_TOKEN": "qm_live_xxxx"
+			}
+		}
+	}
 }
 ```
 
 ## 開発と検証
 
-| コマンド | 内容 |
-| --- | --- |
-| `bun run dev` | Vite開発サーバー |
-| `bun run preview` | 本番ビルド + `wrangler dev` |
-| `bun test` | 単体・統合テスト |
-| `bun run test:d1-forwarding` | D1自動転送の競合テスト |
-| `bun run test:live-demo` | 開発専用UI比較デモの構造・モバイル・アクセシビリティ・安全性確認 |
-| `bun run check` | Svelte/TypeScript確認 |
-| `bun run format:check` | フォーマット確認 |
-| `bun run check:clean` | 秘密値・実運用識別子・有効routeの混入確認 |
-| `bun run build` | Cloudflare Worker向け本番ビルド |
+| コマンド                     | 内容                                                                                       |
+| ---------------------------- | ------------------------------------------------------------------------------------------ |
+| `bun run dev`                | Vite開発サーバー                                                                           |
+| `bun run preview`            | 本番ビルド + `wrangler dev`                                                                |
+| `bun test`                   | 単体・統合テスト                                                                           |
+| `bun run test:d1-forwarding` | D1自動転送の競合テスト                                                                     |
+| `bun run test:live-demo`     | 開発専用UI比較デモの構造・モバイル・アクセシビリティ・安全性確認                           |
+| `bun run check`              | Svelte/TypeScript確認                                                                      |
+| `bun run format:check`       | フォーマット確認                                                                           |
+| `bun run check:clean`        | 秘密値・実運用識別子・有効routeの混入確認                                                  |
+| `bun run build`              | Cloudflare Worker向け本番ビルド                                                            |
 
 ## ライセンスと由来
 

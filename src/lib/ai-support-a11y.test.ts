@@ -7,6 +7,7 @@ import { compile } from 'svelte/compiler';
 const root = new URL('../../', import.meta.url).pathname;
 const component = readFileSync(join(root, 'src/lib/components/AiSupportDock.svelte'), 'utf8');
 const setup = readFileSync(join(root, 'src/routes/setup/+page.svelte'), 'utf8');
+const readme = readFileSync(join(root, 'README.md'), 'utf8');
 
 describe('AI support dock accessibility and privacy boundary', () => {
 	test('compiles without accessibility warnings', () => {
@@ -34,13 +35,22 @@ describe('AI support dock accessibility and privacy boundary', () => {
 		assert.doesNotMatch(component, /window\.open|fetch\s*\(|XMLHttpRequest|sendBeacon/);
 	});
 
-	test('unlocks a distinct Gemini link only after a successful dedicated copy', () => {
-		assert.match(component, /Gemini用に質問文をコピー/);
-		assert.match(component, /geminiCopiedPrompt === draft\.prompt/);
-		assert.match(component, /result === 'copied'/);
-		assert.match(component, /href=\{draft\.geminiHref\}/);
-		assert.match(component, /aria-disabled="true"/);
-		assert.doesNotMatch(component, /onclick=\{[^}]*copyPrompt[^}]*\}[^>]*>\s*Geminiを開く/);
+	test('starts copy and opens one safe HTTPS destination from every provider link', () => {
+		assert.match(component, /onclick=\{\(event\) => launchProvider\(event, destination\)\}/);
+		assert.match(component, /void copyPrompt\(\)/);
+		assert.match(component, /buildAiSupportDestination\(destination\.provider, draft\.prompt\)/);
+		assert.match(component, /currentDestination\.href !== destination\.href/);
+		assert.match(component, /href=\{destination\.href\}/);
+		assert.doesNotMatch(component, /geminiCopiedPrompt|Gemini用に質問文をコピー|aria-disabled/);
+		assert.doesNotMatch(component, /(?:claude|chatgpt|gemini):\/\//);
+	});
+
+	test('shows the three Remix Icon provider logos with accessible text labels', () => {
+		assert.match(component, /chatgpt: 'openai-fill'/);
+		assert.match(component, /claude: 'claude-fill'/);
+		assert.match(component, /gemini: 'gemini-fill'/);
+		assert.match(component, /<Icon name=\{PROVIDER_ICONS\[destination\.provider\]\}/);
+		assert.match(component, /\{destination\.label\}/);
 	});
 
 	test('discloses URL, clipboard, account-memory, and retention boundaries', () => {
@@ -61,5 +71,15 @@ describe('AI support dock accessibility and privacy boundary', () => {
 	test('setup passes only a closed stage expression to the component', () => {
 		assert.match(setup, /<AiSupportDock\s+stage=\{step === 1 \? 'resend' : 'first-admin'\}\s*\/>/);
 		assert.doesNotMatch(setup, /<AiSupportDock[^>]*(?:chosen|selected|error|data|bootstrapSecret)/);
+	});
+
+	test('README has a standalone, bounded AI handoff section', () => {
+		assert.match(readme, /^## AIに質問$/m);
+		assert.match(readme, /ChatGPT、Claude、Gemini/);
+		assert.match(readme, /回答するたびに公式ドキュメント/);
+		assert.match(readme, /端末やOSの関連付け/);
+		assert.match(readme, /自動送信しません/);
+		assert.match(readme, /デプロイ完了とメール開通は別/);
+		assert.match(readme, /Resend Receiving/);
 	});
 });

@@ -6,13 +6,20 @@
 		buildAiSupportDestination,
 		buildAiSupportPrompt,
 		copyAiSupportPrompt,
+		type AiSupportProvider,
 		type AiSupportStage
 	} from '$lib/ai-support';
+	import Icon from '$lib/components/Icon.svelte';
 
 	let { stage }: { stage: AiSupportStage } = $props();
 	let question = $state('');
 	let copyStatus = $state('');
-	let geminiCopiedPrompt = $state('');
+
+	const PROVIDER_ICONS: Record<AiSupportProvider, string> = {
+		chatgpt: 'openai-fill',
+		claude: 'claude-fill',
+		gemini: 'gemini-fill'
+	};
 
 	const draft = $derived.by(() => {
 		try {
@@ -23,9 +30,7 @@
 			}));
 			return {
 				prompt,
-				destinations: destinations.filter((destination) => destination.mode === 'prefill'),
-				geminiHref:
-					destinations.find((destination) => destination.provider === 'gemini')?.href ?? '',
+				destinations,
 				error: ''
 			};
 		} catch (error) {
@@ -40,40 +45,54 @@
 				'personal-data': 'メールアドレスなどの個人情報を削除してください。',
 				'unsafe-url': '安全な質問リンクを作成できませんでした。'
 			}[code];
-			return { prompt: '', destinations: [], geminiHref: '', error: message };
+			return { prompt: '', destinations: [], error: message };
 		}
 	});
 
 	function resetQuestionState(): void {
 		copyStatus = '';
-		geminiCopiedPrompt = '';
 	}
 
-	async function copyPrompt(forGemini = false): Promise<void> {
+	async function copyPrompt(): Promise<void> {
 		if (!draft.prompt) {
 			copyStatus = '質問を入力してください。';
 			return;
 		}
-		if (forGemini) geminiCopiedPrompt = '';
 		const prompt = draft.prompt;
 		let result: Awaited<ReturnType<typeof copyAiSupportPrompt>>;
 		try {
 			result = await copyAiSupportPrompt(prompt, navigator.clipboard);
 		} catch {
 			copyStatus = '安全な質問文として確認できませんでした。';
-			geminiCopiedPrompt = '';
 			return;
 		}
 		if (result === 'copied' && draft.prompt === prompt) {
 			copyStatus = '質問文をコピーしました。';
-			if (forGemini) geminiCopiedPrompt = prompt;
 		} else if (result === 'copied') {
 			copyStatus = '質問が変更されたため、もう一度コピーしてください。';
-			geminiCopiedPrompt = '';
 		} else {
 			copyStatus = 'コピーできませんでした。表示された質問文を選択してコピーしてください。';
-			geminiCopiedPrompt = '';
 		}
+	}
+
+	function launchProvider(
+		event: MouseEvent,
+		destination: (typeof draft.destinations)[number]
+	): void {
+		if (!draft.prompt) {
+			event.preventDefault();
+			copyStatus = '質問を入力してください。';
+			return;
+		}
+		try {
+			const currentDestination = buildAiSupportDestination(destination.provider, draft.prompt);
+			if (currentDestination.href !== destination.href) throw new AiSupportInputError('unsafe-url');
+		} catch {
+			event.preventDefault();
+			copyStatus = '安全な質問リンクとして再確認できませんでした。';
+			return;
+		}
+		void copyPrompt();
 	}
 </script>
 
@@ -134,39 +153,20 @@
 				target="_blank"
 				rel="noopener noreferrer"
 				referrerpolicy="no-referrer"
+				onclick={(event) => launchProvider(event, destination)}
 			>
+				<span aria-hidden="true"
+					><Icon name={PROVIDER_ICONS[destination.provider]} size={18} /></span
+				>
 				{destination.label}
 			</a>
 		{/each}
-		<div class="gemini-actions">
-			<button
-				type="button"
-				class="provider-link"
-				disabled={!draft.prompt}
-				onclick={() => void copyPrompt(true)}
-			>
-				Gemini用に質問文をコピー
-			</button>
-			{#if draft.geminiHref && geminiCopiedPrompt === draft.prompt}
-				<a
-					class="provider-link"
-					href={draft.geminiHref}
-					target="_blank"
-					rel="noopener noreferrer"
-					referrerpolicy="no-referrer"
-				>
-					Geminiを開く
-				</a>
-			{:else}
-				<span class="provider-link provider-link-disabled" aria-disabled="true">Geminiを開く</span>
-			{/if}
-		</div>
 	</div>
 	<p class="fallback-copy">
-		入力済みにならない場合は「質問文をコピー」でコピーし、開いたAIへ貼り付けてください。
+		ボタンを押すと質問文のコピーを開始し、AIを新しいタブで開きます。入力済みにならない場合は、表示された質問文をコピーして貼り付けてください。
 	</p>
 	<p class="disclosure">
-		ChatGPTとClaudeでは質問文がURLに含まれ、ブラウザ履歴やAI提供者側に残る可能性があります。Geminiでは質問文をクリップボードへコピーします。回答、記憶・データ保持、利用可否は各AIサービスのアカウント、契約、ポリシーに従います。
+		ChatGPTとClaudeでは質問文がURLに含まれ、ブラウザ履歴やAI提供者側に残る可能性があります。Geminiを含む全社で質問文をクリップボードへコピーします。端末の関連付けによってアプリまたはブラウザで開きます。回答、記憶・データ保持、利用可否は各AIサービスのアカウント、契約、ポリシーに従います。
 	</p>
 	<p class="copy-status" aria-live="polite" aria-atomic="true">{copyStatus}</p>
 </section>
@@ -309,6 +309,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		gap: 0.45rem;
 		padding: 0.625rem;
 		text-align: center;
 		color: var(--color-text);
@@ -318,18 +319,6 @@
 
 	.provider-link:hover {
 		background: var(--color-surface-hover);
-	}
-
-	.provider-link:disabled,
-	.provider-link-disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	.gemini-actions {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
 	}
 
 	.fallback-copy,
