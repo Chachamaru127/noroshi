@@ -157,7 +157,6 @@ jobs:
             --arg archiveSha256 "$ARCHIVE_SHA" \
             '{tag:$tag,version:$version,commitSha:$commitSha,archiveSha256:$archiveSha256}' \
             > release-evidence.json
-          cp prototype/quickmail-ja-live-demo/release-tag-guard.sh release-tag-guard.sh
 
       - name: Upload verified release package
         # actions/upload-artifact v4.6.2
@@ -167,7 +166,6 @@ jobs:
           path: |
             quickmail-ja-${{ steps.version.outputs.version }}.zip
             release-evidence.json
-            release-tag-guard.sh
           if-no-files-found: error
 
   publish:
@@ -187,10 +185,45 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.preflight.outputs.tag }}
+          VERSION: ${{ needs.preflight.outputs.version }}
           EXPECTED_SHA: ${{ needs.preflight.outputs.commit_sha }}
         run: |
-          bash release-tag-guard.sh "$TAG" "$EXPECTED_SHA"
-          gh release create "${{ needs.preflight.outputs.tag }}" \
-            "quickmail-ja-${{ needs.preflight.outputs.version }}.zip" \
-            --title "QuickMail-ja ${{ needs.preflight.outputs.tag }}" \
+          set -euo pipefail
+          ARCHIVE="quickmail-ja-${VERSION}.zip"
+          jq -e \
+            --arg tag "$TAG" \
+            --arg version "$VERSION" \
+            --arg commitSha "$EXPECTED_SHA" \
+            'type == "object" and
+             keys == ["archiveSha256", "commitSha", "tag", "version"] and
+             (.tag | type == "string") and .tag == $tag and
+             (.version | type == "string") and .version == $version and
+             (.commitSha | type == "string") and .commitSha == $commitSha and
+             (.commitSha | test("^[0-9a-f]{40}$")) and
+             (.archiveSha256 | type == "string") and
+             (.archiveSha256 | test("^[0-9a-f]{64}$"))' \
+            release-evidence.json >/dev/null
+          EVIDENCE_ARCHIVE_SHA="$(jq -r '.archiveSha256' release-evidence.json)"
+          ACTUAL_ARCHIVE_SHA="$(sha256sum "$ARCHIVE" | cut -d' ' -f1)"
+          if [[ "$ACTUAL_ARCHIVE_SHA" != "$EVIDENCE_ARCHIVE_SHA" ]]; then
+            echo "Downloaded archive does not match release evidence" >&2
+            exit 1
+          fi
+
+          OBJECT_JSON="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG}")"
+          OBJECT_TYPE="$(jq -er '.object.type' <<<"$OBJECT_JSON")"
+          OBJECT_SHA="$(jq -er '.object.sha' <<<"$OBJECT_JSON")"
+          for _ in 1 2 3 4 5 6 7 8; do
+            [[ "$OBJECT_TYPE" == tag ]] || break
+            OBJECT_JSON="$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${OBJECT_SHA}")"
+            OBJECT_TYPE="$(jq -er '.object.type' <<<"$OBJECT_JSON")"
+            OBJECT_SHA="$(jq -er '.object.sha' <<<"$OBJECT_JSON")"
+          done
+          if [[ "$OBJECT_TYPE" != commit || "$OBJECT_SHA" != "$EXPECTED_SHA" ]]; then
+            echo "Release tag moved or no longer peels to the validated commit" >&2
+            exit 1
+          fi
+          gh release create "$TAG" \
+            "$ARCHIVE" \
+            --title "QuickMail-ja $TAG" \
             --generate-notes

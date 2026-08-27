@@ -19,7 +19,7 @@ assert.match(qa, /incompleteMeasurements/u);
 assert.doesNotMatch(qa, /allowedTargetFragments/u);
 assert.match(qa, /cleanupBaselineStaging/u);
 assert.ok(fs.existsSync(path.join(directory, 'release-gates.mjs')));
-assert.ok(fs.existsSync(path.join(directory, 'release-tag-guard.sh')));
+assert.ok(fs.existsSync(path.join(directory, 'release-workflow-security.test.mjs')));
 assert.ok(fs.existsSync(path.join(directory, 'voiceover-review-receipt.schema.json')));
 assert.match(release, /^permissions:\n  contents: read$/mu);
 assert.match(release, /persist-credentials: false/u);
@@ -29,7 +29,9 @@ assert.ok(
 	(release.match(/ref: \$\{\{ needs\.preflight\.outputs\.commit_sha \}\}/gu) || []).length >= 2,
 	'QA and package checkouts must use the immutable commit SHA'
 );
-assert.match(release, /bash release-tag-guard\.sh/u);
+assert.doesNotMatch(release, /release-tag-guard\.sh/u);
+assert.match(release, /keys == \["archiveSha256", "commitSha", "tag", "version"\]/u);
+assert.match(release, /ACTUAL_ARCHIVE_SHA/u);
 assert.match(release, /EXPECTED_SHA: \$\{\{ needs\.preflight\.outputs\.commit_sha \}\}/u);
 assert.doesNotMatch(release, /uses:\s+[^\s]+@(v\d+|main|master)/u);
 
