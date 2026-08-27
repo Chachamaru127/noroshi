@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow,noarchive,nosnippet,noimageindex">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-jN+DCa8pnx/B0Vehedt5Hn1UYHYq7LjG3vjOSwUnBbU='; img-src data:; connect-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-IpoJtT1nxLZJT9ZMRhKp1Ak+X2hek7pD3t7EJ9lUHZ0='; img-src data:; connect-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="color-scheme" content="light dark">
   <title>QuickMail-ja 操作可能デモ</title>
   <style>
@@ -47,6 +47,7 @@
     .demo-dot { width:.5rem; height:.5rem; border-radius:50%; background:var(--accent-2); }
     .demo-copy { min-width:0; }
     .demo-profile-switcher { display:flex; flex:none; align-items:center; gap:.25rem; padding:.2rem; background:rgba(255,255,255,.55); border:1px solid currentColor; border-radius:10px; }
+    [data-theme="dark"] .demo-profile-switcher { background:rgba(0,0,0,.18); }
     .demo-profile-switcher button { min-height:30px; padding:0 .65rem; color:inherit; background:transparent; border:0; border-radius:7px; font-size:.72rem; font-weight:700; }
     .demo-profile-switcher button.active { color:var(--on-accent); background:var(--accent); }
     .app { min-height:100vh; padding-top:var(--banner-height); }
@@ -370,6 +371,7 @@
       .select-wrap,.select-hit { width:44px; height:44px; place-items:center; }
       .select-box { width:18px; height:18px; min-height:18px; }
       input:not([type="hidden"]),select,textarea,.search-input { min-height:44px; }
+      .field-row select { min-height:44px; }
       input.select-box { min-height:18px; }
       .modal-actions button { min-height:44px; }
     }
@@ -1042,7 +1044,7 @@
       return '<article class="' + className + '" data-pane="reading" aria-label="閲覧ペイン">' +
         '<p class="preview-kicker">選択中のメール</p><h2>' + esc(item.subject) + '</h2>' +
         '<div class="' + className.replace("-pane", "-meta") + '">' + esc(item.from) + ' &lt;' + esc(item.fromAddress) + '&gt;<br>' + esc(item.date) + '</div>' +
-        '<div class="' + className.replace("-pane", "-body") + '">' + esc(item.body) + '</div>' +
+        '<div class="' + className.replace("-pane", "-body") + '" tabindex="0" data-focus-key="message-body" aria-label="メール本文">' + esc(item.body) + '</div>' +
         '<div class="' + className.replace("-pane", "-actions") + '"><button class="button-primary" data-action="open-mail-detail" data-id="' + esc(item.id) + '">詳しく読む</button><button class="button" data-action="reply" data-id="' + esc(item.id) + '">返信</button><button class="button" data-action="forward" data-id="' + esc(item.id) + '">転送</button></div></article>';
     }
 
@@ -1220,7 +1222,7 @@
               '<button class="button small" data-action="move-archive" data-id="' + esc(mail.id) + '">アーカイブ</button><button class="button small" data-action="trash-one" data-id="' + esc(mail.id) + '">ゴミ箱</button>') +
           '</div>' +
           '<div class="message-meta"><span class="row-avatar">' + esc(mail.from.slice(0,1)) + '</span><div class="meta-copy"><strong>' + esc(mail.from) + ' &lt;' + esc(mail.fromAddress) + '&gt;</strong><span>宛先: ' + esc(mail.to) + ' · ' + esc(mail.date) + '</span></div></div>' +
-          '<div class="message-body">' + esc(mail.body) + '</div>' +
+          '<div class="message-body" tabindex="0" data-focus-key="message-body" aria-label="メール本文">' + esc(mail.body) + '</div>' +
           (mail.attachment ? '<div class="attachments"><button class="attachment" data-action="attachment-demo">▧ ' + esc(mail.attachment) + '</button></div>' : '') +
         '</article>' +
         (!inTrash ? '<div class="reply-actions"><button class="button-primary" data-action="reply" data-id="' + esc(mail.id) + '">↩ 返信</button><button class="button" data-action="reply-all" data-id="' + esc(mail.id) + '">全員に返信</button><button class="button" data-action="forward" data-id="' + esc(mail.id) + '">→ 転送</button><button class="button" data-action="mark-unread" data-id="' + esc(mail.id) + '">未読にする</button></div>' : '') +
