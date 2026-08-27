@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow,noarchive,nosnippet,noimageindex">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-SXlamkPNZ/Y3zKuIyikiJ0kG2/dUSrjCN5VK1hMQCiw='; img-src data:; connect-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-jN+DCa8pnx/B0Vehedt5Hn1UYHYq7LjG3vjOSwUnBbU='; img-src data:; connect-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="color-scheme" content="light dark">
   <title>QuickMail-ja 操作可能デモ</title>
   <style>
@@ -938,7 +938,7 @@
     function syncDialogAccessibility() {
       const dialog = root.querySelector('[role="dialog"]');
       if (!dialog) return;
-      root.querySelectorAll(".sidebar,.content-shell,.mobile-nav,.mobile-drawer,.mobile-drawer-backdrop").forEach(function(element){
+      root.querySelectorAll(".demo-banner,.sidebar,.content-shell,.mobile-nav,.mobile-drawer,.mobile-drawer-backdrop").forEach(function(element){
         element.inert = true;
         element.setAttribute("aria-hidden","true");
       });
@@ -1043,7 +1043,7 @@
         '<p class="preview-kicker">選択中のメール</p><h2>' + esc(item.subject) + '</h2>' +
         '<div class="' + className.replace("-pane", "-meta") + '">' + esc(item.from) + ' &lt;' + esc(item.fromAddress) + '&gt;<br>' + esc(item.date) + '</div>' +
         '<div class="' + className.replace("-pane", "-body") + '">' + esc(item.body) + '</div>' +
-        '<div class="' + className.replace("-pane", "-actions") + '"><button class="button-primary" data-action="open-mail" data-id="' + esc(item.id) + '">詳しく読む</button><button class="button" data-action="reply" data-id="' + esc(item.id) + '">返信</button><button class="button" data-action="forward" data-id="' + esc(item.id) + '">転送</button></div></article>';
+        '<div class="' + className.replace("-pane", "-actions") + '"><button class="button-primary" data-action="open-mail-detail" data-id="' + esc(item.id) + '">詳しく読む</button><button class="button" data-action="reply" data-id="' + esc(item.id) + '">返信</button><button class="button" data-action="forward" data-id="' + esc(item.id) + '">転送</button></div></article>';
     }
 
     function selectedPreview(items) {
@@ -1388,6 +1388,7 @@
         const inlineReader = window.matchMedia("(min-width: 768px)").matches && (state.profile === "command" || state.profile === "classic");
         dispatch({type:inlineReader ? "SELECT_MAIL" : "OPEN_MAIL",id:id});
       }
+      else if (action === "open-mail-detail") dispatch({type:"OPEN_MAIL",id:id});
       else if (action === "open-draft") {
         const draft = state.messages.find(function(item){ return item.id === id; });
         if (draft) dispatch({type:"OPEN_COMPOSE",mode:"new",draftId:id,from:draft.fromAddress,to:draft.to,subject:draft.subject,body:draft.body,attachments:draft.attachment ? [{id:"draft-attachment",name:draft.attachment,size:0,type:"application/octet-stream"}] : []});

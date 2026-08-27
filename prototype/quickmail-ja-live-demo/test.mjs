@@ -120,6 +120,13 @@ try {
       assert.equal(await page.locator('[data-pane="reading"]').count(),1);
       assert.match(await page.textContent('[data-pane="reading"]'),/資料送付のお礼/u);
       assert.equal(await page.evaluate(() => document.activeElement?.dataset.focusKey),"message-m2",profile + " must restore focus to m2 after in-place selection");
+      await page.click('[data-pane="reading"] [data-action="open-mail-detail"]');
+      assert.equal(await page.evaluate(() => state.view),"mail",profile + " reading-pane detail action must open the full message");
+      assert.match(await page.textContent("main"),/資料送付のお礼/u);
+      await page.click('[data-action="back"]');
+      assert.equal(await page.locator('[data-pane="message-list"],[data-pane="thread-list"]').count(),1,profile + " Back must restore its list pane");
+      assert.equal(await page.locator('[data-pane="reading"]').count(),1,profile + " Back must restore its reading pane");
+      assert.equal(await page.evaluate(() => document.activeElement?.dataset.focusKey),"message-m2",profile + " Back must restore focus to m2");
       if (profile === "command") {
         await page.click('.demo-profile-switcher [data-action="profile"][data-profile="classic"]');
         assert.equal(await page.evaluate(() => document.activeElement?.dataset.focusKey),"message-m2","profile switching must preserve and refocus the non-first logical message");
@@ -270,7 +277,12 @@ try {
   const folderDialog = page.getByRole("dialog",{name:"フォルダを追加"});
   assert.equal(await folderDialog.count(),1,"dialog must have an accessible name through aria-labelledby");
   assert.equal(await page.evaluate(() => document.activeElement?.getAttribute("name")),"name","initial focus must move inside the dialog");
-  assert.deepEqual(await page.evaluate(() => ({sidebar:document.querySelector(".sidebar").inert,content:document.querySelector(".content-shell").inert})),{sidebar:true,content:true},"background must be inert while a dialog is open");
+  assert.deepEqual(await page.evaluate(() => ({
+    sidebar:document.querySelector(".sidebar").inert,
+    content:document.querySelector(".content-shell").inert,
+    banner:document.querySelector(".demo-banner").inert,
+    bannerHidden:document.querySelector(".demo-banner").getAttribute("aria-hidden")
+  })),{sidebar:true,content:true,banner:true,bannerHidden:"true"},"all persistent background controls must be inert and hidden from assistive technology while a dialog is open");
   await page.keyboard.press("Shift+Tab");
   assert.equal(await page.evaluate(() => document.activeElement?.textContent?.trim()),"追加","Shift+Tab from the first item must wrap to the last item");
   await page.keyboard.press("Tab");
