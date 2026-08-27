@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow,noarchive,nosnippet,noimageindex">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-7HT4B+o3TdwfiE17CReEBge6MgOrPKnSwD4qGVvnvAU='; img-src data:; connect-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-vyDPOdxwnDQrNyay4XN5CbbzbMV3eqsluMyk3LRcUz8='; img-src data:; connect-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="color-scheme" content="light dark">
   <title>QuickMail-ja 操作可能デモ</title>
   <style>
@@ -22,6 +22,11 @@
       --danger:#e28282; --warn:#e2bd73; --warn-bg:#352d19; --good:#87bd9b;
       --shadow:0 18px 46px rgba(0,0,0,.25);
     }
+    [data-layout="gmail"] { --sidebar:236px; --layout-radius:14px; --row-height:72px; }
+    [data-layout="outlook"] { --sidebar:264px; --layout-radius:5px; --row-height:58px; --accent:#3979c8; --accent-2:#185ea8; }
+    [data-layout="thunderbird"] { --sidebar:208px; --layout-radius:9px; --row-height:50px; --accent:#7356b5; --accent-2:#54379a; }
+    [data-theme="dark"][data-layout="outlook"] { --accent:#67a6e8; --accent-2:#4389d1; }
+    [data-theme="dark"][data-layout="thunderbird"] { --accent:#a78be4; --accent-2:#8868cd; }
     * { box-sizing:border-box; }
     html, body { margin:0; min-height:100%; }
     body {
@@ -48,6 +53,8 @@
       display:flex; flex-direction:column; padding:.9rem .75rem .75rem;
       background:var(--surface); border-right:1px solid var(--line); overflow:auto;
     }
+    [data-layout="outlook"] .sidebar { padding:.55rem .45rem; }
+    [data-layout="thunderbird"] .sidebar { padding:.45rem .35rem; background:var(--surface-2); }
     .brand { display:flex; align-items:center; gap:.55rem; padding:0 .25rem .9rem; font-weight:700; }
     .brand-mark { display:grid; place-items:center; width:32px; height:32px; border-radius:9px; color:#315242; background:#bed0c5; }
     .compose-new {
@@ -59,6 +66,8 @@
       display:flex; align-items:center; gap:.65rem; min-height:38px; width:100%; padding:0 .65rem;
       color:var(--sub); background:transparent; border:0; border-radius:10px; text-align:left;
     }
+    [data-layout="outlook"] .nav-btn { min-height:34px; border-radius:3px; }
+    [data-layout="thunderbird"] .nav-btn { min-height:30px; padding:0 .5rem; border-radius:6px; font-size:.76rem; }
     .nav-btn:hover,.nav-btn.active { color:var(--text); background:var(--surface-2); }
     .nav-btn.active { font-weight:600; }
     .nav-icon { width:1.2rem; text-align:center; }
@@ -75,6 +84,8 @@
       position:sticky; top:42px; z-index:30; height:66px; display:flex; align-items:center; gap:.8rem;
       padding:0 1.25rem; background:rgba(255,255,255,.94); border-bottom:1px solid var(--line); backdrop-filter:blur(14px);
     }
+    [data-layout="outlook"] .topbar { height:56px; padding:0 .8rem; }
+    [data-layout="thunderbird"] .topbar { height:50px; padding:0 .65rem; box-shadow:inset 0 -2px 0 var(--accent); }
     [data-theme="dark"] .topbar { background:rgba(27,32,29,.94); }
     .search-wrap { position:relative; flex:1; max-width:540px; }
     .search-input {
@@ -104,7 +115,7 @@
     .page-head .total { color:var(--muted); font-size:.76rem; }
     .head-actions { display:flex; align-items:center; gap:.45rem; margin-left:auto; }
     .button,.button-primary,.button-danger {
-      min-height:40px; padding:0 .9rem; border-radius:10px; border:1px solid var(--line); font-size:.82rem; font-weight:600;
+      min-height:40px; padding:0 .9rem; border-radius:var(--layout-radius,10px); border:1px solid var(--line); font-size:.82rem; font-weight:600;
     }
     .button { color:var(--text); background:var(--surface); }
     .button:hover { background:var(--surface-2); }
@@ -121,8 +132,11 @@
     .mail-list { margin:0; padding:0; list-style:none; background:var(--surface); border:1px solid var(--line); border-top:0; border-radius:0 0 14px 14px; overflow:hidden; }
     .mail-row {
       display:grid; grid-template-columns:34px 30px 42px 170px minmax(0,1fr) auto; align-items:center; gap:.5rem;
-      min-height:72px; padding:.6rem .75rem; border-top:1px solid var(--line);
+      min-height:var(--row-height,72px); padding:.6rem .75rem; border-top:1px solid var(--line);
     }
+    [data-layout="outlook"] .mail-row { grid-template-columns:28px 24px 34px 150px minmax(0,1fr) auto; padding:.38rem .55rem; }
+    [data-layout="thunderbird"] .mail-row { grid-template-columns:24px 22px 28px 132px minmax(0,1fr) auto; padding:.25rem .45rem; gap:.35rem; font-size:.76rem; }
+    [data-layout="thunderbird"] .row-avatar { width:28px; height:28px; border-radius:7px; }
     .mail-row:first-child { border-top:0; }
     .mail-row.unread { background:color-mix(in srgb,var(--accent) 7%,var(--surface)); }
     .mail-row:hover { background:var(--surface-2); }
@@ -139,7 +153,7 @@
     .mail-open { display:flex; align-items:center; min-width:0; padding:.25rem 0; color:inherit; background:transparent; border:0; text-align:left; cursor:pointer; }
     .tag { display:inline-flex; align-items:center; min-height:20px; padding:0 .4rem; color:var(--sub); background:var(--surface-2); border-radius:999px; font-size:.65rem; }
     .empty { display:grid; place-items:center; min-height:360px; color:var(--muted); background:var(--surface); border:1px solid var(--line); border-radius:14px; }
-    .card { padding:1.25rem; background:var(--surface); border:1px solid var(--line); border-radius:18px; box-shadow:var(--shadow); }
+    .card { padding:1.25rem; background:var(--surface); border:1px solid var(--line); border-radius:var(--layout-radius,18px); box-shadow:var(--shadow); }
     .card + .card { margin-top:1rem; }
     .card h2 { display:flex; align-items:center; gap:.45rem; margin:0; font-size:1rem; }
     .hint { margin:.35rem 0 0; color:var(--muted); font-size:.75rem; }
@@ -174,11 +188,16 @@
     .ai-provider.active { border-color:var(--accent); box-shadow:0 0 0 3px rgba(120,154,136,.12); }
     .ai-provider strong { font-size:.8rem; }
     .ai-provider span { color:var(--muted); font-size:.7rem; line-height:1.45; }
+    .ai-provider-head { display:flex; align-items:center; gap:.5rem; }
+    .ai-logo { width:22px; height:22px; flex:0 0 22px; fill:currentColor; }
+    .ai-risk { margin-top:.65rem; color:var(--danger); font-size:.76rem; font-weight:700; }
     .prompt-preview { min-height:132px; margin-top:.8rem; padding:.8rem; white-space:pre-wrap; color:var(--sub); background:var(--surface-2); border:1px solid var(--line); border-radius:11px; font-size:.75rem; }
     .settings-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
     .settings-grid .wide { grid-column:1/-1; }
     .segmented { display:flex; gap:.45rem; margin-top:.8rem; flex-wrap:wrap; }
     .segmented button.active { color:var(--on-accent); background:var(--accent-2); border-color:var(--accent-2); }
+    .appearance-group + .appearance-group { margin-top:1rem; padding-top:1rem; border-top:1px solid var(--line); }
+    .appearance-label { display:block; color:var(--sub); font-size:.76rem; font-weight:700; }
     .text-input,.text-area,.select-input {
       width:100%; margin-top:.5rem; padding:.7rem .75rem; color:var(--text); background:var(--surface-2); border:1px solid var(--line); border-radius:10px; outline:none;
     }
@@ -280,10 +299,12 @@
       toast: "",
       modal: null,
       theme: "light",
+      layout: "gmail",
       composeError: "",
       ai: {
         question:"Cloudflareの画面で次に何を確認しますか？",
-        provider:""
+        provider:"",
+        error:""
       },
       messages: [
         {id:"m1",folder:"inbox",from:"田中 彩",fromAddress:"aya@sender.invalid",to:"info@quickmail.invalid",subject:"次回イベントの登壇について",preview:"来月開催予定のイベントについてご相談があります。",body:"QuickMail-ja ご担当者様\n\n来月開催予定のオンラインイベントについて、登壇をご相談したくご連絡しました。\n候補日は9月18日または25日です。\n\nご確認をお願いいたします。",date:"今日 10:24",unread:true,starred:true,attachment:"イベント概要.pdf",folderName:""},
@@ -346,13 +367,44 @@
     function aiPrompt(question, provider) {
       const service = provider || "選択したAIサービス";
       const handoff = provider === "Gemini"
-        ? "通常版では質問文をコピーして貼り付けます。このデモではクリップボードを使いません。"
-        : "通常版では質問文を新規チャットへ受け渡します。このデモでは外部画面を開きません。";
+        ? "質問文をコピーしたあとGeminiを開きます。新規チャットへ貼り付けてください。"
+        : "質問文をコピーし、新規チャットの入力欄へ受け渡します。内容を確認してから送信してください。";
       return "QuickMail-jaの導入を支援してください。\n" +
         "回答前にCloudflareとResendの最新の公式ドキュメントを確認し、画面名は日本語で説明してください。\n" +
         "秘密情報やメール本文は求めないでください。\n\n" +
         "質問: " + String(question || "（質問を入力してください）").trim() + "\n\n" +
         "選択先: " + service + "\n" + handoff;
+    }
+
+    const AI_PROVIDERS = Object.freeze({
+      ChatGPT:{base:"https://chatgpt.com/",prefill:true},
+      Claude:{base:"https://claude.ai/new",prefill:true},
+      Gemini:{base:"https://gemini.google.com/app",prefill:false}
+    });
+
+    function sensitiveReason(value) {
+      const text = String(value || "");
+      if (/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/.test(text)) return "メールアドレスが含まれています";
+      if (/-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(text)) return "秘密鍵らしい文字列が含まれています";
+      if (/\b(?:sk|rk|pk|re)_[A-Za-z0-9_-]{16,}\b/.test(text) || /\bAIza[0-9A-Za-z_-]{20,}\b/.test(text)) return "APIキーらしい文字列が含まれています";
+      if (/\bBearer\s+[A-Za-z0-9._~-]{12,}/i.test(text) || /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/.test(text)) return "認証情報らしい文字列が含まれています";
+      if (/(?:password|passwd|secret|api[_ -]?key|token)\s*[:=]\s*\S{8,}/i.test(text)) return "秘密情報らしい値が含まれています";
+      return "";
+    }
+
+    function providerUrl(provider, prompt) {
+      const config = AI_PROVIDERS[provider];
+      if (!config) return "";
+      return config.base + (config.prefill ? "?q=" + encodeURIComponent(prompt) : "");
+    }
+
+    function aiLogo(provider) {
+      const paths = {
+        ChatGPT:"M20.5624 10.1875C20.8124 9.5 20.8749 8.8125 20.8124 8.125C20.7499 7.4375 20.4999 6.75 20.1874 6.125C19.6249 5.1875 18.8124 4.4375 17.8749 4C16.8749 3.5625 15.8124 3.4375 14.7499 3.6875C14.2499 3.1875 13.6874 2.75 13.0624 2.4375C12.4374 2.125 11.6874 2 10.9999 2C9.9374 2 8.8749 2.3125 7.9999 2.9375C7.1249 3.5625 6.4999 4.4375 6.1874 5.4375C5.4374 5.625 4.8124 5.9375 4.1874 6.3125C3.6249 6.75 3.1874 7.3125 2.8124 7.875C2.24991 8.8125 2.06241 9.875 2.18741 10.9375C2.31241 12 2.7499 13 3.4374 13.8125C3.1874 14.5 3.1249 15.1875 3.1874 15.875C3.2499 16.5625 3.4999 17.25 3.8124 17.875C4.3749 18.8125 5.1874 19.5625 6.1249 20C7.1249 20.4375 8.1874 20.5625 9.2499 20.3125C9.7499 20.8125 10.3124 21.25 10.9374 21.5625C11.5624 21.875 12.3124 22 12.9999 22C14.0624 22 15.1249 21.6875 15.9999 21.0625C16.8749 20.4375 17.4999 19.5625 17.8124 18.5625C18.4999 18.4375 19.1874 18.125 19.7499 17.6875C20.3124 17.25 20.8124 16.75 21.1249 16.125C21.6874 15.1875 21.8749 14.125 21.7499 13.0625C21.6249 12 21.2499 11 20.5624 10.1875ZM13.0624 20.6875C12.0624 20.6875 11.3124 20.375 10.6249 19.8125L14.7499 17.4375C14.9374 17.3125 15.0624 17.125 15.0624 16.875V11.25L16.7499 12.25V16.875C16.8124 19.0625 15.0624 20.6875 13.0624 20.6875ZM4.9999 17.25C4.5624 16.5 4.3749 15.625 4.5624 14.75L8.6874 17.125C8.8749 17.25 9.1249 17.25 9.3124 17.125L14.1874 14.3125V16.25L10.1249 18.625C8.2499 19.6875 5.9999 19 4.9999 17.25ZM3.9374 8.5625C4.3749 7.8125 5.0624 7.25 5.8749 6.9375V11.6875C5.8749 11.9375 5.9999 12.125 6.1874 12.25L11.0624 15.0625L9.3749 16.0625L5.3749 13.75C3.4999 12.6875 2.9374 10.3125 3.9374 8.5625ZM17.7499 11.75L12.8749 8.9375L14.5624 7.9375L18.5624 10.25C20.4374 11.3125 20.9999 13.6875 19.9999 15.4375C19.5624 16.1875 18.8749 16.75 17.9999 17V12.25C17.9999 12 17.9374 11.875 17.7499 11.75ZM19.4374 9.25L15.3124 6.875C15.1249 6.75 14.8749 6.75 14.6874 6.875L9.8124 9.6875V7.75L13.8749 5.375C15.7499 4.3125 17.9999 5 18.9999 6.75C19.4374 7.5 19.5624 8.375 19.4374 9.25ZM8.9374 12.75L7.2499 11.75V7.0625C7.2499 4.9375 8.9999 3.3125 10.9999 3.3125C11.8749 3.3125 12.7499 3.625 13.3749 4.1875L9.2499 6.5625C9.0624 6.6875 8.9374 6.875 8.9374 7.125V12.75ZM9.8124 10.75L11.9999 9.5L14.1874 10.75V13.25L11.9999 14.5L9.8124 13.25V10.75Z",
+        Claude:"M5.92 15.3L9.86 13.1L9.92 12.9L9.86 12.8H9.66L2.42 12.4L2 11.8L2.04 11.5L2.44 11.24L9.6 11.82H9.92L9.96 11.68L3.66 7.18L3.54 6.34L4.08 5.74L4.82 5.8L9.7 9.44L9.82 9.36L6.72 3.54C6.66 3.34 6.64 3.14 6.64 2.94L7.24 2.1L7.6 2L8.44 2.12L12 9.42L12.06 9.62H12.2L12.76 3.46L13.08 2.7L13.68 2.3L14.2 2.52L14.6 3.1L13.5 9.06H13.68L17.86 4.24H18.72L19.34 5.18L19.06 6.16L15.74 10.78L15.8 10.86H15.94L21.14 9.86L21.84 10.18L21.92 10.5L21.64 11.18L15.18 12.66L15.22 12.72L20.94 13.08L21.6 13.48L21.98 14.02L21.92 14.42L20.9 14.94L15.1 13.6V13.68L19.8 18.02L19.9 18.5L19.64 18.9L19.36 18.86L15.1 15.5V15.64L17.42 19.12L17.52 20.02L17.38 20.3L16.86 20.5L16.32 20.38L12.92 15.42L12.34 21.46L12.08 21.76L11.48 22L10.98 21.6L10.7 21L11.94 14.78V14.74H11.8L7.36 20.38L7.02 20.52L6.42 20.22L6.48 19.66L10.8 14.14L10.78 14.04H10.72L5.44 17.48L4.5 17.6L4.1 17.2L4.14 16.6L5.94 15.3H5.92Z",
+        Gemini:"M23.9996 12.0235C17.5625 12.4117 12.4114 17.563 12.0232 24H11.9762C11.588 17.563 6.4369 12.4117 0 12.0235V11.9765C6.4369 11.5883 11.588 6.43719 11.9762 0H12.0232C12.4114 6.43719 17.5625 11.5883 23.9996 11.9765V12.0235Z"
+      };
+      return '<svg class="ai-logo" viewBox="0 0 24 24" aria-hidden="true"><path d="' + paths[provider] + '"></path></svg>';
     }
 
     function reducer(state, action) {
@@ -512,6 +564,7 @@
         case "MOBILE_MENU": next.mobileMenuOpen = !next.mobileMenuOpen; return next;
         case "MOBILE_CLOSE": next.mobileMenuOpen = false; return next;
         case "THEME": next.theme = action.value; return next;
+        case "LAYOUT": next.layout = action.value; return next;
         case "SIGNATURE": next.settings.signature = action.value; return next;
         case "FORWARD_DEST":
           if (next.settings.forwardingDestination.toLowerCase() !== action.value.toLowerCase()) {
@@ -618,10 +671,11 @@
           next.toast = "ユーザー情報を更新しました（デモ内のみ）";
           return next;
         }
-        case "AI_QUESTION": next.ai.question = action.value; next.ai.provider = ""; return next;
+        case "AI_QUESTION": next.ai.question = action.value; next.ai.provider = ""; next.ai.error = ""; return next;
         case "AI_PREVIEW":
           next.ai.provider = action.provider;
-          next.toast = action.provider + "向けの質問文を画面内に準備しました。外部画面やクリップボードは使っていません";
+          next.ai.error = action.error || "";
+          next.toast = action.message || action.provider + "を新しいタブで開きました。内容を確認するまで送信されません";
           return next;
         case "IMPORT_DEMO":
           next.admin.importStatus = "128件を検出・取り込み準備完了（デモ）";
@@ -650,6 +704,41 @@
       if (state.toast) {
         window.clearTimeout(dispatch.toastTimer);
         dispatch.toastTimer = window.setTimeout(function(){ dispatch({type:"CLEAR_TOAST"}); }, 3600);
+      }
+    }
+
+    async function handoffAI(provider) {
+      if (!Object.prototype.hasOwnProperty.call(AI_PROVIDERS, provider)) {
+        dispatch({type:"AI_PREVIEW",provider:"",error:"許可されていないAIサービスです",message:"外部画面は開いていません"});
+        return;
+      }
+      const question = state.ai.question.trim();
+      if (!question) {
+        dispatch({type:"AI_PREVIEW",provider:provider,error:"質問が空です",message:"外部画面は開いていません"});
+        return;
+      }
+      const prompt = aiPrompt(question, provider);
+      const reason = sensitiveReason(prompt);
+      if (reason) {
+        dispatch({type:"AI_PREVIEW",provider:provider,error:reason,message:"安全のため外部引渡しを停止しました"});
+        return;
+      }
+      const url = providerUrl(provider, prompt);
+      const config = AI_PROVIDERS[provider];
+      if (!url || !url.startsWith(config.base)) {
+        dispatch({type:"AI_PREVIEW",provider:provider,error:"遷移先を検証できません",message:"外部画面は開いていません"});
+        return;
+      }
+      const copy = navigator.clipboard && navigator.clipboard.writeText
+        ? navigator.clipboard.writeText(prompt)
+        : Promise.reject(new Error("clipboard unavailable"));
+      const opened = window.open(url,"_blank","noopener,noreferrer");
+      if (opened) opened.opener = null;
+      try {
+        await copy;
+        dispatch({type:"AI_PREVIEW",provider:provider,message:provider + "を別タブで開き、質問文をコピーしました。内容確認後にご自身で送信してください"});
+      } catch (error) {
+        dispatch({type:"AI_PREVIEW",provider:provider,message:provider + "を別タブで開きました。コピーできなかったため、下の質問文を手動でコピーしてください"});
       }
     }
 
@@ -689,7 +778,7 @@
         return '<div class="folder-row"><button class="nav-btn' + (active ? ' active' : '') + '" data-action="folder-open" data-id="' + esc(folder.id) + '"><span class="nav-icon">▰</span><span>' + esc(folder.name) + '</span>' + (count ? '<span class="count">' + count + '</span>' : '') + '</button><button class="icon-button folder-tools" data-action="folder-menu" data-id="' + esc(folder.id) + '" aria-label="' + esc(folder.name) + 'を編集">•••</button></div>';
       }).join("");
       return '<div class="demo-banner"><span class="demo-dot"></span><span>操作可能デモ — 送信・外部接続・保存処理は実行しません</span></div>' +
-        '<div class="app" data-theme="' + esc(state.theme === "system" ? "light" : state.theme) + '">' +
+        '<div class="app" data-theme="' + esc(state.theme === "system" ? "light" : state.theme) + '" data-layout="' + esc(state.layout) + '">' +
         '<aside class="sidebar" aria-label="メールメニュー">' +
           '<div class="brand"><span class="brand-mark">✉</span><span>QuickMail-ja</span></div>' +
           '<button class="compose-new" data-action="compose-new">✎ 新規メール</button>' +
@@ -868,9 +957,11 @@
       return '<section class="page">' +
         '<div class="page-head"><h1>設定</h1></div>' +
         '<div class="settings-grid">' +
-          '<section class="card"><h2>◐ 外観</h2><p class="hint">テーマはデモ画面内だけで切り替わります。システム設定は読み取りません。</p><div class="segmented">' +
+          '<section class="card wide"><h2>◐ 外観</h2><div class="appearance-group"><span class="appearance-label">配色</span><p class="hint">デモ画面内だけで切り替わります。システム設定は読み取りません。</p><div class="segmented">' +
             ["light","dark","system"].map(function(theme){ const label={light:"ライト",dark:"ダーク",system:"システム（ライト固定デモ）"}[theme]; return '<button class="button small' + (state.theme === theme ? ' active' : '') + '" data-action="theme" data-theme="' + theme + '">' + label + '</button>'; }).join("") +
-          '</div></section>' +
+          '</div></div><div class="appearance-group"><span class="appearance-label">レイアウト</span><p class="hint">余白、角丸、ナビゲーション幅、メール一覧の密度とアクセントが即時に変わります。</p><div class="segmented">' +
+            ["gmail","outlook","thunderbird"].map(function(layout){ const label={gmail:"Gmail風",outlook:"Outlook風",thunderbird:"Thunderbird風"}[layout]; return '<button class="button small' + (state.layout === layout ? ' active' : '') + '" data-action="layout" data-layout="' + layout + '">' + label + '</button>'; }).join("") +
+          '</div></div></section>' +
           '<section class="card"><h2>✎ 署名</h2><p class="hint">新規メールへ自動挿入する署名です。</p><textarea class="text-area" data-input="signature">' + esc(s.signature) + '</textarea><div class="card-actions"><button class="button-primary small" data-action="signature-save">保存</button></div></section>' +
           '<section class="card wide"><h2>⇄ 自動転送</h2><p class="hint">受信後に別アドレスへ転送する設定です。デモでは確認メールも転送も行いません。</p>' +
             '<div class="flow" aria-label="自動転送の安全な設定手順">' +
@@ -899,12 +990,12 @@
             '<form class="inline-form one" data-form="key"><input class="text-input" name="name" placeholder="キーの名前"><select class="select-input" name="scope"><option>読み取り</option><option>読み書き</option></select><button class="button-primary">新規作成</button></form>' +
             (s.demoKey ? '<div class="demo-notice" style="margin-top:.8rem">今回だけ表示: <strong>' + esc(s.demoKey) + '</strong><br>デモ文字列であり、APIでは使用できません。</div>' : '') +
           '</section>' +
-          '<section class="card wide"><h2>◇ 導入についてAIに質問</h2><p class="hint">質問文はこの画面内だけで作成します。外部AIへの遷移やクリップボード操作は行いません。</p><label class="sr-only" for="ai-question">AIへの質問</label><input id="ai-question" class="text-input" data-input="ai-question" value="' + esc(state.ai.question) + '" placeholder="導入について聞きたいこと" aria-label="AIへの質問">' +
+          '<section class="card wide"><h2>◇ 導入についてAIに質問</h2><p class="hint">クリックすると質問文のコピーを開始し、選んだAIの新規チャットを別タブで開きます。自動送信はしません。ロゴはRemix Icon 4.9.1（Apache-2.0）由来です。</p><label class="sr-only" for="ai-question">AIへの質問</label><input id="ai-question" class="text-input" data-input="ai-question" value="' + esc(state.ai.question) + '" maxlength="800" placeholder="導入について聞きたいこと" aria-label="AIへの質問">' +
             '<div class="ai-provider-grid" aria-label="質問先ごとの受け渡し方法">' +
-              '<button class="ai-provider' + (state.ai.provider === 'ChatGPT' ? ' active' : '') + '" data-action="ai-preview" data-provider="ChatGPT"><strong>ChatGPTに聞く</strong><span>通常版は質問を新規チャットへ受け渡します。デモでは画面内プレビューのみです。</span></button>' +
-              '<button class="ai-provider' + (state.ai.provider === 'Claude' ? ' active' : '') + '" data-action="ai-preview" data-provider="Claude"><strong>Claudeに聞く</strong><span>通常版は質問を新規チャットへ受け渡します。デモでは画面内プレビューのみです。</span></button>' +
-              '<button class="ai-provider' + (state.ai.provider === 'Gemini' ? ' active' : '') + '" data-action="ai-preview" data-provider="Gemini"><strong>Geminiに聞く</strong><span>通常版は質問文をコピーして貼り付けます。デモではクリップボードを使いません。</span></button>' +
-            '</div><div class="prompt-preview" data-ai-preview aria-live="polite">AIへ渡す質問文' + (state.ai.provider ? '（' + esc(state.ai.provider) + '向け）' : '') + '\n\n' + esc(prompt) + '</div></section>' +
+              '<button class="ai-provider' + (state.ai.provider === 'ChatGPT' ? ' active' : '') + '" data-action="ai-handoff" data-provider="ChatGPT"><span class="ai-provider-head">' + aiLogo('ChatGPT') + '<strong>ChatGPTに聞く</strong></span><span>質問文をコピーし、qパラメータで新規チャットへ入力します。</span></button>' +
+              '<button class="ai-provider' + (state.ai.provider === 'Claude' ? ' active' : '') + '" data-action="ai-handoff" data-provider="Claude"><span class="ai-provider-head">' + aiLogo('Claude') + '<strong>Claudeに聞く</strong></span><span>質問文をコピーし、qパラメータで新規チャットへ入力します。</span></button>' +
+              '<button class="ai-provider' + (state.ai.provider === 'Gemini' ? ' active' : '') + '" data-action="ai-handoff" data-provider="Gemini"><span class="ai-provider-head">' + aiLogo('Gemini') + '<strong>Geminiに聞く</strong></span><span>質問文をコピーして新規チャットを開きます。貼り付けてください。</span></button>' +
+            '</div>' + (state.ai.error ? '<div class="ai-risk" role="alert">外部引渡しを停止しました: ' + esc(state.ai.error) + '。該当部分を削除して再度お試しください。</div>' : '') + '<div class="prompt-preview" data-ai-preview aria-live="polite">AIへ渡す質問文' + (state.ai.provider ? '（' + esc(state.ai.provider) + '向け）' : '') + '\n\n' + esc(prompt) + '</div></section>' +
         '</div>' +
       '</section>';
     }
@@ -1022,6 +1113,7 @@
       else if (action === "reset") dispatch({type:"RESET"});
       else if (action === "theme-cycle") dispatch({type:"THEME",value:state.theme === "dark" ? "light" : "dark"});
       else if (action === "theme") dispatch({type:"THEME",value:target.dataset.theme});
+      else if (action === "layout") dispatch({type:"LAYOUT",value:target.dataset.layout});
       else if (action === "signature-save") dispatch({type:"TOAST",message:"署名を保存しました（デモ内のみ）"});
       else if (action === "forward-verify") dispatch({type:"VERIFY_FORWARD"});
       else if (action === "forward-enable") dispatch({type:"FORWARD_ENABLE"});
@@ -1031,7 +1123,7 @@
       else if (action === "address-default") dispatch({type:"DEFAULT_ADDRESS",id:id});
       else if (action === "address-remove") dispatch({type:"REMOVE_ADDRESS",id:id});
       else if (action === "key-revoke") dispatch({type:"REVOKE_KEY",id:id});
-      else if (action === "ai-preview") dispatch({type:"AI_PREVIEW",provider:target.dataset.provider});
+      else if (action === "ai-handoff") handoffAI(target.dataset.provider);
       else if (action === "domain-refresh") dispatch({type:"DOMAIN_REFRESH",id:id});
       else if (action === "domain-connect") dispatch({type:"DOMAIN_CONNECT",id:id});
       else if (action === "domain-disconnect") dispatch({type:"DOMAIN_DISCONNECT",id:id});

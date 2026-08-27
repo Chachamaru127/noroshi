@@ -6,5 +6,5 @@
   X-Frame-Options: DENY
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Resource-Policy: same-origin
-  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), clipboard-read=(), clipboard-write=()
-  Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-7HT4B+o3TdwfiE17CReEBge6MgOrPKnSwD4qGVvnvAU='; img-src data:; connect-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; sandbox allow-scripts
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), clipboard-read=(), clipboard-write=(self)
+  Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-vyDPOdxwnDQrNyay4XN5CbbzbMV3eqsluMyk3LRcUz8='; img-src data:; connect-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox
