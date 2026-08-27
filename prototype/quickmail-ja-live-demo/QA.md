@@ -21,7 +21,7 @@
 - baseline: `baselines/playwright-1.59.1-noble/` の18枚と比較する。通常実行はbaselineを更新しない。固定container内の明示的な `--update-baselines` だけが更新経路である。
 - local comparison: macOSなど固定container外では実画像をpixel比較し、差分画像を保存する。自己生成hashとの比較ではない。macOS ChromiumとLinux referenceの2026-08-27実測最大差分は2.226%であり、既定閾値は2.5%とする。CI/reference container内は閾値0%の完全一致である。
 - artifacts: `QMJ12C_ARTIFACT_DIR` は実在するOS一時ディレクトリ配下のrootとして扱い、その中に実行ごとの一意な子ディレクトリを作る。指定が不正でも安全な一時領域へ失敗manifestを残す。symlinkや関連しない既存ファイルを上書き・削除しない。
-- axe incomplete: 詳細を48面ごとにmanifestへ残す。serious/criticalは `axe-incomplete-review.json` の非テキストglyphと単一文字アバターに限定し、同じ実行のcomputed DOM contrastが3:1以上の場合だけ許容する。ルールや画面の除外はしない。
+- axe incomplete: 詳細を48面ごとにmanifestへ残す。serious/criticalとして返った全ノードを、そのセルでaxeが返した正確なselectorから一意に解決する。実computed foregroundと実効ancestor backgroundを測り、3:1以上の場合だけ許容する。selectorの部分一致allowlist、ルール除外、画面除外は使わない。manifestには各ノードのselector、HTML、色、比率、セル結合fingerprintを残す。
 - update guard: baseline更新はlinux/x86_64、`/.dockerenv`、Ubuntu 24.04.4、Node/Playwright/Chromium版、image digest markerを照合する。これは誤操作防止であり暗号学的な権限証明ではない。公開権限は人の承認レシートが正本である。
 
 CIのAction SHAは2026-08-27に公式tag/commitを照合した。checkout v5.1.0は <https://github.com/actions/checkout/commit/fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09>、setup-bun v2.2.0は <https://github.com/oven-sh/setup-bun/commit/0c5077e51419868618aeaa5fe8019c62421857d6>、upload-artifact v4.6.2は <https://github.com/actions/upload-artifact/commit/ea165f8d65b6e75b540449e92b4886f43607fa02>、download-artifact v4.3.0は <https://github.com/actions/download-artifact/commit/d3f86a106a0bac45b974a628896c90dbdf5c8093> を使う。PlaywrightはMCRのmulti-arch manifestからlinux/amd64 manifest digestを照合した。
@@ -29,6 +29,8 @@ CIのAction SHAは2026-08-27に公式tag/commitを照合した。checkout v5.1.0
 ## Baseline review receipt
 
 baseline PNGは検証入力であり、生成した本人が承認済みとは扱わない。QAはartifact内に `PENDING_HUMAN_REVIEW` の候補を生成するだけである。人による視覚レビュー結果は `baseline-review-receipt.schema.json` の形式で、対象commit、固定image digest、baseline version、18件のhash、reviewer、判定、確認日時を結び付ける。VoiceOverは別の `voiceover-review-receipt.schema.json` を使う。`release-gates.mjs` は両方のcommitted `APPROVE` が揃わない限り公開を停止する。現在は両方とも人手レビュー待ちである。
+
+releaseはtag名だけを信用しない。preflightでannotated tagを含めてcommitまでpeelし、固定した40桁SHAをQA・package・archiveへ渡す。publish直前にremote tagを再度peelし、同じSHAでなければ公開前に停止する。packageの `release-evidence.json` にtag、version、commit SHA、archive SHA-256を残す。
 
 VoiceOverの実音声は `VOICEOVER-CHECKLIST.md` の人手ゲートとして分離する。
 

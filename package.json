@@ -22,6 +22,7 @@
 		"test:live-demo:review-retake": "node prototype/quickmail-ja-live-demo/review-retake.test.mjs",
 		"test:live-demo:release-gates": "node prototype/quickmail-ja-live-demo/release-gates.mjs",
 		"test:live-demo:release-gates:unit": "node prototype/quickmail-ja-live-demo/release-gates.test.mjs",
+		"test:live-demo:release-tag-guard": "node prototype/quickmail-ja-live-demo/release-tag-guard.test.mjs",
 		"test:archive": "bun scripts/archive-smoke.mjs",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.check.json",

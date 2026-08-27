@@ -24,6 +24,7 @@ jobs:
     outputs:
       tag: ${{ steps.version.outputs.tag }}
       version: ${{ steps.version.outputs.version }}
+      commit_sha: ${{ steps.version.outputs.commit_sha }}
     steps:
       - name: Resolve and validate existing tag
         id: version
@@ -37,9 +38,22 @@ jobs:
             echo "Invalid release tag: $TAG" >&2
             exit 1
           fi
-          gh api --silent "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG}"
+          OBJECT_JSON="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG}")"
+          OBJECT_TYPE="$(jq -er '.object.type' <<<"$OBJECT_JSON")"
+          OBJECT_SHA="$(jq -er '.object.sha' <<<"$OBJECT_JSON")"
+          for _ in 1 2 3 4 5 6 7 8; do
+            [[ "$OBJECT_TYPE" == tag ]] || break
+            OBJECT_JSON="$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${OBJECT_SHA}")"
+            OBJECT_TYPE="$(jq -er '.object.type' <<<"$OBJECT_JSON")"
+            OBJECT_SHA="$(jq -er '.object.sha' <<<"$OBJECT_JSON")"
+          done
+          if [[ "$OBJECT_TYPE" != commit || ! "$OBJECT_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Tag does not peel to a full commit SHA: $TAG" >&2
+            exit 1
+          fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "commit_sha=$OBJECT_SHA" >> "$GITHUB_OUTPUT"
 
   live-demo-qa:
     name: Live demo visual and accessibility QA
@@ -57,7 +71,7 @@ jobs:
       # actions/checkout v5.1.0
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
-          ref: ${{ needs.preflight.outputs.tag }}
+          ref: ${{ needs.preflight.outputs.commit_sha }}
           persist-credentials: false
 
       # oven-sh/setup-bun v2.2.0
@@ -88,7 +102,7 @@ jobs:
       # actions/checkout v5.1.0
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
-          ref: ${{ needs.preflight.outputs.tag }}
+          ref: ${{ needs.preflight.outputs.commit_sha }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -133,15 +147,27 @@ jobs:
           git archive --format=zip \
             --prefix="quickmail-ja-${{ steps.version.outputs.version }}/" \
             -o "quickmail-ja-${{ steps.version.outputs.version }}.zip" \
-            "${{ needs.preflight.outputs.tag }}"
+            "${{ needs.preflight.outputs.commit_sha }}"
           unzip -l "quickmail-ja-${{ steps.version.outputs.version }}.zip" | tail -5
+          ARCHIVE_SHA="$(sha256sum "quickmail-ja-${{ steps.version.outputs.version }}.zip" | cut -d' ' -f1)"
+          jq -n \
+            --arg tag "${{ needs.preflight.outputs.tag }}" \
+            --arg version "${{ steps.version.outputs.version }}" \
+            --arg commitSha "${{ needs.preflight.outputs.commit_sha }}" \
+            --arg archiveSha256 "$ARCHIVE_SHA" \
+            '{tag:$tag,version:$version,commitSha:$commitSha,archiveSha256:$archiveSha256}' \
+            > release-evidence.json
+          cp prototype/quickmail-ja-live-demo/release-tag-guard.sh release-tag-guard.sh
 
       - name: Upload verified release package
         # actions/upload-artifact v4.6.2
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: quickmail-ja-release-${{ github.run_id }}
-          path: quickmail-ja-${{ steps.version.outputs.version }}.zip
+          path: |
+            quickmail-ja-${{ steps.version.outputs.version }}.zip
+            release-evidence.json
+            release-tag-guard.sh
           if-no-files-found: error
 
   publish:
@@ -160,7 +186,10 @@ jobs:
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.preflight.outputs.tag }}
+          EXPECTED_SHA: ${{ needs.preflight.outputs.commit_sha }}
         run: |
+          bash release-tag-guard.sh "$TAG" "$EXPECTED_SHA"
           gh release create "${{ needs.preflight.outputs.tag }}" \
             "quickmail-ja-${{ needs.preflight.outputs.version }}.zip" \
             --title "QuickMail-ja ${{ needs.preflight.outputs.tag }}" \

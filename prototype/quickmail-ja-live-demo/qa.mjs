@@ -33,6 +33,15 @@ function createArtifactDirectory(override) {
 				'artifact root must be a real directory'
 			);
 		} else {
+			const parent = path.dirname(root);
+			const parentStat = fs.statSync(parent);
+			assert.ok(parentStat.isDirectory(), 'artifact root parent must be a directory');
+			const realParent = fs.realpathSync(parent);
+			const prospectiveRoot = path.join(realParent, path.basename(root));
+			assert.ok(
+				prospectiveRoot.startsWith(`${tempRoot}${path.sep}`),
+				'QMJ12C_ARTIFACT_DIR must be a child of the real OS temporary directory'
+			);
 			fs.mkdirSync(root);
 		}
 		const realRoot = fs.realpathSync(root);
@@ -111,9 +120,21 @@ function dependencyVersion(name) {
 }
 
 fs.mkdirSync(path.join(artifacts, 'screenshots'), { recursive: true });
-const baselineStagingDirectory = updateBaselines
-	? fs.mkdtempSync(path.join(path.dirname(baselineDirectory), '.baseline-staging-'))
-	: null;
+let baselineStagingDirectory = null;
+
+function prepareBaselineStaging() {
+	if (!updateBaselines) return;
+	assert.equal(baselineStagingDirectory, null);
+	baselineStagingDirectory = fs.mkdtempSync(
+		path.join(path.dirname(baselineDirectory), '.baseline-staging-')
+	);
+}
+
+function cleanupBaselineStaging() {
+	if (baselineStagingDirectory && fs.existsSync(baselineStagingDirectory))
+		fs.rmSync(baselineStagingDirectory, { recursive: true });
+	baselineStagingDirectory = null;
+}
 
 function preflight() {
 	if (artifactSetup.preflightError) throw artifactSetup.preflightError;
@@ -152,7 +173,7 @@ function referenceEnvironmentGuard(chromiumVersion) {
 function compareBaseline(actualFile, filename) {
 	const baselineFile = path.join(baselineDirectory, filename);
 	const comparisonFile = updateBaselines
-		? path.join(baselineStagingDirectory, filename)
+		? path.join(assertBaselineStaging(), filename)
 		: baselineFile;
 	if (updateBaselines) {
 		fs.copyFileSync(actualFile, comparisonFile, fs.constants.COPYFILE_EXCL);
@@ -204,6 +225,14 @@ function compareBaseline(actualFile, filename) {
 	};
 }
 
+function assertBaselineStaging() {
+	assert.ok(
+		baselineStagingDirectory,
+		'baseline staging must be prepared after environment preflight'
+	);
+	return baselineStagingDirectory;
+}
+
 function finalizeBaselineUpdate() {
 	if (!updateBaselines) return null;
 	const expected = profiles
@@ -213,10 +242,10 @@ function finalizeBaselineUpdate() {
 			)
 		)
 		.sort();
-	const actual = fs.readdirSync(baselineStagingDirectory).sort();
+	const staging = assertBaselineStaging();
+	const actual = fs.readdirSync(staging).sort();
 	assert.deepEqual(actual, expected, 'baseline staging must contain the exact 18-file matrix');
-	for (const filename of actual)
-		PNG.sync.read(fs.readFileSync(path.join(baselineStagingDirectory, filename)));
+	for (const filename of actual) PNG.sync.read(fs.readFileSync(path.join(staging, filename)));
 	const backup = `${baselineDirectory}.backup-${crypto.randomUUID()}`;
 	let movedExisting = false;
 	try {
@@ -224,7 +253,8 @@ function finalizeBaselineUpdate() {
 			fs.renameSync(baselineDirectory, backup);
 			movedExisting = true;
 		}
-		fs.renameSync(baselineStagingDirectory, baselineDirectory);
+		fs.renameSync(staging, baselineDirectory);
+		baselineStagingDirectory = null;
 		if (movedExisting) fs.rmSync(backup, { recursive: true });
 	} catch (error) {
 		if (!fs.existsSync(baselineDirectory) && movedExisting && fs.existsSync(backup)) {
@@ -235,16 +265,16 @@ function finalizeBaselineUpdate() {
 	return { version: baselineVersion, files: expected };
 }
 
-function writeVisualReviewCandidate() {
+function writeVisualReviewCandidate(sourceDirectory = baselineDirectory) {
 	const screenshots = fs
-		.readdirSync(baselineDirectory)
+		.readdirSync(sourceDirectory)
 		.filter((filename) => filename.endsWith('.png'))
 		.sort()
 		.map((filename) => ({
 			file: filename,
 			sha256: crypto
 				.createHash('sha256')
-				.update(fs.readFileSync(path.join(baselineDirectory, filename)))
+				.update(fs.readFileSync(path.join(sourceDirectory, filename)))
 				.digest('hex')
 		}));
 	assert.equal(screenshots.length, 18);
@@ -502,29 +532,83 @@ async function axeScan(page, label) {
 	const seriousIncomplete = incompleteDetails.filter((item) =>
 		['serious', 'critical'].includes(item.impact)
 	);
-	const unreviewedIncomplete = seriousIncomplete.flatMap((item) =>
-		item.nodes.flatMap((node) => {
-			const target = node.target.join(' ');
-			const covered =
-				item.id === axeIncompleteReview.ruleId &&
-				item.impact === axeIncompleteReview.impact &&
-				axeIncompleteReview.failureSummaryFragments.some((fragment) =>
-					node.failureSummary?.includes(fragment)
-				) &&
-				axeIncompleteReview.allowedTargetFragments.some((fragment) => target.includes(fragment));
-			return covered ? [] : [{ id: item.id, impact: item.impact, ...node }];
-		})
-	);
-	assert.deepEqual(
-		unreviewedIncomplete,
-		[],
-		`${label} serious/critical axe incomplete results require a narrow evidence-backed review record`
+	const incompleteMeasurements = [];
+	for (const item of seriousIncomplete) {
+		assert.equal(item.id, axeIncompleteReview.ruleId, `${label} unexpected incomplete rule`);
+		assert.equal(item.impact, axeIncompleteReview.impact, `${label} unexpected incomplete impact`);
+		for (const node of item.nodes) {
+			assert.equal(node.target.length, 1, `${label} incomplete node must have one exact selector`);
+			const selector = node.target[0];
+			const measured = await page.locator(selector).evaluateAll((elements) => {
+				if (elements.length !== 1) return { matches: elements.length };
+				const element = elements[0];
+				const parseColor = (value) => {
+					const values = value.match(/[\d.]+/gu)?.map(Number) || [];
+					return [values[0], values[1], values[2], values[3] ?? 1];
+				};
+				const composite = (top, bottom) => {
+					const alpha = top[3] + bottom[3] * (1 - top[3]);
+					return [
+						(top[0] * top[3] + bottom[0] * bottom[3] * (1 - top[3])) / alpha,
+						(top[1] * top[3] + bottom[1] * bottom[3] * (1 - top[3])) / alpha,
+						(top[2] * top[3] + bottom[2] * bottom[3] * (1 - top[3])) / alpha,
+						alpha
+					];
+				};
+				const format = (color) => `rgb(${color.slice(0, 3).join(', ')})`;
+				const layers = [];
+				let current = element;
+				while (current) {
+					layers.push(parseColor(getComputedStyle(current).backgroundColor));
+					current = current.parentElement;
+				}
+				let background = [255, 255, 255, 1];
+				for (const layer of layers.reverse()) background = composite(layer, background);
+				const rawForeground = getComputedStyle(element).color;
+				const foreground = composite(parseColor(rawForeground), background);
+				return {
+					matches: 1,
+					foreground: format(foreground),
+					background: format(background),
+					rawForeground,
+					opacity: getComputedStyle(element).opacity
+				};
+			});
+			assert.equal(measured.matches, 1, `${label} ${selector} must identify exactly one node`);
+			assert.equal(measured.opacity, '1', `${label} ${selector} element opacity must be 1`);
+			const measuredRatio = ratio(measured.foreground, measured.background);
+			assert.ok(
+				measuredRatio >= axeIncompleteReview.evidence.minimumRatio,
+				`${label} ${selector} actual incomplete node contrast ${measuredRatio.toFixed(2)} must be >= ${axeIncompleteReview.evidence.minimumRatio}`
+			);
+			incompleteMeasurements.push({
+				ruleId: item.id,
+				impact: item.impact,
+				target: node.target,
+				html: node.html,
+				failureSummary: node.failureSummary,
+				foreground: measured.foreground,
+				background: measured.background,
+				rawForeground: measured.rawForeground,
+				ratio: measuredRatio,
+				fingerprint: crypto
+					.createHash('sha256')
+					.update(JSON.stringify([label, item.id, item.impact, node.target, node.html]))
+					.digest('hex')
+			});
+		}
+	}
+	assert.equal(
+		incompleteMeasurements.length,
+		seriousIncomplete.reduce((sum, item) => sum + item.nodes.length, 0),
+		`${label} every serious/critical incomplete node must have actual-cell evidence`
 	);
 	return {
 		label,
 		passes: result.passes.length,
 		incompleteCount: result.incomplete.length,
 		incomplete: incompleteDetails,
+		incompleteMeasurements,
 		reviewedIncompleteNodes: seriousIncomplete.reduce((sum, item) => sum + item.nodes.length, 0),
 		violations: result.violations.length
 	};
@@ -546,7 +630,7 @@ function rgb(value) {
 		/color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*[\d.]+)?\)/u
 	);
 	if (srgb) return srgb.slice(1, 4).map((channelValue) => Number(channelValue) * 255);
-	const match = String(value).match(/rgba?\((\d+)[, ]+(\d+)[, ]+(\d+)/u);
+	const match = String(value).match(/rgba?\(([\d.]+)[, ]+([\d.]+)[, ]+([\d.]+)/u);
 	assert.ok(match, `unsupported color: ${value}`);
 	return match.slice(1, 4).map(Number);
 }
@@ -837,6 +921,7 @@ async function runChromium() {
 		browser = await chromium.launch({ headless: true });
 		evidence.browserVersions.chromium = browser.version();
 		referenceEnvironmentGuard(browser.version());
+		prepareBaselineStaging();
 		context = await newContext(browser, snapshotWidths[0]);
 		await context.tracing.start({ screenshots: true, snapshots: true, sources: true });
 		traceStarted = true;
@@ -1038,9 +1123,11 @@ try {
 			webkit: expectedReferenceEnvironment.webkit
 		});
 	}
-	baselineUpdate = finalizeBaselineUpdate();
-	visualCandidatePath = writeVisualReviewCandidate();
+	visualCandidatePath = writeVisualReviewCandidate(
+		updateBaselines ? assertBaselineStaging() : baselineDirectory
+	);
 	voiceOverCandidatePath = writeVoiceOverReviewCandidate();
+	baselineUpdate = finalizeBaselineUpdate();
 } catch (error) {
 	failure = error;
 	evidence.failedCell ||= currentCell;
@@ -1052,77 +1139,89 @@ try {
 	});
 	fs.writeFileSync(path.join(artifacts, 'failure.log'), `${error.stack || error.message}\n`);
 } finally {
-	const flowLogPath = path.join(artifacts, 'ui-flow-log.json');
-	fs.writeFileSync(flowLogPath, JSON.stringify(flowLog, null, 2) + '\n');
-	const manifest = {
-		status: failure ? 'FAIL_AUTOMATED' : 'PASS_AUTOMATED_VOICEOVER_PENDING',
-		generatedAtFixtureClock: fixedClock,
-		environment: {
-			locale: 'ja-JP',
-			timezone: 'Asia/Tokyo',
-			deviceScaleFactor: 1,
-			platform: process.platform,
-			arch: process.arch,
-			osRelease: os.release(),
-			node: process.version,
-			pinnedReferenceContainer: pinnedContainer,
-			pinnedContainerTag,
-			pinnedImageDigest,
-			baselineVersion,
-			baselineMode,
-			allowedMismatchRatio,
-			updateBaselines
-		},
-		identity: {
-			commit: gitCommit(),
-			package: JSON.parse(fs.readFileSync(path.resolve(directory, '../..', 'package.json'), 'utf8'))
-				.version,
-			dependencies: {
-				playwright: dependencyVersion('playwright'),
-				axeCorePlaywright: dependencyVersion('@axe-core/playwright'),
-				pixelmatch: dependencyVersion('pixelmatch'),
-				pngjs: dependencyVersion('pngjs')
+	try {
+		const flowLogPath = path.join(artifacts, 'ui-flow-log.json');
+		fs.writeFileSync(flowLogPath, JSON.stringify(flowLog, null, 2) + '\n');
+		const manifest = {
+			status: failure ? 'FAIL_AUTOMATED' : 'PASS_AUTOMATED_VOICEOVER_PENDING',
+			generatedAtFixtureClock: fixedClock,
+			environment: {
+				locale: 'ja-JP',
+				timezone: 'Asia/Tokyo',
+				deviceScaleFactor: 1,
+				platform: process.platform,
+				arch: process.arch,
+				osRelease: os.release(),
+				node: process.version,
+				pinnedReferenceContainer: pinnedContainer,
+				pinnedContainerTag,
+				pinnedImageDigest,
+				baselineVersion,
+				baselineMode,
+				allowedMismatchRatio,
+				updateBaselines
 			},
-			browsers: evidence.browserVersions
-		},
-		matrix: {
-			axe: { expected: 48, completed: evidence.axeCells.length, cells: evidence.axeCells },
-			mobile: { expected: 24, completed: evidence.mobileCells.length, cells: evidence.mobileCells },
-			selectedScenarios: evidence.scenarioStructures,
-			browserSmoke: evidence.browserCells
-		},
-		screenshots: {
-			expected: 18,
-			completed: evidence.screenshots.length,
-			cells: evidence.screenshots
-		},
-		contrasts: evidence.contrasts,
-		errors: evidence.errors,
-		failedCell: evidence.failedCell,
-		failureScreenshot: evidence.failureScreenshot,
-		baselineUpdate,
-		artifacts: {
-			directory: artifacts,
-			trace: fs.existsSync(tracePath) ? tracePath : null,
-			screenshots: path.join(artifacts, 'screenshots'),
-			diffs: fs.existsSync(path.join(artifacts, 'diffs')) ? path.join(artifacts, 'diffs') : null,
-			failureLog: failure ? path.join(artifacts, 'failure.log') : null,
-			uiFlowLog: flowLogPath
-		},
-		visualReview: {
-			status: 'PENDING_HUMAN_REVIEW',
-			receiptSchema: path.join(directory, 'baseline-review-receipt.schema.json'),
-			candidate: visualCandidatePath
-		},
-		voiceOver: {
-			status: 'UNVERIFIED_HUMAN_GATE',
-			checklist: path.join(directory, 'VOICEOVER-CHECKLIST.md'),
-			receiptSchema: path.join(directory, 'voiceover-review-receipt.schema.json'),
-			candidate: voiceOverCandidatePath
-		}
-	};
-	fs.writeFileSync(path.join(artifacts, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
-	console.log(JSON.stringify(manifest, null, 2));
+			identity: {
+				commit: gitCommit(),
+				package: JSON.parse(
+					fs.readFileSync(path.resolve(directory, '../..', 'package.json'), 'utf8')
+				).version,
+				dependencies: {
+					playwright: dependencyVersion('playwright'),
+					axeCorePlaywright: dependencyVersion('@axe-core/playwright'),
+					pixelmatch: dependencyVersion('pixelmatch'),
+					pngjs: dependencyVersion('pngjs')
+				},
+				browsers: evidence.browserVersions
+			},
+			matrix: {
+				axe: { expected: 48, completed: evidence.axeCells.length, cells: evidence.axeCells },
+				mobile: {
+					expected: 24,
+					completed: evidence.mobileCells.length,
+					cells: evidence.mobileCells
+				},
+				selectedScenarios: evidence.scenarioStructures,
+				browserSmoke: evidence.browserCells
+			},
+			screenshots: {
+				expected: 18,
+				completed: evidence.screenshots.length,
+				cells: evidence.screenshots
+			},
+			contrasts: evidence.contrasts,
+			errors: evidence.errors,
+			failedCell: evidence.failedCell,
+			failureScreenshot: evidence.failureScreenshot,
+			baselineUpdate,
+			artifacts: {
+				directory: artifacts,
+				trace: fs.existsSync(tracePath) ? tracePath : null,
+				screenshots: path.join(artifacts, 'screenshots'),
+				diffs: fs.existsSync(path.join(artifacts, 'diffs')) ? path.join(artifacts, 'diffs') : null,
+				failureLog: failure ? path.join(artifacts, 'failure.log') : null,
+				uiFlowLog: flowLogPath
+			},
+			visualReview: {
+				status: 'PENDING_HUMAN_REVIEW',
+				receiptSchema: path.join(directory, 'baseline-review-receipt.schema.json'),
+				candidate: visualCandidatePath
+			},
+			voiceOver: {
+				status: 'UNVERIFIED_HUMAN_GATE',
+				checklist: path.join(directory, 'VOICEOVER-CHECKLIST.md'),
+				receiptSchema: path.join(directory, 'voiceover-review-receipt.schema.json'),
+				candidate: voiceOverCandidatePath
+			}
+		};
+		fs.writeFileSync(
+			path.join(artifacts, 'manifest.json'),
+			JSON.stringify(manifest, null, 2) + '\n'
+		);
+		console.log(JSON.stringify(manifest, null, 2));
+	} finally {
+		cleanupBaselineStaging();
+	}
 }
 
 if (failure) throw failure;
