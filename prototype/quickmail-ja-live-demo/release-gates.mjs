@@ -98,6 +98,7 @@ export function validateBaselineReceipt(receipt, { checkGit = true } = {}) {
 	assert.equal(receipt.containerImage, containerImage);
 	assert.equal(receipt.imageDigest, imageDigest);
 	reviewedAt(receipt.reviewedAt);
+	assertReviewNotBeforeCommit(receipt.reviewedCommit, receipt.reviewedAt);
 	nonEmpty(receipt.reviewer, 'reviewer');
 	assert.equal(receipt.decision, 'APPROVE');
 	assert.ok(Array.isArray(receipt.screenshots));
@@ -118,7 +119,6 @@ export function validateBaselineReceipt(receipt, { checkGit = true } = {}) {
 		);
 	}
 	if (checkGit) {
-		assertReviewNotBeforeCommit(receipt.reviewedCommit, receipt.reviewedAt);
 		assertGitReviewBoundary(receipt.reviewedCommit, [
 			'prototype/quickmail-ja-live-demo/index.html',
 			'prototype/quickmail-ja-live-demo/baselines'
@@ -142,6 +142,7 @@ export function validateVoiceOverReceipt(receipt, { checkGit = true } = {}) {
 	assert.equal(receipt.contentSha256, sha256(path.join(directory, 'index.html')));
 	assert.equal(receipt.checklistSha256, sha256(path.join(directory, 'VOICEOVER-CHECKLIST.md')));
 	reviewedAt(receipt.reviewedAt);
+	assertReviewNotBeforeCommit(receipt.reviewedCommit, receipt.reviewedAt);
 	nonEmpty(receipt.reviewer, 'reviewer');
 	assert.equal(receipt.decision, 'APPROVE');
 	exactKeys(receipt.environment, ['macosVersion', 'safariVersion', 'voiceOverVersion']);
@@ -161,7 +162,6 @@ export function validateVoiceOverReceipt(receipt, { checkGit = true } = {}) {
 		assert.equal(typeof item.notes, 'string');
 	}
 	if (checkGit) {
-		assertReviewNotBeforeCommit(receipt.reviewedCommit, receipt.reviewedAt);
 		assertGitReviewBoundary(receipt.reviewedCommit, [
 			'prototype/quickmail-ja-live-demo/index.html',
 			'prototype/quickmail-ja-live-demo/VOICEOVER-CHECKLIST.md'

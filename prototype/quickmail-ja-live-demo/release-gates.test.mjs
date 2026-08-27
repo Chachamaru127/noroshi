@@ -23,8 +23,19 @@ const validateVoiceOverSchema = ajv.compile(
 	JSON.parse(fs.readFileSync(path.join(directory, 'voiceover-review-receipt.schema.json'), 'utf8'))
 );
 const sha256 = (file) => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
-const commit = 'a'.repeat(40);
-const reviewedAt = '2026-08-27T00:00:00.000Z';
+const repoRoot = path.resolve(directory, '../..');
+const commit = execFileSync('git', ['rev-parse', 'HEAD'], {
+	cwd: repoRoot,
+	encoding: 'utf8'
+}).trim();
+const commitTime = Number(
+	execFileSync('git', ['show', '-s', '--format=%ct', commit], {
+		cwd: repoRoot,
+		encoding: 'utf8'
+	}).trim()
+);
+const reviewedAt = new Date(commitTime * 1000).toISOString();
+const beforeCommit = new Date((commitTime - 1) * 1000).toISOString();
 const baseline = {
 	reviewedCommit: commit,
 	baselineVersion: 'playwright-1.59.1-noble-linux-amd64',
@@ -46,24 +57,11 @@ assert.throws(() =>
 	validateBaselineReceipt({ ...baseline, decision: 'PENDING_HUMAN_REVIEW' }, { checkGit: false })
 );
 
-const repoRoot = path.resolve(directory, '../..');
-const currentCommit = execFileSync('git', ['rev-parse', 'HEAD'], {
-	cwd: repoRoot,
-	encoding: 'utf8'
-}).trim();
-const currentCommitTime = Number(
-	execFileSync('git', ['show', '-s', '--format=%ct', currentCommit], {
-		cwd: repoRoot,
-		encoding: 'utf8'
-	}).trim()
-);
-const beforeCurrentCommit = new Date((currentCommitTime - 1) * 1000).toISOString();
 assert.throws(
 	() =>
 		validateBaselineReceipt({
 			...baseline,
-			reviewedCommit: currentCommit,
-			reviewedAt: beforeCurrentCommit
+			reviewedAt: beforeCommit
 		}),
 	/reviewedAt must not predate reviewedCommit/u
 );
@@ -129,8 +127,7 @@ assert.throws(
 	() =>
 		validateVoiceOverReceipt({
 			...voiceOver,
-			reviewedCommit: currentCommit,
-			reviewedAt: beforeCurrentCommit
+			reviewedAt: beforeCommit
 		}),
 	/reviewedAt must not predate reviewedCommit/u
 );
