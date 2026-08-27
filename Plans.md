@@ -1,6 +1,6 @@
 # QuickMail-ja Repository Separation Plan
 
-Status: Local sanitized release candidate complete; market/plugin/UI plan added — implementation, public release, and deployment remain on HOLD
+Status: Local sanitized release candidate complete; extensible UI-profile redesign approved by the user for this local Breezing run — public release and deployment remain on HOLD
 Team validation mode: `subagent`
 
 ## Purpose
@@ -13,6 +13,10 @@ Separate an existing customer deployment from a publishable generic Japanese pro
 - No secret reads are required.
 - No destructive action against the existing production repository is permitted.
 - GitHub repository creation/push, Cloudflare deployment, DNS changes, production D1/R2 access, and external email sends are separate Risk Gates and are out of scope.
+- QMJ-12 implementation may add a pinned QA-only accessibility dependency after lockfile/license review; it may not add Fluent UI React, Material Web, Bolt, a vendor font, or another runtime design-system dependency.
+- Updating the public Pages comparison preview is an external deployment Risk Gate. It requires a final local review, exact artifact readback, and explicit approval immediately before deployment. It does not authorize email send, DNS, production Worker, D1, or R2 changes.
+- The currently deployed preview predates the generic-label and `noindex` contract. Treat it as a known non-compliant baseline and do not describe or share it as the approved comparison until a reviewed artifact is explicitly approved and redeployed.
+- QMJ-13 participant outreach is an external-contact Risk Gate. Collect only anonymous usage categories, never names, email addresses, recordings, or mailbox content, and request approval before inviting participants.
 
 ## Task graph
 
@@ -355,12 +359,31 @@ Binary DoD:
 
 Priority: Required
 Depends on: QMJ-7; may run in parallel with QMJ-8 through QMJ-11
-Status: In progress — interactive comparison prototype complete; full evaluation gates remain
+Status: Planned refinement — current interactive prototype is the baseline; token, structure, public-label, and evaluation gates below remain
 
-- Capture the existing light/dark baseline at 1440x900, 1024x768, and 390x844.
-- Build the `calm`, `command`, and `classic` concepts from one synthetic Japanese fixture and one interaction contract. In the user-approved development-only comparison demo, label the selector buttons exactly `Gmail風`, `Outlook風`, and `Thunderbird風`; production naming remains generic.
+Spec delta:
+
+- Replace vendor imitation language with three QuickMail-ja-owned patterns informed by Material 3, Fluent 2, and Thunderbird/Bolt primary sources.
+- Separate one shared visual theme from statically registered layout profiles. The user-provided hex values are not adopted as official or local pattern palettes.
+- Make future comparison patterns additive through a minimal `UIProfile` registry, delta document, renderer, and tests; reject a general plugin/theme SDK until a concrete second consumer requires it.
+- Limit pre-selection parity to comparable inbox, selected-message, and compose states. Move the exhaustive state matrix to the selected production pattern in QMJ-14.
+- Change publicly reachable selector labels from vendor-style names to `シンプル`, `3ペイン`, and `高密度`; keep the vendor mapping only in sources and local evaluator notes.
+
+Planning classification:
+
+| Class | Decision | Why | User-visible effect | Gate |
+|---|---|---|---|---|
+| Required | Shared visual theme plus statically registered UI profiles | Keeps common styling centralized while allowing structural layouts to be added without cloning the app | New comparison patterns have a defined, bounded extension point | QMJ-12A–12B |
+| Required | Structure/geometry, keyboard, axe, contrast, responsive, and network contracts | A CSS marker or screenshot alone cannot prove a usable mail client | Each profile is measurably distinct and operable | QMJ-12B–12C |
+| Recommended | Keep the existing static HTML/CSS/JS comparison prototype and defer Svelte production integration to QMJ-14; add only pinned QA tooling | A second demo implementation would create drift; Material Web is in maintenance mode and Bolt tokens are not release-ready | One comparison implementation and no extra runtime UI framework | Dependency review |
+| Optional | View official Figma kits as human reference only | They can speed visual study without introducing asset provenance risk | No kit asset is shipped | Manual reference |
+| Reject | Dynamic theme plugins, third-party profile loading, three production runtime themes, vendor palettes/fonts/logos/screenshots, pixel clones, or checked-in Figma exports | They solve no current user need and add maintenance, security, and trademark risk | Public UI remains QuickMail-ja and the extension contract stays small | Static and visual review |
+
+- Capture the existing light/dark baseline at 1440x900, 1024x768, and 390x844 before visual changes.
+- Build the `calm`, `command`, and `classic` concepts from one synthetic Japanese fixture and one interaction contract. A publicly reachable preview labels them `シンプル`, `3ペイン`, and `高密度`; vendor-style comparison names remain local evaluation notes only.
 - Keep prototypes development-only and out of production routes and bundle.
-- Cover selection, body, compose, loading, empty, error, success, offline, long Japanese subject, attachment, and HTML body states.
+- Keep one QuickMail-ja visual theme across all profiles. Compare information architecture rather than vendor colors or assets.
+- Use official Fluent 2, Material 3, and Thunderbird/Bolt sources as design references only. Keep a shared QuickMail-ja theme source plus statically registered profile deltas; add no runtime vendor design-system dependency.
 
 Completed prototype scope (2026-08-27):
 
@@ -369,15 +392,24 @@ Completed prototype scope (2026-08-27):
 
 Remaining before QMJ-12 completion:
 
-- Complete the full state matrix above at 1440x900 and 1024x768 as well as 390x844.
-- Verify the complete keyboard flow through message body and reply, run axe with 0 serious/critical violations, and record WCAG AA text/form/button contrast results.
+| Task | 内容 | DoD | Depends | Status |
+|---|---|---|---|---|
+| QMJ-12A | `[lane:fast] [stage:foundation] [tdd:skip:docs-only]` Add `sources.md`, shared `base.DESIGN.md`, and `calm/command/classic.DESIGN.md`; define the minimal static `UIProfile` contract and explicit non-goals. | Source roles and local values are separated; runtime registry fields are limited to ID, label, renderer, and optional evaluator description; profile files contain layout deltas; dynamic plugins, remote themes, and production multi-profile switching are excluded. | QMJ-7 | cc:TODO |
+| QMJ-12B | `[lane:gate] [stage:tdd-implementation] [tdd:required]` Improve the existing static demo through one minimal `UIProfile` registry and three renderers; keep metrics/breakpoints in DESIGN.md, CSS/renderers, and RED contract tests rather than registry data. | Generic IDs/labels, profile isolation, all three fixed viewport structures, state preservation, row metrics, `noindex`, notice, same-origin passive network, and 0 new runtime design-system dependencies pass. | QMJ-12A | cc:TODO |
+| QMJ-12C | `[lane:gate] [stage:verification] [tdd:required]` Add bounded accessibility, responsive, contrast, deterministic snapshot, and browser-functional coverage without duplicating the UI implementation. | The 48-run axe contract, WCAG ratios, VoiceOver smoke, 18 default snapshots, keyboard/focus flow, overflow, reduced motion, and Chromium/Firefox/WebKit functional checks meet the Binary DoD. | QMJ-12B | cc:TODO |
+| QMJ-12D | `[lane:gate] [stage:review] [tdd:skip:independent-review]` Run integrated scope, UI, security, accessibility, regression, and skeptic reviews; fix and re-review up to three iterations. | Independent reviewers return APPROVE with no unresolved P0/P1; full local checks pass; Plans/spec alignment is read back; no deploy occurs. | QMJ-12C | cc:TODO |
 
 Binary DoD:
 
-- All three patterns render the same fixtures and states at 1440px, 1024px, and 390px in light and dark mode.
-- Horizontal overflow is 0; touch targets are at least 44px; keyboard flow reaches navigation, message selection, body, and reply.
-- axe serious/critical violations are 0 and text/form/button contrast meets WCAG AA.
-- Mail-client vendor logos, proprietary fonts, screenshots, trademark images, and production imports of prototype code are 0. The only exception is the three equal-size bundled Remix Icon marks used beside the permanent ChatGPT, Claude, and Gemini consultation text labels; it does not extend to layout branding.
+- All three patterns render the same inbox, selected-message, and compose fixtures at 1440px, 1024px, and 390px in light and dark mode; 18 deterministic default-state snapshots are reviewed.
+- Chromium on the pinned CI OS/browser/DPR/locale/timezone/fixture clock is the QMJ-12 pixel baseline with animation and caret disabled; Firefox/WebKit run functional, overflow, and axe smoke.
+- Structural tests assert each pattern's pane count, pane width, row-height range, and search/compose/command/filter placement rather than checking only a CSS marker.
+- Horizontal overflow is 0; mobile touch targets are at least 44px; keyboard flow reaches search, compose, navigation, message selection, body, and reply and restores focus after dialog or pattern changes.
+- axe serious/critical and WCAG A/AA moderate violations are 0 for the specified 48 runs unless a dated waiver names the owner, reason, and expiry.
+- Normal text contrast is at least 4.5:1; large text, component boundaries, and focus indicators are at least 3:1. Light/dark default, hover, focus, selected, unread, and disabled states are recorded.
+- One VoiceOver/Safari smoke per pattern verifies search, folder navigation, unread/selected announcement, message body, reply/back, compose validation, and error/offline live regions; automated accessible-name/state tests complement but do not replace it.
+- Public preview has both `<meta name="robots" content="noindex,nofollow">` and a Pages `_headers` `X-Robots-Tag` rule, a persistent unofficial/no-real-mail notice, generic pattern labels, and 0 external font requests. Page load and passive operation are same-origin only; fixed ChatGPT, Claude, and Gemini navigation is permitted only after the existing explicit user gesture and safety validation. Deployed HTML and headers are read back before the preview is called compliant.
+- Mail-client vendor names in public selector labels, logos, proprietary fonts, screenshots, trademark images, exact vendor palettes, checked-in Figma exports, new runtime design-system dependencies, and production imports of prototype code are 0. The only vendor-mark exception is the three equal-size bundled Remix Icon marks used beside the permanent ChatGPT, Claude, and Gemini consultation text labels; it does not extend to layout branding.
 
 #### QMJ-13 — UI evaluation and one-system decision
 
@@ -385,14 +417,15 @@ Priority: Required
 Depends on: QMJ-12
 Status: Not started
 
-- Run the same five tasks: initial comprehension, inbox scan, folder move, message inspection, and reply start.
-- Record time, confusion, and misoperation with up to five Japanese small-organization operators.
-- Score familiarity, information density, mobile behavior, keyboard/accessibility, and maintenance cost.
+- Run the same seven tasks: initial comprehension, inbox scan, search, folder move, message inspection, reply start, and compose-to-draft.
+- Record time, confusion, and misoperation with three to five Japanese small-organization operators; fewer than three may be recorded as discovery but cannot select a pattern.
+- Before outreach, define each task's success, confusion/misoperation counting, rating scale, weights, tie-breaker, and product-owner decision rule. Counterbalance the presentation order and record only anonymous usage categories. Score task completion, time, confusion, misoperation, reuse intent, information density, mobile behavior, keyboard/accessibility, and maintenance cost; do not treat a five-person mean as statistical proof.
 - Record the selected pattern and rejection reasons in an ADR.
 
 Binary DoD:
 
-- All participants run the same fixture and five tasks.
+- All participants run the same fixture and seven tasks.
+- Three to five participants complete the study; discovery with fewer than three does not open the selection gate.
 - One pattern has a recorded accept decision and two have explicit rejection reasons.
 - Production integration references one design system only; runtime vendor-style switching remains absent.
 
@@ -406,11 +439,12 @@ Status: Not started
 - Add Playwright/axe visual and functional smoke with temporary local D1 and fake providers.
 - Ensure inbox/API failures are visible and preserve user selection where recovery is possible.
 - Extend clean-template, archive, and CI checks to plugin/adapters/design assets.
+- Complete loading, empty, error, success, offline, long-Japanese, attachment, HTML, reduced-motion, dark, mobile, keyboard, screen-reader, and contrast states for the selected pattern at 1440x900, 1024x768, and 390x844.
 
 Binary DoD:
 
-- Existing 254 tests remain represented; full suite, D1 race, type, format, clean-template, build, archive, and diff checks pass.
-- Chromium/Firefox/WebKit functional smoke and 18 representative visual snapshots pass with external network denied.
+- The full pre-implementation test manifest remains represented; full suite, D1 race, type, format, clean-template, build, archive, and diff checks pass.
+- Eighteen selected-pattern snapshots pass: 3 states × 3 widths × 2 themes. Chromium on the pinned CI OS/browser/DPR/locale/timezone/fixture clock is the pixel baseline with animation and caret disabled; Firefox/WebKit run functional, overflow, and axe smoke with external network denied.
 - Production bundle contains 0 unselected design-system dependency, 0 design-lab route, and 0 external Google Fonts request.
 - Independent product, accessibility, QA, skeptic, and security reviewers return APPROVE with no unresolved P0/P1.
 
