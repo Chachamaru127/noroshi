@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow,noarchive,nosnippet,noimageindex">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-Cc9Ugbcv7Bu3jDfBOZAbBUupVUTm4uCdZLWbP3387Lo='; img-src data:; connect-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-GXfBMkY46I2hlcwNSH+vz9W78hSCq3nKFsobHD7qn6I='; img-src data:; connect-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="color-scheme" content="light dark">
   <title>QuickMail-ja 操作可能デモ</title>
   <style>
@@ -369,7 +369,7 @@
     function aiPrompt(question, provider) {
       const service = provider || "選択したAIサービス";
       const handoff = provider === "Gemini"
-        ? "質問文をコピーしたあとGeminiを開きます。新規チャットへ貼り付けてください。"
+        ? "質問文をコピーしたあとGeminiを開くよう端末に要求します。新規チャットへ貼り付けてください。"
         : "質問文をコピーし、新規チャットの入力欄へ受け渡します。内容を確認してから送信してください。";
       return "QuickMail-jaの導入を支援してください。\n" +
         "回答前にCloudflareとResendの最新の公式ドキュメントを確認し、画面名は日本語で説明してください。\n" +
@@ -379,9 +379,9 @@
     }
 
     const AI_PROVIDERS = Object.freeze({
-      ChatGPT:{base:"https://chatgpt.com/",prefill:true},
-      Claude:{base:"https://claude.ai/new",prefill:true},
-      Gemini:{base:"https://gemini.google.com/app",prefill:false}
+      ChatGPT:{href:"https://chatgpt.com/",prefill:true},
+      Claude:{href:"https://claude.ai/new",prefill:true},
+      Gemini:{href:"https://gemini.google.com/app",prefill:false}
     });
 
     function sensitiveReason(value) {
@@ -419,7 +419,45 @@
     function providerUrl(provider, prompt) {
       const config = AI_PROVIDERS[provider];
       if (!config) return "";
-      return config.base + (config.prefill ? "?q=" + encodeURIComponent(prompt) : "");
+      const destination = new URL(config.href);
+      if (config.prefill) destination.searchParams.set("q",prompt);
+      return destination.toString();
+    }
+
+    function isAllowedProviderUrl(provider, value) {
+      const config = AI_PROVIDERS[provider];
+      if (!config) return false;
+      try {
+        const candidate = new URL(value);
+        const allowed = new URL(config.href);
+        const keys = [...candidate.searchParams.keys()];
+        const queryIsAllowed = config.prefill
+          ? keys.length === 1 && keys[0] === "q" && candidate.searchParams.get("q") !== null
+          : keys.length === 0;
+        return candidate.protocol === "https:" &&
+          !candidate.username && !candidate.password &&
+          candidate.origin === allowed.origin &&
+          candidate.pathname === allowed.pathname &&
+          candidate.hash === "" && queryIsAllowed;
+      } catch (error) {
+        return false;
+      }
+    }
+
+    function requestProviderLaunch(url) {
+      const link = document.createElement("a");
+      link.href = url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.referrerPolicy = "no-referrer";
+      link.hidden = true;
+      link.setAttribute("aria-hidden","true");
+      document.body.appendChild(link);
+      try {
+        link.click();
+      } finally {
+        link.remove();
+      }
     }
 
     function aiLogo(provider) {
@@ -699,7 +737,7 @@
         case "AI_PREVIEW":
           next.ai.provider = action.provider;
           next.ai.error = action.error || "";
-          next.toast = action.message || action.provider + "を新しいタブで開きました。内容を確認するまで送信されません";
+          next.toast = action.message || action.provider + "を開くよう端末に要求しました。画面と内容を確認するまで送信されません";
           return next;
         case "IMPORT_DEMO":
           next.admin.importStatus = "128件を検出・取り込み準備完了（デモ）";
@@ -733,7 +771,7 @@
 
     async function handoffAI(provider) {
       if (!Object.prototype.hasOwnProperty.call(AI_PROVIDERS, provider)) {
-        dispatch({type:"AI_PREVIEW",provider:"",error:"許可されていないAIサービスです",message:"外部画面は開いていません"});
+        dispatch({type:"AI_PREVIEW",provider:"",error:"許可されていないAIサービスです",message:"外部サービスへの起動要求は行っていません"});
         return;
       }
       const question = state.ai.question.trim();
@@ -744,9 +782,8 @@
       }
       const prompt = aiPrompt(question, provider);
       const url = providerUrl(provider, prompt);
-      const config = AI_PROVIDERS[provider];
-      if (!url || !url.startsWith(config.base)) {
-        dispatch({type:"AI_PREVIEW",provider:provider,error:"遷移先を検証できません",message:"外部画面は開いていません"});
+      if (!isAllowedProviderUrl(provider,url)) {
+        dispatch({type:"AI_PREVIEW",provider:provider,error:"遷移先を検証できません",message:"外部サービスへの起動要求は行っていません"});
         return;
       }
       let copy;
@@ -757,18 +794,18 @@
       } catch (error) {
         copy = Promise.reject(error);
       }
-      const opened = window.open(url,"_blank");
-      if (opened) opened.opener = null;
-      if (!opened) {
+      try {
+        requestProviderLaunch(url);
+      } catch (error) {
         await copy.catch(function(){});
-        dispatch({type:"AI_PREVIEW",provider:provider,error:"新しいタブを開けませんでした。ブラウザでポップアップを許可して、同じボタンをもう一度押してください",message:"外部画面は開いていません"});
+        dispatch({type:"AI_PREVIEW",provider:provider,error:"外部サービスへの起動要求を処理できませんでした",message:"外部サービスへの起動要求は行っていません"});
         return;
       }
       try {
         await copy;
-        dispatch({type:"AI_PREVIEW",provider:provider,message:provider + "を別タブで開き、質問文をコピーしました。内容確認後にご自身で送信してください"});
+        dispatch({type:"AI_PREVIEW",provider:provider,message:provider + "を開くよう端末に要求し、質問文をコピーしました。画面が開いたことを確認し、内容確認後にご自身で送信してください"});
       } catch (error) {
-        dispatch({type:"AI_PREVIEW",provider:provider,message:provider + "を別タブで開きました。コピーできなかったため、下の質問文を手動でコピーしてください"});
+        dispatch({type:"AI_PREVIEW",provider:provider,message:provider + "を開くよう端末に要求しました。コピーできなかったため、画面が開いたことを確認し、下の質問文を手動でコピーしてください"});
       }
     }
 
@@ -807,7 +844,7 @@
         const active = state.view === "folder" && state.activeMailId === folder.id;
         return '<div class="folder-row"><button class="nav-btn' + (active ? ' active' : '') + '" data-action="folder-open" data-id="' + esc(folder.id) + '"><span class="nav-icon">▰</span><span>' + esc(folder.name) + '</span>' + (count ? '<span class="count">' + count + '</span>' : '') + '</button><button class="icon-button folder-tools" data-action="folder-menu" data-id="' + esc(folder.id) + '" aria-label="' + esc(folder.name) + 'を編集">•••</button></div>';
       }).join("");
-      return '<div class="demo-banner"><span class="demo-dot"></span><span>操作可能デモ — メール送信・データ保存・外部API通信は実行しません。AI相談ボタンだけ外部サービスを開きます</span></div>' +
+      return '<div class="demo-banner"><span class="demo-dot"></span><span>操作可能デモ — メール送信・データ保存・外部API通信は実行しません。AI相談ボタンだけ外部サービスへの移動を要求します</span></div>' +
         '<div class="app" data-theme="' + esc(state.theme === "system" ? "light" : state.theme) + '" data-layout="' + esc(state.layout) + '">' +
         '<aside class="sidebar" aria-label="メールメニュー">' +
           '<div class="brand"><span class="brand-mark">✉</span><span>QuickMail-ja</span></div>' +
@@ -1020,11 +1057,11 @@
             '<form class="inline-form one" data-form="key"><input class="text-input" name="name" placeholder="キーの名前"><select class="select-input" name="scope"><option>読み取り</option><option>読み書き</option></select><button class="button-primary">新規作成</button></form>' +
             (s.demoKey ? '<div class="demo-notice" style="margin-top:.8rem">今回だけ表示: <strong>' + esc(s.demoKey) + '</strong><br>デモ文字列であり、APIでは使用できません。</div>' : '') +
           '</section>' +
-          '<section class="card wide"><h2>◇ 導入についてAIに質問</h2><p class="hint">クリックすると質問文のコピーを開始し、選んだAIの新規チャットを別タブで開きます。自動送信はしません。ロゴはRemix Icon 4.9.1（Apache-2.0）由来です。</p><label class="sr-only" for="ai-question">AIへの質問</label><input id="ai-question" class="text-input" data-input="ai-question" value="' + esc(state.ai.question) + '" maxlength="160" placeholder="導入について聞きたいこと（160文字以内）" aria-label="AIへの質問">' +
+          '<section class="card wide"><h2>◇ 導入についてAIに質問</h2><p class="hint">クリックすると質問文のコピーを開始し、選んだAIの新規チャットを別画面で開くよう端末に要求します。自動送信はしません。ロゴはRemix Icon 4.9.1（Apache-2.0）由来です。</p><label class="sr-only" for="ai-question">AIへの質問</label><input id="ai-question" class="text-input" data-input="ai-question" value="' + esc(state.ai.question) + '" maxlength="160" placeholder="導入について聞きたいこと（160文字以内）" aria-label="AIへの質問">' +
             '<div class="ai-provider-grid" aria-label="質問先ごとの受け渡し方法">' +
               '<button class="ai-provider' + (state.ai.provider === 'ChatGPT' ? ' active' : '') + '" data-action="ai-handoff" data-provider="ChatGPT"><span class="ai-provider-head">' + aiLogo('ChatGPT') + '<strong>ChatGPTに聞く</strong></span><span>質問文をコピーし、qパラメータで新規チャットへ入力します。</span></button>' +
               '<button class="ai-provider' + (state.ai.provider === 'Claude' ? ' active' : '') + '" data-action="ai-handoff" data-provider="Claude"><span class="ai-provider-head">' + aiLogo('Claude') + '<strong>Claudeに聞く</strong></span><span>質問文をコピーし、qパラメータで新規チャットへ入力します。</span></button>' +
-              '<button class="ai-provider' + (state.ai.provider === 'Gemini' ? ' active' : '') + '" data-action="ai-handoff" data-provider="Gemini"><span class="ai-provider-head">' + aiLogo('Gemini') + '<strong>Geminiに聞く</strong></span><span>質問文をコピーして新規チャットを開きます。貼り付けてください。</span></button>' +
+              '<button class="ai-provider' + (state.ai.provider === 'Gemini' ? ' active' : '') + '" data-action="ai-handoff" data-provider="Gemini"><span class="ai-provider-head">' + aiLogo('Gemini') + '<strong>Geminiに聞く</strong></span><span>質問文をコピーし、新規チャットを開くよう端末に要求します。貼り付けてください。</span></button>' +
             '</div><div class="ai-disclosure"><strong>外部サービスへ渡る情報</strong><br>ChatGPT・Claudeでは質問文がURLのqパラメータに入り、ブラウザ履歴やアクセスログ、各社側の履歴・データ保持対象になる場合があります。Geminiでは質問文をクリップボードへコピーし、貼り付けは利用者が行います。いずれも利用者自身のアカウント、契約プラン、プライバシー設定、各社の利用規約・保持ポリシーが適用されます。秘密情報・個人情報は入力しないでください。</div>' + (state.ai.error ? '<div class="ai-risk" role="alert">外部引渡しを停止しました: ' + esc(state.ai.error) + '。</div>' : '') + '<div class="prompt-preview" data-ai-preview aria-live="polite">AIへ渡す質問文' + (state.ai.provider ? '（' + esc(state.ai.provider) + '向け）' : '') + '\n\n' + esc(prompt) + '</div></section>' +
         '</div>' +
       '</section>';

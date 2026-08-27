@@ -7,4 +7,4 @@
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Resource-Policy: same-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), clipboard-read=(), clipboard-write=(self)
-  Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-Cc9Ugbcv7Bu3jDfBOZAbBUupVUTm4uCdZLWbP3387Lo='; img-src data:; connect-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox
+  Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-GXfBMkY46I2hlcwNSH+vz9W78hSCq3nKFsobHD7qn6I='; img-src data:; connect-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox
