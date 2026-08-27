@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow,noarchive,nosnippet,noimageindex">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-GXfBMkY46I2hlcwNSH+vz9W78hSCq3nKFsobHD7qn6I='; img-src data:; connect-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-LWhXBYIZ1oPDIoijap/UNiNYKDHlUrw1FhREpvujRTg='; img-src data:; connect-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="color-scheme" content="light dark">
   <title>QuickMail-ja 操作可能デモ</title>
   <style>
@@ -141,6 +141,7 @@
     .mail-row.unread { background:color-mix(in srgb,var(--accent) 7%,var(--surface)); }
     .mail-row:hover { background:var(--surface-2); }
     .select-box { width:17px; height:17px; accent-color:var(--accent-2); }
+    .select-hit { display:grid; place-items:center; }
     .star { color:#aeb5b1; background:transparent; border:0; font-size:1rem; }
     .star.on { color:#d5a82d; }
     .row-avatar { display:grid; place-items:center; width:36px; height:36px; padding:0; border:0; border-radius:50%; color:#365143; background:var(--surface-3); font-weight:700; }
@@ -152,6 +153,31 @@
     .row-date { color:var(--muted); font-size:.72rem; white-space:nowrap; }
     .mail-open { display:flex; align-items:center; min-width:0; padding:.25rem 0; color:inherit; background:transparent; border:0; text-align:left; cursor:pointer; }
     .tag { display:inline-flex; align-items:center; min-height:20px; padding:0 .4rem; color:var(--sub); background:var(--surface-2); border-radius:999px; font-size:.65rem; }
+    .gmail-single-list { display:block; }
+    [data-layout="gmail"] .mailbox-page { width:min(1060px,calc(100% - 2.5rem)); }
+    [data-layout="gmail"] .gmail-single-list .mail-row { min-height:78px; padding:.75rem .9rem; }
+    .outlook-three-pane { display:grid; grid-template-columns:minmax(320px,38%) minmax(0,1fr); min-height:620px; background:var(--surface); border:1px solid var(--line); border-radius:5px; overflow:hidden; }
+    .outlook-list-pane { min-width:0; border-right:1px solid var(--line); }
+    .outlook-list-pane .toolbar { border:0; border-bottom:1px solid var(--line); border-radius:0; }
+    .outlook-list-pane .mail-list { border:0; border-radius:0; }
+    [data-layout="outlook"] .mailbox-page { width:calc(100% - 1.1rem); max-width:none; margin:0 .55rem; }
+    [data-layout="outlook"] .outlook-list-pane .mail-row { grid-template-columns:24px 24px minmax(0,1fr) auto; min-height:74px; padding:.5rem .55rem; }
+    [data-layout="outlook"] .outlook-list-pane .row-avatar,
+    [data-layout="outlook"] .outlook-list-pane .sender { display:none; }
+    [data-layout="outlook"] .outlook-list-pane .subject { display:grid; gap:.08rem; }
+    [data-layout="outlook"] .outlook-list-pane .subject-main::before { content:attr(data-sender); display:block; margin-bottom:.08rem; color:var(--text); font-size:.78rem; }
+    .outlook-preview-pane { min-width:0; padding:1.3rem 1.45rem; background:var(--surface); }
+    .outlook-preview-pane .preview-kicker { margin:0 0 .45rem; color:var(--muted); font-size:.7rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
+    .outlook-preview-pane h2 { margin:0; font-size:1.25rem; }
+    .outlook-preview-meta { margin:.65rem 0 1.2rem; padding-bottom:.8rem; color:var(--sub); border-bottom:1px solid var(--line); font-size:.76rem; }
+    .outlook-preview-body { max-width:68ch; white-space:pre-wrap; font-size:.85rem; }
+    .outlook-preview-actions { display:flex; gap:.45rem; margin-top:1.2rem; }
+    .thunderbird-table { background:var(--surface); border:1px solid var(--line); border-radius:5px; overflow:hidden; }
+    [data-layout="thunderbird"] .mailbox-page { width:calc(100% - 1rem); max-width:none; margin:0 .5rem; }
+    .thunderbird-columns { display:grid; grid-template-columns:24px 22px 28px 132px minmax(0,1fr) 88px; gap:.35rem; align-items:center; min-height:32px; padding:0 .45rem; color:var(--sub); background:var(--surface-2); border-bottom:1px solid var(--line); font-size:.68rem; font-weight:700; }
+    .thunderbird-table .toolbar { min-height:40px; border:0; border-bottom:1px solid var(--line); border-radius:0; }
+    .thunderbird-table .mail-list { border:0; border-radius:0; }
+    [data-layout="thunderbird"] .thunderbird-table .mail-row { min-height:44px; border-top:1px solid var(--line); }
     .empty { display:grid; place-items:center; min-height:360px; color:var(--muted); background:var(--surface); border:1px solid var(--line); border-radius:14px; }
     .card { padding:1.25rem; background:var(--surface); border:1px solid var(--line); border-radius:var(--layout-radius,18px); box-shadow:var(--shadow); }
     .card + .card { margin-top:1rem; }
@@ -238,8 +264,18 @@
       .account-copy { display:none; }
       .page,.page.narrow { width:calc(100% - 1.25rem); padding-top:.85rem; padding-bottom:5.5rem; }
       .topbar { padding:0 .65rem; }
-      .mail-row { grid-template-columns:28px 32px minmax(0,1fr) auto; min-height:78px; }
+      [data-layout="gmail"] .mailbox-page,
+      [data-layout="outlook"] .mailbox-page,
+      [data-layout="thunderbird"] .mailbox-page { width:calc(100% - 1.25rem); max-width:none; margin:0 auto; }
+      .outlook-three-pane { display:block; min-height:0; border:0; border-radius:0; overflow:visible; }
+      .outlook-list-pane { border-right:0; }
+      .outlook-preview-pane,.thunderbird-columns { display:none; }
+      .thunderbird-table { border:0; border-radius:0; overflow:visible; }
+      .mail-row,
+      [data-layout="outlook"] .outlook-list-pane .mail-row,
+      [data-layout="thunderbird"] .thunderbird-table .mail-row { grid-template-columns:44px 44px minmax(0,1fr) auto; min-height:76px; padding:.45rem .35rem; gap:.25rem; }
       .mail-row .select-wrap,.mail-row .sender { display:none; }
+      [data-layout="outlook"] .outlook-list-pane .row-avatar { display:grid; }
       .subject { display:grid; gap:.15rem; }
       .subject-main::before { content:attr(data-sender); display:block; color:var(--text); font-size:.8rem; }
       .settings-grid,.admin-grid { grid-template-columns:1fr; }
@@ -264,14 +300,27 @@
       .mobile-drawer h2 { margin:.15rem .4rem .55rem; font-size:.85rem; }
       .mobile-drawer .nav + h2 { margin-top:1rem; }
       .ai-provider-grid { grid-template-columns:1fr; }
+      button,.button,.button-primary,.button-danger,.button.small,.button-primary.small,
+      .icon-button,.folder-add,.folder-row .folder-tools,.nav-btn,.filter-pill,.search-go,
+      .account-button,.row-avatar,.star,.mail-open,.mobile-nav button { min-width:44px; min-height:44px; }
+      .select-wrap,.select-hit { width:44px; height:44px; place-items:center; }
+      .select-box { width:18px; height:18px; min-height:18px; }
+      input:not([type="hidden"]),select,textarea,.search-input { min-height:44px; }
+      input.select-box { min-height:18px; }
+      .modal-actions button { min-height:44px; }
     }
     @media (max-width:520px) {
-      .demo-banner { justify-content:flex-start; font-size:.68rem; }
+      .demo-banner { height:56px; justify-content:flex-start; font-size:.64rem; line-height:1.25; }
+      .app { padding-top:56px; }
+      .topbar { top:56px; }
+      .mobile-drawer-backdrop { inset:56px 0 0; }
       .page-head { align-items:flex-start; }
       .toolbar { flex-wrap:wrap; }
       .toolbar .spacer { display:none; }
-      .mail-row { padding:.55rem .45rem; gap:.35rem; }
-      .row-avatar { width:32px; height:32px; }
+      .mail-row,
+      [data-layout="outlook"] .outlook-list-pane .mail-row,
+      [data-layout="thunderbird"] .thunderbird-table .mail-row { padding:.45rem .25rem; gap:.2rem; }
+      .row-avatar { width:44px; height:44px; }
       .reply-actions,.compose-foot { flex-wrap:wrap; }
       .compose-foot .spacer { display:none; }
       .compose-foot .button-primary { width:100%; order:-1; }
@@ -750,6 +799,7 @@
 
     let state = clone(INITIAL_STATE);
     const root = document.getElementById("app");
+    let dialogTrigger = null;
 
     function esc(value) {
       return String(value == null ? "" : value)
@@ -760,9 +810,42 @@
       const folder = state.folders.find(function(item){ return item.id === id; });
       return folder ? folder.name : id;
     }
+    function rememberDialogTrigger(element) {
+      if (state.modal || !element) return;
+      dialogTrigger = {
+        domId:element.id || "",
+        action:element.dataset.action || "",
+        id:element.dataset.id || "",
+        view:element.dataset.view || ""
+      };
+    }
+    function restoreDialogTrigger() {
+      if (!dialogTrigger) return;
+      const descriptor = dialogTrigger;
+      dialogTrigger = null;
+      const byId = descriptor.domId ? document.getElementById(descriptor.domId) : null;
+      const candidates = [...root.querySelectorAll('[data-action="' + descriptor.action + '"]')];
+      const trigger = candidates.find(function(element){
+        return (element.dataset.id || "") === descriptor.id && (element.dataset.view || "") === descriptor.view;
+      });
+      const fallback = root.querySelector(".compose-new,[data-action=navigate]");
+      (byId || trigger || fallback)?.focus();
+    }
+    function syncDialogAccessibility() {
+      const dialog = root.querySelector('[role="dialog"]');
+      if (!dialog) return;
+      root.querySelectorAll(".sidebar,.content-shell,.mobile-nav,.mobile-drawer,.mobile-drawer-backdrop").forEach(function(element){
+        element.inert = true;
+        element.setAttribute("aria-hidden","true");
+      });
+      const initial = dialog.querySelector("[autofocus],button:not([disabled]),input:not([type=hidden]):not([disabled]),select:not([disabled]),textarea:not([disabled])");
+      initial?.focus();
+    }
     function dispatch(action) {
+      const hadDialog = Boolean(state.modal);
       state = reducer(state, action);
       render();
+      if (hadDialog && !state.modal) restoreDialogTrigger();
       if (state.toast) {
         window.clearTimeout(dispatch.toastTimer);
         dispatch.toastTimer = window.setTimeout(function(){ dispatch({type:"CLEAR_TOAST"}); }, 3600);
@@ -948,12 +1031,25 @@
           '<button class="filter-pill' + (state.filter === "starred" ? ' active' : '') + '" data-action="filter" data-filter="starred">スター</button>' +
           '<button class="filter-pill' + (state.filter === "attachments" ? ' active' : '') + '" data-action="filter" data-filter="attachments">添付</button>';
       }
-      return '<section class="page">' +
+      const toolbar = '<div class="toolbar"><label class="select-hit"><input class="select-box" data-change="select-all" type="checkbox" ' + (allSelected ? 'checked' : '') + ' aria-label="表示中のメールをすべて選択"></label>' + bulk + '</div>';
+      const list = items.length ? '<ul class="mail-list">' + rows + '</ul>' : '<div class="empty">条件に一致するメールはありません</div>';
+      let mailboxStructure;
+      if (state.layout === "outlook") {
+        const previewItem = items[0];
+        const preview = previewItem
+          ? '<article class="outlook-preview-pane" data-pane="reading" aria-label="閲覧ウィンドウ"><p class="preview-kicker">閲覧ウィンドウ</p><h2>' + esc(previewItem.subject) + '</h2><div class="outlook-preview-meta">' + esc(previewItem.from) + ' &lt;' + esc(previewItem.fromAddress) + '&gt;<br>' + esc(previewItem.date) + '</div><div class="outlook-preview-body">' + esc(previewItem.body) + '</div><div class="outlook-preview-actions"><button class="button-primary" data-action="open-mail" data-id="' + esc(previewItem.id) + '">詳しく読む</button><button class="button" data-action="reply" data-id="' + esc(previewItem.id) + '">返信</button></div></article>'
+          : '<aside class="outlook-preview-pane empty" data-pane="reading" aria-label="閲覧ウィンドウ">表示するメールはありません</aside>';
+        mailboxStructure = '<div class="outlook-three-pane" data-structure="outlook-three-pane"><section class="outlook-list-pane" data-pane="message-list" aria-label="メッセージ一覧">' + toolbar + list + '</section>' + preview + '</div>';
+      } else if (state.layout === "thunderbird") {
+        mailboxStructure = '<div class="thunderbird-table" data-structure="thunderbird-table"><div class="thunderbird-columns" role="row" aria-label="メール一覧の列"><span></span><span>★</span><span></span><span>差出人</span><span>件名</span><span>受信日時</span></div>' + toolbar + list + '</div>';
+      } else {
+        mailboxStructure = '<div class="gmail-single-list" data-structure="gmail-single-list">' + toolbar + list + '</div>';
+      }
+      return '<section class="page mailbox-page">' +
         '<div class="page-head"><h1>' + esc(viewTitle()) + '</h1><span class="total">' + items.length + '件</span>' +
         (state.view === "trash" ? '<div class="head-actions"><button class="button-danger small" data-action="empty-trash">ゴミ箱を空にする</button></div>' : '') +
         '</div>' +
-        '<div class="toolbar"><input class="select-box" data-change="select-all" type="checkbox" ' + (allSelected ? 'checked' : '') + ' aria-label="表示中のメールをすべて選択">' + bulk + '</div>' +
-        (items.length ? '<ul class="mail-list">' + rows + '</ul>' : '<div class="empty">条件に一致するメールはありません</div>') +
+        mailboxStructure +
       '</section>';
     }
 
@@ -997,7 +1093,7 @@
           '<div class="composer"><textarea data-compose="body" placeholder="メール本文を入力…">' + esc(c.body) + '</textarea></div>' +
           (state.composeError ? '<p class="form-error" role="alert">' + esc(state.composeError) + '</p>' : '') +
           (c.attachment ? '<div class="attachments"><span class="attachment">' + esc(c.attachment) + ' <button type="button" data-action="remove-attachment" aria-label="添付を外す">×</button></span></div>' : '') +
-          '<div class="compose-foot"><button class="button" type="button" data-action="add-attachment">＋ 添付ファイル</button><span class="spacer"></span><button class="button" type="button" data-action="save-draft">下書きを保存</button><button class="button-primary" type="submit">送信</button></div>' +
+          '<div class="compose-foot"><button class="button" type="button" data-action="add-attachment">＋ 添付ファイル</button><span class="spacer"></span><button class="button" type="button" data-action="save-draft">下書きを保存</button><button id="compose-submit" class="button-primary" type="submit">送信</button></div>' +
         '</form>' +
       '</section>';
     }
@@ -1026,7 +1122,7 @@
         '<div class="settings-grid">' +
           '<section class="card wide"><h2>◐ 外観</h2><div class="appearance-group"><span class="appearance-label">配色</span><p class="hint">デモ画面内だけで切り替わります。システム設定は読み取りません。</p><div class="segmented">' +
             ["light","dark","system"].map(function(theme){ const label={light:"ライト",dark:"ダーク",system:"システム（ライト固定デモ）"}[theme]; return '<button class="button small' + (state.theme === theme ? ' active' : '') + '" data-action="theme" data-theme="' + theme + '">' + label + '</button>'; }).join("") +
-          '</div></div><div class="appearance-group"><span class="appearance-label">レイアウト</span><p class="hint">余白、角丸、ナビゲーション幅、メール一覧の密度とアクセントが即時に変わります。</p><div class="segmented">' +
+          '</div></div><div class="appearance-group"><span class="appearance-label">レイアウト</span><p class="hint">Gmail風は余白の広い単一リスト、Outlook風はデスクトップで一覧と閲覧ウィンドウを並べた3ペイン、Thunderbird風はフォルダツリーと表形式の高密度一覧へ切り替わります。</p><div class="segmented">' +
             ["gmail","outlook","thunderbird"].map(function(layout){ const label={gmail:"Gmail風",outlook:"Outlook風",thunderbird:"Thunderbird風"}[layout]; return '<button class="button small' + (state.layout === layout ? ' active' : '') + '" data-action="layout" data-layout="' + layout + '">' + label + '</button>'; }).join("") +
           '</div></div></section>' +
           '<section class="card"><h2>✎ 署名</h2><p class="hint">新規メールへ自動挿入する署名です。</p><textarea class="text-area" data-input="signature">' + esc(s.signature) + '</textarea><div class="card-actions"><button class="button-primary small" data-action="signature-save">保存</button></div></section>' +
@@ -1095,28 +1191,28 @@
     function renderModal() {
       if (!state.modal) return "";
       if (state.modal.type === "send") {
-        return '<div class="modal-backdrop"><div class="modal" role="dialog" aria-modal="true"><h2>送信画面を確認しますか？</h2><p>実際のメールは送信せず、入力内容をデモの「送信済み」へ追加します。</p><div class="modal-actions"><button class="button" data-action="modal-close">キャンセル</button><button class="button-primary" data-action="send-demo">デモ送信を実行</button></div></div></div>';
+        return '<div class="modal-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="dialog-title-send"><h2 id="dialog-title-send">送信画面を確認しますか？</h2><p>実際のメールは送信せず、入力内容をデモの「送信済み」へ追加します。</p><div class="modal-actions"><button class="button" data-action="modal-close" autofocus>キャンセル</button><button class="button-primary" data-action="send-demo">デモ送信を実行</button></div></div></div>';
       }
       if (state.modal.type === "folder") {
-        return '<div class="modal-backdrop"><form class="modal" data-form="folder" role="dialog" aria-modal="true"><h2>フォルダを追加</h2><p>デモ内だけにフォルダを作成します。</p><input class="text-input" name="name" placeholder="フォルダ名" autofocus><div class="modal-actions"><button class="button" type="button" data-action="modal-close">キャンセル</button><button class="button-primary">追加</button></div></form></div>';
+        return '<div class="modal-backdrop"><form class="modal" data-form="folder" role="dialog" aria-modal="true" aria-labelledby="dialog-title-folder"><h2 id="dialog-title-folder">フォルダを追加</h2><p>デモ内だけにフォルダを作成します。</p><input class="text-input" name="name" placeholder="フォルダ名" autofocus><div class="modal-actions"><button class="button" type="button" data-action="modal-close">キャンセル</button><button class="button-primary">追加</button></div></form></div>';
       }
       if (state.modal.type === "folder-menu") {
         const id = state.modal.id;
-        return '<div class="modal-backdrop"><div class="modal" role="dialog" aria-modal="true"><h2>' + esc(folderName(id)) + '</h2><p>フォルダの名前変更または削除を試せます。</p><form class="inline-form one" data-form="folder-rename"><input type="hidden" name="id" value="' + esc(id) + '"><input class="text-input" name="name" value="' + esc(folderName(id)) + '"><button class="button-primary">名前を変更</button></form><div class="modal-actions"><button class="button" data-action="modal-close">閉じる</button><button class="button-danger" data-action="folder-delete-request" data-id="' + esc(id) + '">フォルダを削除</button></div></div></div>';
+        return '<div class="modal-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="dialog-title-folder-menu"><h2 id="dialog-title-folder-menu">' + esc(folderName(id)) + '</h2><p>フォルダの名前変更または削除を試せます。</p><form class="inline-form one" data-form="folder-rename"><input type="hidden" name="id" value="' + esc(id) + '"><input class="text-input" name="name" value="' + esc(folderName(id)) + '" autofocus><button class="button-primary">名前を変更</button></form><div class="modal-actions"><button class="button" data-action="modal-close">閉じる</button><button class="button-danger" data-action="folder-delete-request" data-id="' + esc(id) + '">フォルダを削除</button></div></div></div>';
       }
       if (state.modal.type === "folder-delete") {
         const id = state.modal.id;
         const messageCount = state.messages.filter(function(item){ return item.folder === id; }).length;
         const ruleCount = state.settings.rules.filter(function(item){ return item.folder === id; }).length;
-        return '<div class="modal-backdrop"><div class="modal" role="dialog" aria-modal="true"><h2>「' + esc(folderName(id)) + '」を削除しますか？</h2><p>メール' + messageCount + '件は受信トレイへ戻り、このフォルダを移動先にする自動振り分けルール' + ruleCount + '件も削除されます。デモ内だけの変更です。</p><div class="modal-actions"><button class="button" data-action="modal-close">キャンセル</button><button class="button-danger" data-action="folder-delete-confirm" data-id="' + esc(id) + '">削除する</button></div></div></div>';
+        return '<div class="modal-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="dialog-title-folder-delete"><h2 id="dialog-title-folder-delete">「' + esc(folderName(id)) + '」を削除しますか？</h2><p>メール' + messageCount + '件は受信トレイへ戻り、このフォルダを移動先にする自動振り分けルール' + ruleCount + '件も削除されます。デモ内だけの変更です。</p><div class="modal-actions"><button class="button" data-action="modal-close" autofocus>キャンセル</button><button class="button-danger" data-action="folder-delete-confirm" data-id="' + esc(id) + '">削除する</button></div></div></div>';
       }
       if (state.modal.type === "user-edit") {
         const user = state.admin.users.find(function(item){ return item.id === state.modal.id; });
         if (!user) return "";
-        return '<div class="modal-backdrop"><form class="modal" data-form="user-edit" role="dialog" aria-modal="true"><h2>ユーザーを編集</h2><p>変更はデモ画面内だけに反映されます。</p><input type="hidden" name="id" value="' + esc(user.id) + '"><label class="hint" for="edit-user-name">表示名</label><input id="edit-user-name" class="text-input" name="name" value="' + esc(user.name) + '"><label class="hint" for="edit-user-role">権限</label><select id="edit-user-role" class="select-input" name="role"><option' + (user.role === '管理者' ? ' selected' : '') + '>管理者</option><option' + (user.role === 'メンバー' ? ' selected' : '') + '>メンバー</option></select><div class="modal-actions"><button class="button" type="button" data-action="modal-close">キャンセル</button><button class="button-primary">保存</button></div></form></div>';
+        return '<div class="modal-backdrop"><form class="modal" data-form="user-edit" role="dialog" aria-modal="true" aria-labelledby="dialog-title-user-edit"><h2 id="dialog-title-user-edit">ユーザーを編集</h2><p>変更はデモ画面内だけに反映されます。</p><input type="hidden" name="id" value="' + esc(user.id) + '"><label class="hint" for="edit-user-name">表示名</label><input id="edit-user-name" class="text-input" name="name" value="' + esc(user.name) + '" autofocus><label class="hint" for="edit-user-role">権限</label><select id="edit-user-role" class="select-input" name="role"><option' + (user.role === '管理者' ? ' selected' : '') + '>管理者</option><option' + (user.role === 'メンバー' ? ' selected' : '') + '>メンバー</option></select><div class="modal-actions"><button class="button" type="button" data-action="modal-close">キャンセル</button><button class="button-primary">保存</button></div></form></div>';
       }
       if (state.modal.type === "empty-trash") {
-        return '<div class="modal-backdrop"><div class="modal" role="dialog" aria-modal="true"><h2>ゴミ箱を空にしますか？</h2><p>デモ内のゴミ箱だけを空にします。ページを再読み込みすると元に戻ります。</p><div class="modal-actions"><button class="button" data-action="modal-close">キャンセル</button><button class="button-danger" data-action="empty-trash-confirm">空にする</button></div></div></div>';
+        return '<div class="modal-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="dialog-title-empty-trash"><h2 id="dialog-title-empty-trash">ゴミ箱を空にしますか？</h2><p>デモ内のゴミ箱だけを空にします。ページを再読み込みすると元に戻ります。</p><div class="modal-actions"><button class="button" data-action="modal-close" autofocus>キャンセル</button><button class="button-danger" data-action="empty-trash-confirm">空にする</button></div></div></div>';
       }
       return "";
     }
@@ -1124,6 +1220,7 @@
     function render() {
       root.innerHTML = renderShell();
       document.documentElement.dataset.theme = state.theme === "dark" ? "dark" : "light";
+      syncDialogAccessibility();
     }
 
     root.addEventListener("click", function(event) {
@@ -1147,11 +1244,11 @@
       else if (action === "bulk-archive") dispatch({type:"MOVE",ids:state.selected,folder:"archive",label:"アーカイブ"});
       else if (action === "bulk-trash") dispatch({type:"MOVE",ids:state.selected,folder:"trash",label:"ゴミ箱"});
       else if (action === "folder-open") dispatch({type:"NAVIGATE",view:"folder",id:id});
-      else if (action === "folder-modal") dispatch({type:"OPEN_MODAL",modal:{type:"folder"}});
-      else if (action === "folder-menu") dispatch({type:"OPEN_MODAL",modal:{type:"folder-menu",id:id}});
+      else if (action === "folder-modal") { rememberDialogTrigger(target); dispatch({type:"OPEN_MODAL",modal:{type:"folder"}}); }
+      else if (action === "folder-menu") { rememberDialogTrigger(target); dispatch({type:"OPEN_MODAL",modal:{type:"folder-menu",id:id}}); }
       else if (action === "folder-delete-request") dispatch({type:"OPEN_MODAL",modal:{type:"folder-delete",id:id}});
       else if (action === "folder-delete-confirm") dispatch({type:"DELETE_FOLDER",id:id});
-      else if (action === "empty-trash") dispatch({type:"OPEN_MODAL",modal:{type:"empty-trash"}});
+      else if (action === "empty-trash") { rememberDialogTrigger(target); dispatch({type:"OPEN_MODAL",modal:{type:"empty-trash"}}); }
       else if (action === "empty-trash-confirm") { dispatch({type:"EMPTY_TRASH"}); dispatch({type:"CLOSE_MODAL"}); }
       else if (action === "back") dispatch({type:"NAVIGATE",view:state.previousView || "inbox"});
       else if (action === "move-archive") dispatch({type:"MOVE",ids:[id],folder:"archive",label:"アーカイブ"});
@@ -1169,7 +1266,7 @@
       else if (action === "mark-unread") dispatch({type:"SET_READ",ids:[id],read:false});
       else if (action === "compose-close") dispatch({type:"NAVIGATE",view:state.previousView || "inbox"});
       else if (action === "save-draft") dispatch({type:"SAVE_DRAFT"});
-      else if (action === "send-modal") dispatch({type:"REQUEST_SEND"});
+      else if (action === "send-modal") { rememberDialogTrigger(target); dispatch({type:"REQUEST_SEND"}); }
       else if (action === "send-demo") dispatch({type:"SEND_DEMO"});
       else if (action === "modal-close") dispatch({type:"CLOSE_MODAL"});
       else if (action === "add-attachment") dispatch({type:"ADD_ATTACHMENT"});
@@ -1194,7 +1291,7 @@
       else if (action === "domain-refresh") dispatch({type:"DOMAIN_REFRESH",id:id});
       else if (action === "domain-connect") dispatch({type:"DOMAIN_CONNECT",id:id});
       else if (action === "domain-disconnect") dispatch({type:"DOMAIN_DISCONNECT",id:id});
-      else if (action === "user-edit") dispatch({type:"OPEN_MODAL",modal:{type:"user-edit",id:id}});
+      else if (action === "user-edit") { rememberDialogTrigger(target); dispatch({type:"OPEN_MODAL",modal:{type:"user-edit",id:id}}); }
       else if (action === "import-demo") dispatch({type:"IMPORT_DEMO"});
     });
 
@@ -1224,7 +1321,7 @@
       const data = new FormData(form);
       const type = form.dataset.form;
       if (type === "search") dispatch({type:"SEARCH_SUBMIT",value:String(data.get("query") || "")});
-      else if (type === "compose") dispatch({type:"REQUEST_SEND"});
+      else if (type === "compose") { rememberDialogTrigger(event.submitter); dispatch({type:"REQUEST_SEND"}); }
       else if (type === "folder") {
         const name = String(data.get("name") || "").trim();
         if (name) dispatch({type:"ADD_FOLDER",name:name});
@@ -1268,7 +1365,31 @@
     });
 
     window.addEventListener("keydown", function(event) {
-      if (event.key === "Escape" && state.modal) dispatch({type:"CLOSE_MODAL"});
+      if (!state.modal) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        dispatch({type:"CLOSE_MODAL"});
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const dialog = root.querySelector('[role="dialog"]');
+      if (!dialog) return;
+      const focusable = [...dialog.querySelectorAll('button:not([disabled]),input:not([type="hidden"]):not([disabled]),select:not([disabled]),textarea:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])')]
+        .filter(function(element){ return !element.hidden; });
+      if (!focusable.length) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) {
+        event.preventDefault();
+        first.focus();
+      }
     });
 
     runSensitiveGuardCanary();

@@ -65,6 +65,7 @@ The setup assistant is separate from the mailbox MCP. Installing it grants zero 
 - Generated prompts require the AI provider to open current Cloudflare, Resend, or QuickMail primary documentation before answering and to state the verification date and URLs actually used. They provide source URLs, product topology, and a short list of stable pitfalls, but avoid a long fixed checklist of provider operations.
 - Navigation and copy are refused for secret-like input, control or bidirectional characters, HTML-like tags, or an overlength prompt. Destinations use fixed allowlisted origins and paths, open only after a user gesture, and never auto-submit.
 - Consultation copy states that responses, memory, data retention, availability, and plan behavior follow the user's AI provider account. QuickMail-ja does not call the provider API and does not describe these links as official support.
+- The development-only consultation demo may show recognizable ChatGPT, Claude, and Gemini marks from the bundled Remix Icon set on their respective launch buttons. This narrow exception does not authorize provider logos elsewhere, official-support claims, or production co-branding.
 - AI answers are untrusted advice. Any provider write, DNS/MX change, migration, deployment, webhook, test send, billing, deletion, or cleanup must return through the exact-step setup approval flow.
 
 ## Cloudflare Deploy button contract
@@ -80,8 +81,8 @@ The setup assistant is separate from the mailbox MCP. Installing it grants zero 
   - `calm`: Gmail-inspired, conversation-first and lower density
   - `command`: Outlook-inspired, compact command bar and three-pane desktop layout
   - `classic`: Thunderbird-inspired, folder tree and high-density message list
-- Vendor names are reference terms in design documentation only. Public UI names are `シンプル`, `3ペイン`, and `高密度`.
-- Do not copy vendor logos, trademarks, proprietary fonts, exact colors, screenshots, or pixel layouts.
+- Production UI names remain generic. The user-approved development-only comparison demo labels its three selector buttons exactly `Gmail風`, `Outlook風`, and `Thunderbird風` so non-technical evaluators can recognize the comparison; these labels do not imply affiliation.
+- Do not copy mail-client vendor logos, trademarks, proprietary fonts, exact colors, screenshots, or pixel layouts. The separate AI consultation-button mark exception above remains limited to those three AI launch actions.
 - The first public release ships one selected production system, not three runtime themes. Light, dark, and system color modes remain supported within the selected system.
 - All prototypes preserve the same routes, Japanese labels, mobile full-screen flow, keyboard behavior, and semantics. They differ in pane structure, density, borders, radius, and action placement.
 - Prototypes use synthetic data only, are excluded from the production bundle, and cover loading, empty, error, success, offline, reduced-motion, dark, mobile, keyboard, and screen-reader states.

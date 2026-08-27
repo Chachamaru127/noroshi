@@ -358,7 +358,7 @@ Depends on: QMJ-7; may run in parallel with QMJ-8 through QMJ-11
 Status: Not started
 
 - Capture the existing light/dark baseline at 1440x900, 1024x768, and 390x844.
-- Build `calm`/シンプル, `command`/3ペイン, and `classic`/高密度 from one synthetic Japanese fixture and one interaction contract.
+- Build the `calm`, `command`, and `classic` concepts from one synthetic Japanese fixture and one interaction contract. In the user-approved development-only comparison demo, label the selector buttons exactly `Gmail風`, `Outlook風`, and `Thunderbird風`; production naming remains generic.
 - Keep prototypes development-only and out of production routes and bundle.
 - Cover selection, body, compose, loading, empty, error, success, offline, long Japanese subject, attachment, and HTML body states.
 
@@ -367,7 +367,7 @@ Binary DoD:
 - All three patterns render the same fixtures and states at 1440px, 1024px, and 390px in light and dark mode.
 - Horizontal overflow is 0; touch targets are at least 44px; keyboard flow reaches navigation, message selection, body, and reply.
 - axe serious/critical violations are 0 and text/form/button contrast meets WCAG AA.
-- Vendor logos, proprietary fonts, screenshots, trademark images, and production imports of prototype code are 0.
+- Mail-client vendor logos, proprietary fonts, screenshots, trademark images, and production imports of prototype code are 0. The only logo-mark exception is the separately reviewed Remix Icon mark on each ChatGPT, Claude, or Gemini consultation button; it does not extend to layout branding.
 
 #### QMJ-13 — UI evaluation and one-system decision
 
