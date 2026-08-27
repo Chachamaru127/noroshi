@@ -30,6 +30,8 @@ CIのAction SHAは2026-08-27に公式tag/commitを照合した。checkout v5.1.0
 
 baseline PNGは検証入力であり、生成した本人が承認済みとは扱わない。QAはartifact内に `PENDING_HUMAN_REVIEW` の候補を生成するだけである。人による視覚レビュー結果は `baseline-review-receipt.schema.json` の形式で、対象commit、固定image digest、baseline version、18件のhash、reviewer、判定、確認日時を結び付ける。VoiceOverは別の `voiceover-review-receipt.schema.json` を使う。`release-gates.mjs` は両方のcommitted `APPROVE` が揃わない限り公開を停止する。現在は両方とも人手レビュー待ちである。
 
+`evaluations/AI-BASELINE-EVALUATION.md` はAIサブエージェントによる補助評価である。人間の視覚承認レシートではなく、公開ゲートを解除しない。
+
 releaseはtag名だけを信用しない。preflightでannotated tagを含めてcommitまでpeelし、固定した40桁SHAをQA・package・archiveへ渡す。publishは配布物内のscriptを実行せず、固定workflow内の処理だけを使う。`release-evidence.json` はexact key/type/valueを検証するdataとして読み、downloadしたZIPのSHA-256を再計算する。publish直前にremote tagを再度peelし、同じSHAでなければ公開前に停止する。
 
 VoiceOverの実音声は `VOICEOVER-CHECKLIST.md` の人手ゲートとして分離する。
