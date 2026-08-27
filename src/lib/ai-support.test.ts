@@ -5,6 +5,7 @@ import {
 	AI_SUPPORT_PROVIDERS,
 	AI_SUPPORT_QUESTION_MAX_LENGTH,
 	AiSupportInputError,
+	beginAiSupportLaunch,
 	buildAiSupportDestination,
 	buildAiSupportPrompt,
 	copyAiSupportPrompt,
@@ -292,6 +293,71 @@ describe('AI support destinations', () => {
 });
 
 describe('AI support clipboard boundary', () => {
+	test('starts clipboard copy without preventing a current allowlisted destination', async () => {
+		const prompt = buildAiSupportPrompt('resend', '送信設定を教えてください。', REVIEW_DAY_CLOCK);
+		let prevented = 0;
+		const writes: string[] = [];
+		const results = AI_SUPPORT_PROVIDERS.map(({ id }) => {
+			const destination = buildAiSupportDestination(id, prompt, REVIEW_DAY_CLOCK);
+			const result = beginAiSupportLaunch(
+				{ preventDefault: () => (prevented += 1) },
+				destination,
+				prompt,
+				{
+					writeText: async (value) => {
+						writes.push(value);
+					}
+				},
+				REVIEW_DAY_CLOCK
+			);
+			assert.ok(result);
+			return result;
+		});
+
+		assert.equal(prevented, 0);
+		assert.deepEqual(writes, [prompt, prompt, prompt]);
+		assert.deepEqual(await Promise.all(results), ['copied', 'copied', 'copied']);
+	});
+
+	test('prevents navigation and clipboard output for stale or unsafe destinations', () => {
+		const prompt = buildAiSupportPrompt('deploy', '導入方法を教えてください。', REVIEW_DAY_CLOCK);
+		const changedPrompt = buildAiSupportPrompt(
+			'deploy',
+			'事前準備を教えてください。',
+			REVIEW_DAY_CLOCK
+		);
+		const destination = buildAiSupportDestination('chatgpt', prompt, REVIEW_DAY_CLOCK);
+		let prevented = 0;
+		let writes = 0;
+		const event = { preventDefault: () => (prevented += 1) };
+		const clipboard = {
+			writeText: async () => {
+				writes += 1;
+			}
+		};
+
+		assert.equal(
+			beginAiSupportLaunch(event, destination, changedPrompt, clipboard, REVIEW_DAY_CLOCK),
+			null
+		);
+		assert.equal(
+			beginAiSupportLaunch(
+				event,
+				{ ...destination, href: 'https://example.invalid/' },
+				prompt,
+				clipboard,
+				REVIEW_DAY_CLOCK
+			),
+			null
+		);
+		assert.equal(
+			beginAiSupportLaunch(event, destination, prompt, clipboard, AFTER_REVIEW_CLOCK),
+			null
+		);
+		assert.equal(prevented, 3);
+		assert.equal(writes, 0);
+	});
+
 	test('writes exactly the revalidated prompt with an injected clipboard', async () => {
 		const prompt = buildAiSupportPrompt(
 			'first-admin',

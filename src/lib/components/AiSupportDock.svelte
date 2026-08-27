@@ -3,6 +3,7 @@
 		AI_SUPPORT_PROVIDERS,
 		AI_SUPPORT_QUESTION_MAX_LENGTH,
 		AiSupportInputError,
+		beginAiSupportLaunch,
 		buildAiSupportDestination,
 		buildAiSupportPrompt,
 		copyAiSupportPrompt,
@@ -84,15 +85,25 @@
 			copyStatus = '質問を入力してください。';
 			return;
 		}
-		try {
-			const currentDestination = buildAiSupportDestination(destination.provider, draft.prompt);
-			if (currentDestination.href !== destination.href) throw new AiSupportInputError('unsafe-url');
-		} catch {
-			event.preventDefault();
+		const prompt = draft.prompt;
+		const copyResult = beginAiSupportLaunch(event, destination, prompt, navigator.clipboard);
+		if (!copyResult) {
 			copyStatus = '安全な質問リンクとして再確認できませんでした。';
 			return;
 		}
-		void copyPrompt();
+		void copyResult
+			.then((result) => {
+				if (result === 'copied' && draft.prompt === prompt) {
+					copyStatus = '質問文をコピーしました。';
+				} else if (result === 'copied') {
+					copyStatus = '質問が変更されたため、表示された質問文を確認してください。';
+				} else {
+					copyStatus = 'コピーできませんでした。表示された質問文を選択してコピーしてください。';
+				}
+			})
+			.catch(() => {
+				copyStatus = '安全な質問文として再確認できませんでした。';
+			});
 	}
 </script>
 
@@ -167,6 +178,7 @@
 	</p>
 	<p class="disclosure">
 		ChatGPTとClaudeでは質問文がURLに含まれ、ブラウザ履歴やAI提供者側に残る可能性があります。Geminiを含む全社で質問文をクリップボードへコピーします。端末の関連付けによってアプリまたはブラウザで開きます。回答、記憶・データ保持、利用可否は各AIサービスのアカウント、契約、ポリシーに従います。
+		QuickMail-jaと各AIサービスは提携・公式サポート関係にありません。
 	</p>
 	<p class="copy-status" aria-live="polite" aria-atomic="true">{copyStatus}</p>
 </section>

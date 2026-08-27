@@ -60,7 +60,8 @@ The setup assistant is separate from the mailbox MCP. Installing it grants zero 
 ## AI consultation contract
 
 - `ChatGPTに聞く`, `Claudeに聞く`, and `Geminiに聞く` are Tier 0 consultation links only. They do not install a Skill, grant MCP access, inspect the current page, read a mailbox, configure a provider, or send a prompt automatically.
-- The user sees and may edit a plain-text prompt before leaving QuickMail-ja. A separate copy action is always available. ChatGPT prefill is best-effort; Claude uses its documented prefill capability; Gemini copies the prompt and opens a new chat because a stable official prefill URL is not assumed.
+- The user sees and may edit a plain-text prompt before leaving QuickMail-ja. A separate copy action is always available. Each provider control synchronously revalidates its fixed HTTPS destination, starts a clipboard copy, and leaves safe new-tab navigation to the browser. ChatGPT and Claude prefill through `q` on a best-effort basis. Gemini uses a query-free HTTPS page and the copied prompt because a stable official prefill URL is not assumed. Nothing auto-submits; the user reviews and sends the prompt.
+- AI consultation controls are the only vendor-mark exception. They may use the bundled Remix Icon `openai-fill`, `claude-fill`, and `gemini-fill` marks at the same size, always beside an explicit text label. Marks must not be more prominent than QuickMail-ja branding, imply partnership or official support, or appear elsewhere as general vendor branding. Each mark and trademark remains owned by its respective provider and subject to that provider's policies.
 - Generated prompts contain only a fixed QuickMail-ja support template, an allowlisted setup-stage enum, and text entered directly into the support field. They never derive from DOM text, form values, `location.href`, email content, domains, provider errors, DNS values, account/team/zone IDs, cookies, tokens, setup keys, or API keys.
 - Generated prompts require the AI provider to open current Cloudflare, Resend, or QuickMail primary documentation before answering and to state the verification date and URLs actually used. They provide source URLs, product topology, and a short list of stable pitfalls, but avoid a long fixed checklist of provider operations.
 - Navigation and copy are refused for secret-like input, control or bidirectional characters, HTML-like tags, or an overlength prompt. Destinations use fixed allowlisted origins and paths, open only after a user gesture, and never auto-submit.
@@ -81,8 +82,8 @@ The setup assistant is separate from the mailbox MCP. Installing it grants zero 
   - `calm`: Gmail-inspired, conversation-first and lower density
   - `command`: Outlook-inspired, compact command bar and three-pane desktop layout
   - `classic`: Thunderbird-inspired, folder tree and high-density message list
-- Production UI names remain generic. The user-approved development-only comparison demo labels its three selector buttons exactly `Gmail風`, `Outlook風`, and `Thunderbird風` so non-technical evaluators can recognize the comparison; these labels do not imply affiliation.
-- Do not copy mail-client vendor logos, trademarks, proprietary fonts, exact colors, screenshots, or pixel layouts. The separate AI consultation-button mark exception above remains limited to those three AI launch actions.
+- Production UI names remain generic: `シンプル`, `3ペイン`, and `高密度`. The user-approved development-only comparison demo labels its three selector buttons exactly `Gmail風`, `Outlook風`, and `Thunderbird風` so non-technical evaluators can recognize the comparison; these labels do not imply affiliation.
+- Do not copy mail-client vendor logos, trademarks, proprietary fonts, exact colors, screenshots, or pixel layouts. The only exception is the equal-size, bundled Remix Icon provider marks defined by the AI consultation contract; they remain limited to those three AI launch actions, must retain text labels, and must not imply partnership or official support.
 - The first public release ships one selected production system, not three runtime themes. Light, dark, and system color modes remain supported within the selected system.
 - All prototypes preserve the same routes, Japanese labels, mobile full-screen flow, keyboard behavior, and semantics. They differ in pane structure, density, borders, radius, and action placement.
 - Prototypes use synthetic data only, are excluded from the production bundle, and cover loading, empty, error, success, offline, reduced-motion, dark, mobile, keyboard, and screen-reader states.
@@ -104,7 +105,7 @@ The setup assistant is separate from the mailbox MCP. Installing it grants zero 
 - Autonomous provider signup, terms acceptance, CAPTCHA/MFA, billing, domain purchase, or domain transfer
 - A single browser-automation promise across Codex, ChatGPT, Claude Code, and Claude Desktop
 - Three vendor-inspired layouts shipped as first-release runtime themes
-- Vendor branding, official assets, or pixel-identical Gmail, Outlook, or Thunderbird clones
+- Vendor branding, official assets, or pixel-identical Gmail, Outlook, or Thunderbird clones outside the narrow AI consultation mark exception
 - AI inbox, team shared inbox, IMAP bridge, or enterprise collaboration added only to match newer competitors
 - Publishing to GitHub, deploying to Cloudflare, or changing an existing production deployment as part of the local repository split
 - Treating an AI consultation link as a setup Skill/MCP installation or as authorization for provider changes

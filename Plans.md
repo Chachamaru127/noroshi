@@ -217,7 +217,7 @@ Binary DoD:
 
 - `spec.md` names Agent Plugins 1.0.0 and separates portable packaging from host browser/auth capability.
 - `docs/design/ui-patterns-plan.md` defines `calm`, `command`, and `classic`, including loading/empty/error/offline/mobile/dark/keyboard states.
-- The contract says one selected production UI and forbids vendor asset/pixel copying.
+- The contract says one selected production UI and forbids vendor asset/pixel copying outside the narrow, text-labeled AI consultation mark exception.
 
 #### QMJ-6A — Source-attributed Support Knowledge Pack
 
@@ -250,9 +250,9 @@ Priority: Required
 Depends on: QMJ-6A and QMJ-7
 Status: Completed locally on 2026-08-27
 
-- Add a reusable Japanese consultation component with a visible prompt preview, explicit copy action, and text-only `ChatGPTに聞く`, `Claudeに聞く`, and `Geminiに聞く` controls.
+- Add a reusable Japanese consultation component with a visible prompt preview, explicit copy action, and `ChatGPTに聞く`, `Claudeに聞く`, and `Geminiに聞く` controls. Only these controls may pair equal-size bundled Remix Icon provider marks with the permanent text labels. The marks must stay subordinate to QuickMail-ja branding, must not imply partnership or official support, and remain subject to each provider's trademark ownership and policies. Vendor branding remains prohibited elsewhere.
 - Use a pure prompt/link module with fixed provider origins and paths, an allowlisted setup-stage enum, conservative length limit, control/bidi/HTML rejection, and secret-pattern blocking. Do not read the page, forms, mailbox, current URL, provider error, domain, DNS, account, or secret state.
-- Treat ChatGPT prefill as best-effort, Claude prefill as documented, and Gemini as copy-then-open. Never substitute another Google product or auto-send.
+- On one user click, synchronously revalidate the fixed HTTPS destination, start clipboard copy, and allow safe new-tab navigation. Treat ChatGPT and Claude `q` prefill as best-effort. Open Gemini with a query-free HTTPS URL and the copied prompt. Never use an undocumented custom scheme, substitute another Google product, or auto-send; the user reviews and sends.
 - Add a disabled Cloudflare Deploy banner. It becomes active only after a canonical public QuickMail-ja repository, deployment hardening, provenance/archive checks, and explicit release approval.
 - Explain the three support tiers: AI consultation link (no permission), Setup Skill (instructions), and Setup MCP (future exact-step approval). Keep the current mailbox MCP separate.
 
@@ -260,7 +260,7 @@ Binary DoD:
 
 - Generated AI destinations are fixed allowlisted origins/paths and make 0 provider API calls; decoded prompt equals the visible/copyable prompt.
 - Secret, HTML-like, control/bidi, or overlength input yields 0 AI href and 0 clipboard action. Page/form/mail/domain/provider/DNS state is never interpolated.
-- The three controls are keyboard reachable, text-labeled, at least 44px, and have a visible copy fallback with `aria-live` feedback. External links use `noopener noreferrer` and `referrerpolicy=no-referrer`.
+- The three controls are keyboard reachable, permanently text-labeled, at least 44px, and have a visible copy fallback with `aria-live` feedback. Their bundled Remix Icon marks use an equal size and do not replace the labels. External links use `noopener noreferrer` and `referrerpolicy=no-referrer`.
 - ChatGPT/Gemini limitations and external-provider data handling are disclosed; no button claims setup automation or official support.
 - While the public repository URL is absent or release status is HOLD, active Cloudflare Deploy links are 0. The banner states `deploy != mail ready` and lists the remaining setup classes.
 - Unit, Japanese-copy, accessibility, distribution-contract, clean-template, build, archive, and diff checks pass with 0 external network call from tests.
@@ -377,7 +377,7 @@ Binary DoD:
 - All three patterns render the same fixtures and states at 1440px, 1024px, and 390px in light and dark mode.
 - Horizontal overflow is 0; touch targets are at least 44px; keyboard flow reaches navigation, message selection, body, and reply.
 - axe serious/critical violations are 0 and text/form/button contrast meets WCAG AA.
-- Mail-client vendor logos, proprietary fonts, screenshots, trademark images, and production imports of prototype code are 0. The only logo-mark exception is the separately reviewed Remix Icon mark on each ChatGPT, Claude, or Gemini consultation button; it does not extend to layout branding.
+- Mail-client vendor logos, proprietary fonts, screenshots, trademark images, and production imports of prototype code are 0. The only exception is the three equal-size bundled Remix Icon marks used beside the permanent ChatGPT, Claude, and Gemini consultation text labels; it does not extend to layout branding.
 
 #### QMJ-13 — UI evaluation and one-system decision
 

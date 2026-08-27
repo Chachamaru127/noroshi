@@ -37,9 +37,10 @@ describe('AI support dock accessibility and privacy boundary', () => {
 
 	test('starts copy and opens one safe HTTPS destination from every provider link', () => {
 		assert.match(component, /onclick=\{\(event\) => launchProvider\(event, destination\)\}/);
-		assert.match(component, /void copyPrompt\(\)/);
-		assert.match(component, /buildAiSupportDestination\(destination\.provider, draft\.prompt\)/);
-		assert.match(component, /currentDestination\.href !== destination\.href/);
+		assert.match(
+			component,
+			/beginAiSupportLaunch\(event, destination, prompt, navigator\.clipboard\)/
+		);
 		assert.match(component, /href=\{destination\.href\}/);
 		assert.doesNotMatch(component, /geminiCopiedPrompt|Gemini用に質問文をコピー|aria-disabled/);
 		assert.doesNotMatch(component, /(?:claude|chatgpt|gemini):\/\//);
@@ -58,6 +59,7 @@ describe('AI support dock accessibility and privacy boundary', () => {
 		assert.match(component, /ブラウザ履歴/);
 		assert.match(component, /クリップボード/);
 		assert.match(component, /記憶・データ保持/);
+		assert.match(component, /提携・公式サポート関係にありません/);
 	});
 
 	test('does not inspect page, form, provider, mailbox, or browser location context', () => {

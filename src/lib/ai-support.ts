@@ -26,6 +26,10 @@ export type AiSupportClipboard = {
 	writeText(value: string): Promise<void>;
 };
 
+export type AiSupportNavigationEvent = {
+	preventDefault(): void;
+};
+
 export type AiSupportClock = () => Date;
 
 export type AiSupportCopyResult = 'copied' | 'unavailable' | 'failed';
@@ -228,4 +232,23 @@ export async function copyAiSupportPrompt(
 	} catch {
 		return 'failed';
 	}
+}
+
+export function beginAiSupportLaunch(
+	event: AiSupportNavigationEvent,
+	destination: AiSupportDestination,
+	prompt: string,
+	clipboard: AiSupportClipboard | null | undefined,
+	clock: AiSupportClock = SYSTEM_CLOCK
+): Promise<AiSupportCopyResult> | null {
+	try {
+		const currentDestination = buildAiSupportDestination(destination.provider, prompt, clock);
+		if (currentDestination.href !== destination.href) {
+			throw new AiSupportInputError('unsafe-url');
+		}
+	} catch {
+		event.preventDefault();
+		return null;
+	}
+	return copyAiSupportPrompt(prompt, clipboard, clock);
 }
