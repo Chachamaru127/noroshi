@@ -1,15 +1,30 @@
 {
 	"$schema": "https://json-schema.org/draft/2020-12/schema",
-	"title": "QuickMail-ja live demo baseline review receipt",
+	"title": "QuickMail-ja approved live demo baseline review receipt",
 	"type": "object",
 	"additionalProperties": false,
-	"required": ["commit", "container", "reviewed_at", "reviewer", "decision", "screenshots"],
+	"required": [
+		"reviewedCommit",
+		"baselineVersion",
+		"containerImage",
+		"imageDigest",
+		"reviewedAt",
+		"reviewer",
+		"decision",
+		"screenshots"
+	],
 	"properties": {
-		"commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
-		"container": { "const": "mcr.microsoft.com/playwright:v1.59.1-noble" },
-		"reviewed_at": { "type": "string", "format": "date-time" },
+		"reviewedCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+		"baselineVersion": { "const": "playwright-1.59.1-noble-linux-amd64" },
+		"containerImage": {
+			"const": "mcr.microsoft.com/playwright@sha256:eac9b0a5312cdab40ee8c2429df5bf19bffdccf8f3bf3c42268e173f97541645"
+		},
+		"imageDigest": {
+			"const": "sha256:eac9b0a5312cdab40ee8c2429df5bf19bffdccf8f3bf3c42268e173f97541645"
+		},
+		"reviewedAt": { "type": "string", "format": "date-time" },
 		"reviewer": { "type": "string", "minLength": 1 },
-		"decision": { "enum": ["APPROVE", "REQUEST_CHANGES"] },
+		"decision": { "const": "APPROVE" },
 		"notes": { "type": "string" },
 		"screenshots": {
 			"type": "array",
@@ -22,7 +37,7 @@
 				"properties": {
 					"file": {
 						"type": "string",
-						"pattern": "^[a-z]+-(light|dark)-(desktop|tablet|mobile)\\.png$"
+						"pattern": "^(calm|command|classic)-(light|dark)-(desktop|tablet|mobile)\\.png$"
 					},
 					"sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
 				}

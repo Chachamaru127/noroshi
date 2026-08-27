@@ -1,0 +1,50 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"title": "QuickMail-ja approved Safari VoiceOver review receipt",
+	"type": "object",
+	"additionalProperties": false,
+	"required": [
+		"reviewedCommit",
+		"contentSha256",
+		"checklistSha256",
+		"reviewedAt",
+		"reviewer",
+		"decision",
+		"environment",
+		"profiles"
+	],
+	"properties": {
+		"reviewedCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+		"contentSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+		"checklistSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+		"reviewedAt": { "type": "string", "format": "date-time" },
+		"reviewer": { "type": "string", "minLength": 1 },
+		"decision": { "const": "APPROVE" },
+		"environment": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": ["macosVersion", "safariVersion", "voiceOverVersion"],
+			"properties": {
+				"macosVersion": { "type": "string", "minLength": 1 },
+				"safariVersion": { "type": "string", "minLength": 1 },
+				"voiceOverVersion": { "type": "string", "minLength": 1 }
+			}
+		},
+		"profiles": {
+			"type": "array",
+			"minItems": 3,
+			"maxItems": 3,
+			"items": {
+				"type": "object",
+				"additionalProperties": false,
+				"required": ["profile", "status", "heardText", "notes"],
+				"properties": {
+					"profile": { "enum": ["calm", "command", "classic"] },
+					"status": { "const": "PASS" },
+					"heardText": { "type": "string", "minLength": 1 },
+					"notes": { "type": "string" }
+				}
+			}
+		}
+	}
+}

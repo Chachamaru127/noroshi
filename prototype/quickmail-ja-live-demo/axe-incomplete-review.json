@@ -1,0 +1,30 @@
+{
+	"reviewedAt": "2026-08-27",
+	"expiresAt": "2026-11-27",
+	"ruleId": "color-contrast",
+	"impact": "serious",
+	"failureSummaryFragments": [
+		"Element content contains only non-text characters",
+		"Element content is too short to determine if it is actual text content"
+	],
+	"allowedTargetFragments": [
+		".compose-new > span",
+		".nav-icon",
+		".search-symbol",
+		".search-go",
+		"theme-cycle",
+		"data-action=\"back\"",
+		"のメールを開く",
+		".row-avatar",
+		".classic-columns > span:nth-child(2)",
+		".star",
+		".on",
+		".mobile-icon"
+	],
+	"evidence": {
+		"method": "Each distinct visible glyph and avatar style state is sampled from the computed DOM in all three profiles and both themes.",
+		"minimumRatio": 3,
+		"manifestPath": "contrasts[].samples.icons"
+	},
+	"scopeNote": "axe cannot decide contrast for these single non-text glyphs. No rule, selector, or page is excluded; every returned node must match this bounded record and the computed-DOM ratio gate."
+}

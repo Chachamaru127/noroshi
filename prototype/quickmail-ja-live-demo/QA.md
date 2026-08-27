@@ -17,14 +17,18 @@
 - snapshot: 3画面構成 × 3幅 × 2配色 = 18枚
 - browser: Chromiumを基準にし、Firefox/WebKitで機能・overflow・axe smoke
 - deterministic: `ja-JP`、`Asia/Tokyo`、DPR 1、固定fixture clock、animation/caret無効
-- reference container: GitHub Actionsと同じx86_64の `mcr.microsoft.com/playwright:v1.59.1-noble`
+- reference container: GitHub Actionsと同じx86_64の `mcr.microsoft.com/playwright@sha256:eac9b0a5312cdab40ee8c2429df5bf19bffdccf8f3bf3c42268e173f97541645`（`v1.59.1-noble` のlinux/amd64 manifest）
 - baseline: `baselines/playwright-1.59.1-noble/` の18枚と比較する。通常実行はbaselineを更新しない。固定container内の明示的な `--update-baselines` だけが更新経路である。
-- local comparison: macOSなど固定container外では実画像をpixel比較し、差分画像を保存する。自己生成hashとの比較ではない。macOS ChromiumとLinux referenceの2026-08-27実測最大差分は2.245%であり、既定閾値は2.5%とする。CI/reference container内は閾値0%の完全一致である。
-- artifacts: `QMJ12C_ARTIFACT_DIR` が無ければ一意の一時ディレクトリを作り、trace、PNG、diff、`ui-flow-log.json`、`manifest.json` を生成する。既存の共有パスは削除しない。
+- local comparison: macOSなど固定container外では実画像をpixel比較し、差分画像を保存する。自己生成hashとの比較ではない。macOS ChromiumとLinux referenceの2026-08-27実測最大差分は2.226%であり、既定閾値は2.5%とする。CI/reference container内は閾値0%の完全一致である。
+- artifacts: `QMJ12C_ARTIFACT_DIR` は実在するOS一時ディレクトリ配下のrootとして扱い、その中に実行ごとの一意な子ディレクトリを作る。指定が不正でも安全な一時領域へ失敗manifestを残す。symlinkや関連しない既存ファイルを上書き・削除しない。
+- axe incomplete: 詳細を48面ごとにmanifestへ残す。serious/criticalは `axe-incomplete-review.json` の非テキストglyphと単一文字アバターに限定し、同じ実行のcomputed DOM contrastが3:1以上の場合だけ許容する。ルールや画面の除外はしない。
+- update guard: baseline更新はlinux/x86_64、`/.dockerenv`、Ubuntu 24.04.4、Node/Playwright/Chromium版、image digest markerを照合する。これは誤操作防止であり暗号学的な権限証明ではない。公開権限は人の承認レシートが正本である。
+
+CIのAction SHAは2026-08-27に公式tag/commitを照合した。checkout v5.1.0は <https://github.com/actions/checkout/commit/fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09>、setup-bun v2.2.0は <https://github.com/oven-sh/setup-bun/commit/0c5077e51419868618aeaa5fe8019c62421857d6>、upload-artifact v4.6.2は <https://github.com/actions/upload-artifact/commit/ea165f8d65b6e75b540449e92b4886f43607fa02>、download-artifact v4.3.0は <https://github.com/actions/download-artifact/commit/d3f86a106a0bac45b974a628896c90dbdf5c8093> を使う。PlaywrightはMCRのmulti-arch manifestからlinux/amd64 manifest digestを照合した。
 
 ## Baseline review receipt
 
-baseline PNGは検証入力であり、生成した本人が承認済みとは扱わない。人による視覚レビュー結果は `baseline-review-receipt.schema.json` の形式で、対象commit、container、18件のhash、reviewer、判定、確認日時を結び付ける。現在のreceipt状態は人手レビュー待ちである。
+baseline PNGは検証入力であり、生成した本人が承認済みとは扱わない。QAはartifact内に `PENDING_HUMAN_REVIEW` の候補を生成するだけである。人による視覚レビュー結果は `baseline-review-receipt.schema.json` の形式で、対象commit、固定image digest、baseline version、18件のhash、reviewer、判定、確認日時を結び付ける。VoiceOverは別の `voiceover-review-receipt.schema.json` を使う。`release-gates.mjs` は両方のcommitted `APPROVE` が揃わない限り公開を停止する。現在は両方とも人手レビュー待ちである。
 
 VoiceOverの実音声は `VOICEOVER-CHECKLIST.md` の人手ゲートとして分離する。
 

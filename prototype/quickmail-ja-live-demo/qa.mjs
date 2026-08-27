@@ -13,16 +13,57 @@ import { PNG } from 'pngjs';
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const htmlPath = path.join(directory, 'index.html');
 const pageUrl = pathToFileURL(htmlPath).href;
+const axeIncompleteReview = JSON.parse(
+	fs.readFileSync(path.join(directory, 'axe-incomplete-review.json'), 'utf8')
+);
 const artifactOverride = process.env.QMJ12C_ARTIFACT_DIR;
-const artifacts = artifactOverride
-	? path.resolve(artifactOverride)
-	: fs.mkdtempSync(path.join(os.tmpdir(), 'qmj-12c-artifacts-'));
+const tempRoot = fs.realpathSync(os.tmpdir());
+function createArtifactDirectory(override) {
+	const fallback = (error = null) => ({
+		directory: fs.mkdtempSync(path.join(tempRoot, 'qmj-12c-artifacts-')),
+		preflightError: error
+	});
+	if (!override) return fallback();
+	try {
+		const root = path.resolve(override);
+		if (fs.existsSync(root)) {
+			const stat = fs.lstatSync(root);
+			assert.ok(
+				stat.isDirectory() && !stat.isSymbolicLink(),
+				'artifact root must be a real directory'
+			);
+		} else {
+			fs.mkdirSync(root);
+		}
+		const realRoot = fs.realpathSync(root);
+		assert.ok(
+			realRoot.startsWith(`${tempRoot}${path.sep}`),
+			'QMJ12C_ARTIFACT_DIR must be a child of the real OS temporary directory'
+		);
+		return { directory: fs.mkdtempSync(path.join(realRoot, 'run-')), preflightError: null };
+	} catch (error) {
+		return fallback(error);
+	}
+}
+const artifactSetup = createArtifactDirectory(artifactOverride);
+const artifacts = artifactSetup.directory;
 const baselineDirectory = path.join(directory, 'baselines', 'playwright-1.59.1-noble');
 const updateBaselines = process.argv.includes('--update-baselines');
-const pinnedContainer = 'mcr.microsoft.com/playwright:v1.59.1-noble';
+const baselineVersion = 'playwright-1.59.1-noble-linux-amd64';
+const pinnedContainerTag = 'mcr.microsoft.com/playwright:v1.59.1-noble';
+const pinnedImageDigest = 'sha256:eac9b0a5312cdab40ee8c2429df5bf19bffdccf8f3bf3c42268e173f97541645';
+const pinnedContainer = `mcr.microsoft.com/playwright@${pinnedImageDigest}`;
 const baselineMode =
 	process.env.QMJ12C_BASELINE_MODE || (process.platform === 'linux' ? 'exact' : 'threshold');
 const allowedMismatchRatio = Number(process.env.QMJ12C_PIXEL_THRESHOLD || '0.025');
+const expectedReferenceEnvironment = {
+	osPrettyName: 'Ubuntu 24.04.4 LTS',
+	node: 'v24.14.1',
+	playwright: '1.59.1',
+	chromium: '147.0.7727.15',
+	firefox: '148.0.2',
+	webkit: '26.4'
+};
 const profiles = ['calm', 'command', 'classic'];
 const themes = ['light', 'dark'];
 const axeStates = ['inbox', 'selected', 'compose', 'error'];
@@ -45,8 +86,11 @@ const evidence = {
 	contrasts: [],
 	browserCells: {},
 	browserVersions: {},
-	errors: []
+	errors: [],
+	failedCell: null,
+	failureScreenshot: null
 };
+let currentCell = 'preflight';
 
 function gitCommit() {
 	try {
@@ -66,31 +110,59 @@ function dependencyVersion(name) {
 	).version;
 }
 
-assert.ok(
-	!fs.existsSync(path.join(artifacts, 'manifest.json')),
-	`artifact directory must be unique or empty: ${artifacts}`
-);
-assert.ok(
-	!updateBaselines ||
-		(process.platform === 'linux' &&
-			process.arch === 'x64' &&
-			process.env.QMJ12C_REFERENCE_CONTAINER === pinnedContainer),
-	`--update-baselines is restricted to x86_64 ${pinnedContainer}`
-);
 fs.mkdirSync(path.join(artifacts, 'screenshots'), { recursive: true });
+const baselineStagingDirectory = updateBaselines
+	? fs.mkdtempSync(path.join(path.dirname(baselineDirectory), '.baseline-staging-'))
+	: null;
+
+function preflight() {
+	if (artifactSetup.preflightError) throw artifactSetup.preflightError;
+	assert.ok(
+		['exact', 'threshold'].includes(baselineMode),
+		'baseline mode must be exact or threshold'
+	);
+	assert.ok(
+		Number.isFinite(allowedMismatchRatio) &&
+			allowedMismatchRatio >= 0 &&
+			allowedMismatchRatio <= 0.025,
+		'pixel threshold must be finite and between 0 and 0.025'
+	);
+	assert.ok(!updateBaselines || baselineMode === 'exact', 'baseline update requires exact mode');
+	const expiry = Date.parse(`${axeIncompleteReview.expiresAt}T23:59:59Z`);
+	assert.ok(
+		Number.isFinite(expiry) && Date.now() <= expiry,
+		'axe incomplete review record has expired'
+	);
+}
+
+function referenceEnvironmentGuard(chromiumVersion) {
+	if (!updateBaselines) return;
+	const release = fs.readFileSync('/etc/os-release', 'utf8');
+	assert.ok(fs.existsSync('/.dockerenv'), 'baseline update requires a container environment');
+	assert.equal(process.platform, 'linux');
+	assert.equal(process.arch, 'x64');
+	assert.match(release, /^PRETTY_NAME="Ubuntu 24\.04\.4 LTS"$/mu);
+	assert.equal(process.version, expectedReferenceEnvironment.node);
+	assert.equal(dependencyVersion('playwright'), expectedReferenceEnvironment.playwright);
+	assert.equal(chromiumVersion, expectedReferenceEnvironment.chromium);
+	assert.equal(process.env.QMJ12C_REFERENCE_CONTAINER, pinnedContainer);
+	assert.equal(process.env.QMJ12C_REFERENCE_MARKER, baselineVersion);
+}
 
 function compareBaseline(actualFile, filename) {
 	const baselineFile = path.join(baselineDirectory, filename);
+	const comparisonFile = updateBaselines
+		? path.join(baselineStagingDirectory, filename)
+		: baselineFile;
 	if (updateBaselines) {
-		fs.mkdirSync(baselineDirectory, { recursive: true });
-		fs.copyFileSync(actualFile, baselineFile);
+		fs.copyFileSync(actualFile, comparisonFile, fs.constants.COPYFILE_EXCL);
 	}
 	assert.ok(
-		fs.existsSync(baselineFile),
+		fs.existsSync(comparisonFile),
 		`${filename} reviewed baseline is missing; use --update-baselines only in the pinned Playwright container`
 	);
 	const actual = PNG.sync.read(fs.readFileSync(actualFile));
-	const expected = PNG.sync.read(fs.readFileSync(baselineFile));
+	const expected = PNG.sync.read(fs.readFileSync(comparisonFile));
 	assert.deepEqual(
 		{ width: actual.width, height: actual.height },
 		{ width: expected.width, height: expected.height },
@@ -120,13 +192,98 @@ function compareBaseline(actualFile, filename) {
 	);
 	return {
 		baselineFile,
-		baselineSha256: crypto.createHash('sha256').update(fs.readFileSync(baselineFile)).digest('hex'),
+		baselineSha256: crypto
+			.createHash('sha256')
+			.update(fs.readFileSync(comparisonFile))
+			.digest('hex'),
 		mismatchPixels,
 		mismatchRatio,
 		allowedMismatchRatio: allowed,
 		mode: baselineMode,
 		updated: updateBaselines
 	};
+}
+
+function finalizeBaselineUpdate() {
+	if (!updateBaselines) return null;
+	const expected = profiles
+		.flatMap((profile) =>
+			themes.flatMap((theme) =>
+				snapshotWidths.map((viewport) => `${profile}-${theme}-${viewport.name}.png`)
+			)
+		)
+		.sort();
+	const actual = fs.readdirSync(baselineStagingDirectory).sort();
+	assert.deepEqual(actual, expected, 'baseline staging must contain the exact 18-file matrix');
+	for (const filename of actual)
+		PNG.sync.read(fs.readFileSync(path.join(baselineStagingDirectory, filename)));
+	const backup = `${baselineDirectory}.backup-${crypto.randomUUID()}`;
+	let movedExisting = false;
+	try {
+		if (fs.existsSync(baselineDirectory)) {
+			fs.renameSync(baselineDirectory, backup);
+			movedExisting = true;
+		}
+		fs.renameSync(baselineStagingDirectory, baselineDirectory);
+		if (movedExisting) fs.rmSync(backup, { recursive: true });
+	} catch (error) {
+		if (!fs.existsSync(baselineDirectory) && movedExisting && fs.existsSync(backup)) {
+			fs.renameSync(backup, baselineDirectory);
+		}
+		throw error;
+	}
+	return { version: baselineVersion, files: expected };
+}
+
+function writeVisualReviewCandidate() {
+	const screenshots = fs
+		.readdirSync(baselineDirectory)
+		.filter((filename) => filename.endsWith('.png'))
+		.sort()
+		.map((filename) => ({
+			file: filename,
+			sha256: crypto
+				.createHash('sha256')
+				.update(fs.readFileSync(path.join(baselineDirectory, filename)))
+				.digest('hex')
+		}));
+	assert.equal(screenshots.length, 18);
+	const candidate = {
+		reviewedCommit: gitCommit(),
+		baselineVersion,
+		containerTag: pinnedContainerTag,
+		containerImage: pinnedContainer,
+		imageDigest: pinnedImageDigest,
+		generatedAt: new Date().toISOString(),
+		decision: 'PENDING_HUMAN_REVIEW',
+		screenshots
+	};
+	const candidatePath = path.join(artifacts, 'baseline-review-candidate.json');
+	fs.writeFileSync(candidatePath, JSON.stringify(candidate, null, 2) + '\n', { flag: 'wx' });
+	return candidatePath;
+}
+
+function writeVoiceOverReviewCandidate() {
+	const candidate = {
+		reviewedCommit: gitCommit(),
+		contentSha256: crypto.createHash('sha256').update(fs.readFileSync(htmlPath)).digest('hex'),
+		checklistSha256: crypto
+			.createHash('sha256')
+			.update(fs.readFileSync(path.join(directory, 'VOICEOVER-CHECKLIST.md')))
+			.digest('hex'),
+		generatedAt: new Date().toISOString(),
+		decision: 'PENDING_HUMAN_REVIEW',
+		environment: { macosVersion: '', safariVersion: '', voiceOverVersion: '' },
+		profiles: profiles.map((profile) => ({
+			profile,
+			status: 'PENDING',
+			heardText: '',
+			notes: ''
+		}))
+	};
+	const candidatePath = path.join(artifacts, 'voiceover-review-candidate.json');
+	fs.writeFileSync(candidatePath, JSON.stringify(candidate, null, 2) + '\n', { flag: 'wx' });
+	return candidatePath;
 }
 
 function log(event, detail = {}) {
@@ -227,15 +384,23 @@ async function assertAccessibleState(page) {
 }
 
 async function assertOfflineState(page) {
-	await page.evaluate(() => dispatch({ type: 'SET_OFFLINE', value: true }));
+	await setScenario(page, { profile: 'calm', theme: 'light', state: 'inbox' });
+	const toggle = page.locator('[data-action="offline-toggle"]');
+	await toggle.focus();
+	await page.keyboard.press('Enter');
 	assert.equal(
 		await page.evaluate(() => state.offline),
 		true,
 		'demo state must explicitly record offline mode'
 	);
-	const status = page.locator('[data-status="offline"][role="status"][aria-live="polite"]');
+	assert.equal(await toggle.getAttribute('aria-pressed'), 'true');
+	const status = page.locator('[data-status="connectivity"][role="status"][aria-live="polite"]');
 	assert.equal(await status.count(), 1, 'offline mode must render one polite live status');
 	assert.match(await status.textContent(), /オフライン.*送受信できません/u);
+	await page.keyboard.press('Enter');
+	assert.equal(await page.evaluate(() => state.offline), false);
+	assert.equal(await toggle.getAttribute('aria-pressed'), 'false');
+	assert.match(await status.textContent(), /オンライン.*続けられます/u);
 }
 
 async function assertScenarioStructure(page, { profile, state, viewport, label }) {
@@ -324,10 +489,43 @@ async function axeScan(page, label) {
 		[],
 		`${label} must have zero moderate/serious/critical WCAG A/AA axe violations`
 	);
+	const incompleteDetails = result.incomplete.map((item) => ({
+		id: item.id,
+		impact: item.impact,
+		help: item.help,
+		nodes: item.nodes.map((node) => ({
+			target: node.target,
+			html: node.html,
+			failureSummary: node.failureSummary
+		}))
+	}));
+	const seriousIncomplete = incompleteDetails.filter((item) =>
+		['serious', 'critical'].includes(item.impact)
+	);
+	const unreviewedIncomplete = seriousIncomplete.flatMap((item) =>
+		item.nodes.flatMap((node) => {
+			const target = node.target.join(' ');
+			const covered =
+				item.id === axeIncompleteReview.ruleId &&
+				item.impact === axeIncompleteReview.impact &&
+				axeIncompleteReview.failureSummaryFragments.some((fragment) =>
+					node.failureSummary?.includes(fragment)
+				) &&
+				axeIncompleteReview.allowedTargetFragments.some((fragment) => target.includes(fragment));
+			return covered ? [] : [{ id: item.id, impact: item.impact, ...node }];
+		})
+	);
+	assert.deepEqual(
+		unreviewedIncomplete,
+		[],
+		`${label} serious/critical axe incomplete results require a narrow evidence-backed review record`
+	);
 	return {
 		label,
 		passes: result.passes.length,
-		incomplete: result.incomplete.length,
+		incompleteCount: result.incomplete.length,
+		incomplete: incompleteDetails,
+		reviewedIncompleteNodes: seriousIncomplete.reduce((sum, item) => sum + item.nodes.length, 0),
 		violations: result.violations.length
 	};
 }
@@ -391,6 +589,31 @@ async function contrastRecord(page, profile, theme) {
 		);
 	const normal = await sample('.mail-row[data-message-id="m3"] .mail-open');
 	const unread = await sample('.mail-row[data-message-id="m2"] .mail-open');
+	const iconSamples = {
+		compose: await sample('.compose-new > span[aria-hidden="true"]'),
+		activeNavigation: await sample('.nav-btn.active .nav-icon'),
+		inactiveNavigation: await sample('.nav-btn:not(.active) .nav-icon'),
+		activeStar: await sample('.mail-row.current .star.on'),
+		inactiveStar: await sample('.mail-row[data-message-id="m2"] .star:not(.on)'),
+		rowAvatar: await sample('.mail-row[data-message-id="m1"] .row-avatar > span'),
+		theme: await sample('[data-action="theme-cycle"]')
+	};
+	if (profile === 'classic') {
+		iconSamples.classicStarHeader = await sample('.classic-columns > span:nth-child(2)');
+	}
+	const searchSurface = await sample('.search-input');
+	for (const [name, selector] of [
+		['searchSymbol', '.search-symbol'],
+		['searchButton', '.search-go']
+	]) {
+		const value = await sample(selector);
+		iconSamples[name] = { ...value, background: searchSurface.background };
+	}
+	await page.setViewportSize({ width: 390, height: 844 });
+	const mobileNavigation = await sample('.mobile-nav button.active .mobile-icon');
+	iconSamples.mobileNavigation = mobileNavigation;
+	await page.setViewportSize({ width: 1440, height: 900 });
+	for (const value of Object.values(iconSamples)) value.ratio = ratio(value.text, value.background);
 	await page.hover('.mail-row[data-message-id="m3"]');
 	const hover = await sample('.mail-row[data-message-id="m3"] .mail-open');
 	await page.focus('.search-input');
@@ -402,6 +625,13 @@ async function contrastRecord(page, profile, theme) {
 	if (!(await page.locator('.mail-detail-head h1').count())) {
 		await page.evaluate(() => dispatch({ type: 'OPEN_MAIL', id: 'm2' }));
 	}
+	iconSamples.back = await sample('[data-action="back"]');
+	iconSamples.back.ratio = ratio(iconSamples.back.text, iconSamples.back.background);
+	iconSamples.selectedAvatar = await sample('.message-meta .row-avatar');
+	iconSamples.selectedAvatar.ratio = ratio(
+		iconSamples.selectedAvatar.text,
+		iconSamples.selectedAvatar.background
+	);
 	const large = await sample('.mail-detail-head h1');
 	await page.evaluate(() => dispatch({ type: 'RETURN_TO_MAILBOX' }));
 	const selected = await page.$eval('.mail-row[data-message-id="m2"]', (element) => {
@@ -436,7 +666,8 @@ async function contrastRecord(page, profile, theme) {
 		},
 		componentBoundary: { ...component, ratio: ratio(component.border, component.background) },
 		focusIndicator: { ...focus, ratio: ratio(focus.border, focus.background) },
-		disabled: { ...disabled, wcagContrastExempt: true }
+		disabled: { ...disabled, wcagContrastExempt: true },
+		icons: iconSamples
 	};
 	for (const key of ['normalText', 'hover', 'unread'])
 		assert.ok(
@@ -460,6 +691,11 @@ async function contrastRecord(page, profile, theme) {
 		samples.focusIndicator.ratio >= 3,
 		`${profile}/${theme}/focus indicator contrast must be >= 3:1`
 	);
+	for (const [name, value] of Object.entries(samples.icons))
+		assert.ok(
+			value.ratio >= axeIncompleteReview.evidence.minimumRatio,
+			`${profile}/${theme}/${name} non-text glyph contrast must be >= ${axeIncompleteReview.evidence.minimumRatio}:1`
+		);
 	return { profile, theme, samples };
 }
 
@@ -600,6 +836,7 @@ async function runChromium() {
 	try {
 		browser = await chromium.launch({ headless: true });
 		evidence.browserVersions.chromium = browser.version();
+		referenceEnvironmentGuard(browser.version());
 		context = await newContext(browser, snapshotWidths[0]);
 		await context.tracing.start({ screenshots: true, snapshots: true, sources: true });
 		traceStarted = true;
@@ -614,6 +851,7 @@ async function runChromium() {
 			for (const theme of themes) {
 				for (const state of axeStates) {
 					for (const viewport of axeWidths) {
+						currentCell = `chromium/${profile}/${theme}/${state}/${viewport.name}`;
 						await page.setViewportSize({ width: viewport.width, height: viewport.height });
 						await setScenario(page, { profile, theme, state });
 						const label = `${profile}/${theme}/${state}/${viewport.name}`;
@@ -649,6 +887,7 @@ async function runChromium() {
 		for (const profile of profiles) {
 			for (const theme of themes) {
 				for (const viewport of snapshotWidths) {
+					currentCell = `screenshot/${profile}/${theme}/${viewport.name}`;
 					await page.setViewportSize({ width: viewport.width, height: viewport.height });
 					await setScenario(page, { profile, theme, state: 'inbox' });
 					const filename = `${profile}-${theme}-${viewport.name}.png`;
@@ -680,8 +919,10 @@ async function runChromium() {
 		await page.setViewportSize({ width: 1440, height: 900 });
 		for (const profile of profiles)
 			for (const theme of themes)
-				evidence.contrasts.push(await contrastRecord(page, profile, theme));
+				((currentCell = `contrast/${profile}/${theme}`),
+					evidence.contrasts.push(await contrastRecord(page, profile, theme)));
 		for (const profile of profiles) {
+			currentCell = `keyboard/${profile}`;
 			await keyboardFlow(page, profile);
 			await restorationAndAnchor(page, profile);
 			await reducedMotionCheck(page, profile);
@@ -690,10 +931,15 @@ async function runChromium() {
 		return { tracePath };
 	} catch (error) {
 		primaryError = error;
+		evidence.failedCell ||= currentCell;
 		if (page) {
-			await page
-				.screenshot({ path: path.join(artifacts, 'failure.png'), fullPage: false })
-				.catch(() => undefined);
+			const failureFile = path.join(artifacts, 'failure.png');
+			await page.screenshot({ path: failureFile, fullPage: false }).then(
+				() => {
+					evidence.failureScreenshot = { cell: evidence.failedCell, file: failureFile };
+				},
+				() => undefined
+			);
 		}
 		throw error;
 	} finally {
@@ -720,6 +966,7 @@ async function runBrowserSmoke(name, browserType) {
 		const results = [];
 		for (const profile of profiles) {
 			for (const viewport of axeWidths) {
+				currentCell = `${name}/${profile}/dark/inbox/${viewport.name}`;
 				await page.setViewportSize({ width: viewport.width, height: viewport.height });
 				await setScenario(page, { profile, theme: 'dark', state: 'inbox' });
 				const label = `${name}/${profile}/dark/inbox/${viewport.name}`;
@@ -763,6 +1010,7 @@ async function runBrowserSmoke(name, browserType) {
 		return results;
 	} catch (error) {
 		primaryError = error;
+		evidence.failedCell ||= currentCell;
 		throw error;
 	} finally {
 		await closeResources(name, primaryError, [
@@ -774,14 +1022,34 @@ async function runBrowserSmoke(name, browserType) {
 
 let failure = null;
 let tracePath = path.join(artifacts, 'trace.zip');
+let baselineUpdate = null;
+let visualCandidatePath = null;
+let voiceOverCandidatePath = null;
 try {
+	preflight();
 	const chromiumResult = await runChromium();
 	tracePath = chromiumResult.tracePath;
 	await runBrowserSmoke('firefox', firefox);
 	await runBrowserSmoke('webkit', webkit);
+	if (updateBaselines) {
+		assert.deepEqual(evidence.browserVersions, {
+			chromium: expectedReferenceEnvironment.chromium,
+			firefox: expectedReferenceEnvironment.firefox,
+			webkit: expectedReferenceEnvironment.webkit
+		});
+	}
+	baselineUpdate = finalizeBaselineUpdate();
+	visualCandidatePath = writeVisualReviewCandidate();
+	voiceOverCandidatePath = writeVoiceOverReviewCandidate();
 } catch (error) {
 	failure = error;
-	evidence.errors.push({ name: error.name, message: error.message, stack: error.stack });
+	evidence.failedCell ||= currentCell;
+	evidence.errors.push({
+		cell: evidence.failedCell,
+		name: error.name,
+		message: error.message,
+		stack: error.stack
+	});
 	fs.writeFileSync(path.join(artifacts, 'failure.log'), `${error.stack || error.message}\n`);
 } finally {
 	const flowLogPath = path.join(artifacts, 'ui-flow-log.json');
@@ -798,6 +1066,9 @@ try {
 			osRelease: os.release(),
 			node: process.version,
 			pinnedReferenceContainer: pinnedContainer,
+			pinnedContainerTag,
+			pinnedImageDigest,
+			baselineVersion,
 			baselineMode,
 			allowedMismatchRatio,
 			updateBaselines
@@ -827,6 +1098,9 @@ try {
 		},
 		contrasts: evidence.contrasts,
 		errors: evidence.errors,
+		failedCell: evidence.failedCell,
+		failureScreenshot: evidence.failureScreenshot,
+		baselineUpdate,
 		artifacts: {
 			directory: artifacts,
 			trace: fs.existsSync(tracePath) ? tracePath : null,
@@ -837,11 +1111,14 @@ try {
 		},
 		visualReview: {
 			status: 'PENDING_HUMAN_REVIEW',
-			receiptSchema: path.join(directory, 'baseline-review-receipt.schema.json')
+			receiptSchema: path.join(directory, 'baseline-review-receipt.schema.json'),
+			candidate: visualCandidatePath
 		},
 		voiceOver: {
 			status: 'UNVERIFIED_HUMAN_GATE',
-			checklist: path.join(directory, 'VOICEOVER-CHECKLIST.md')
+			checklist: path.join(directory, 'VOICEOVER-CHECKLIST.md'),
+			receiptSchema: path.join(directory, 'voiceover-review-receipt.schema.json'),
+			candidate: voiceOverCandidatePath
 		}
 	};
 	fs.writeFileSync(path.join(artifacts, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');

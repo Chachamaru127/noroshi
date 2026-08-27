@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow,noarchive,nosnippet,noimageindex">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-DVKfcge7wTuvzhmhzDG42DqyQy1Vpk/0Ioz2KWJMbsc='; img-src data:; connect-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-A12TZjKCBeP4v+B9JOgSsYBIay+Jbc9l1p11I7kT9CE='; img-src data:; connect-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="color-scheme" content="light dark">
   <title>QuickMail-ja 操作可能デモ</title>
   <style>
@@ -12,14 +12,14 @@
       --bg:#f7f8f7; --surface:#fff; --surface-2:#f2f4f3; --surface-3:#e8eeea;
       --text:#262b28; --sub:#68716c; --muted:#626b66; --line:#dfe4e1;
       --accent:#527461; --accent-2:#527461; --on-accent:#fff;
-      --danger:#a63f3f; --warn:#715015; --warn-bg:#fff5d7; --good:#3f714f;
+      --danger:#a63f3f; --warn:#715015; --warn-bg:#fff5d7; --good:#3f714f; --star:#805600;
       --shadow:0 14px 38px rgba(38,59,47,.08); --sidebar:236px; --banner-height:58px;
     }
     [data-theme="dark"] {
       --bg:#121513; --surface:#1b201d; --surface-2:#242a27; --surface-3:#2b3931;
       --text:#edf2ef; --sub:#b2bcb6; --muted:#96a29b; --line:#3a443e;
       --accent:#88ad99; --accent-2:#88ad99; --on-accent:#0f1813;
-      --danger:#f19a9a; --warn:#e2bd73; --warn-bg:#352d19; --good:#93c7a5;
+      --danger:#f19a9a; --warn:#e2bd73; --warn-bg:#352d19; --good:#93c7a5; --star:#f3c969;
       --shadow:0 18px 46px rgba(0,0,0,.25);
     }
     [data-profile="calm"] { --sidebar:236px; --layout-radius:16px; --row-height:56px; }
@@ -50,6 +50,7 @@
     [data-theme="dark"] .demo-profile-switcher { background:rgba(0,0,0,.18); }
     .demo-profile-switcher button { min-height:30px; padding:0 .65rem; color:inherit; background:transparent; border:0; border-radius:7px; font-size:.72rem; font-weight:700; }
     .demo-profile-switcher button.active { color:var(--on-accent); background:var(--accent); }
+    .demo-connectivity-toggle { min-height:30px; padding:0 .65rem; color:inherit; background:transparent; border:1px solid currentColor; border-radius:8px; font-size:.72rem; font-weight:700; }
     .app { min-height:100vh; padding-top:var(--banner-height); }
     .sidebar {
       position:fixed; top:var(--banner-height); left:0; bottom:0; z-index:40; width:var(--sidebar);
@@ -147,9 +148,9 @@
     .mail-row:hover { background:var(--surface-2); }
     .select-box { width:17px; height:17px; accent-color:var(--accent-2); }
     .select-hit { display:grid; place-items:center; }
-    .star { color:#aeb5b1; background:transparent; border:0; font-size:1rem; }
-    .star.on { color:#d5a82d; }
-    .row-avatar { display:grid; place-items:center; width:36px; height:36px; padding:0; border:0; border-radius:50%; color:#365143; background:var(--surface-3); font-weight:700; }
+    .star { color:var(--muted); background:transparent; border:0; font-size:1rem; }
+    .star.on { color:var(--star); }
+    .row-avatar { display:grid; place-items:center; width:36px; height:36px; padding:0; border:0; border-radius:50%; color:var(--text); background:var(--surface-3); font-weight:700; }
     .sender,.subject { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .sender { padding:0; color:inherit; background:transparent; border:0; font-size:.82rem; text-align:left; }
     .unread .sender,.unread .subject-main { font-weight:700; }
@@ -330,6 +331,7 @@
       .command-profile-shell,.classic-profile-shell { border:0; border-radius:0; overflow:visible; }
       .command-actionbar,.classic-actionbar { overflow-x:auto; }
       .command-actionbar button,.classic-actionbar button { min-height:44px; }
+      .classic-quick-filter-form { display:none; }
       .classic-quick-filter { width:160px; min-width:120px; }
       .classic-thread-table { border:0; border-radius:0; overflow:visible; }
       .mail-row,
@@ -383,6 +385,7 @@
       .demo-dot { display:none; }
       .demo-profile-switcher { flex:0 0 auto; }
       .demo-profile-switcher button { min-width:72px; min-height:44px; }
+      .demo-connectivity-toggle { min-width:84px; min-height:44px; }
       .mobile-drawer-backdrop { inset:var(--banner-height) 0 0; }
       .page-head { align-items:flex-start; }
       .toolbar { flex-wrap:wrap; }
@@ -951,6 +954,10 @@
       initial?.focus();
     }
     function restoreLogicalFocus(action) {
+      if (action.type === "SET_OFFLINE") {
+        root.querySelector('[data-action="offline-toggle"]')?.focus();
+        return;
+      }
       const shouldRestoreMessage = action.type === "SELECT_MAIL" || action.type === "RETURN_TO_MAILBOX" || action.type === "PROFILE";
       if (shouldRestoreMessage) {
         const messageControl = root.querySelector('[data-focus-key="message-' + state.listAnchorId + '"]');
@@ -1047,7 +1054,7 @@
       return '<article class="' + className + '" data-pane="reading" aria-label="閲覧ペイン">' +
         '<p class="preview-kicker">選択中のメール</p><h2>' + esc(item.subject) + '</h2>' +
         '<div class="' + className.replace("-pane", "-meta") + '">' + esc(item.from) + ' &lt;' + esc(item.fromAddress) + '&gt;<br>' + esc(item.date) + '</div>' +
-        '<div class="' + className.replace("-pane", "-body") + '" tabindex="0" data-focus-key="message-body" aria-label="メール本文">' + esc(item.body) + '</div>' +
+        '<div class="' + className.replace("-pane", "-body") + '" role="region" tabindex="0" data-focus-key="message-body" aria-label="メール本文">' + esc(item.body) + '</div>' +
         '<div class="' + className.replace("-pane", "-actions") + '"><button class="button-primary" data-action="open-mail-detail" data-id="' + esc(item.id) + '">詳しく読む</button><button class="button" data-action="reply" data-id="' + esc(item.id) + '">返信</button><button class="button" data-action="forward" data-id="' + esc(item.id) + '">転送</button></div></article>';
     }
 
@@ -1062,7 +1069,7 @@
     function commandActions(item) {
       const id = item ? esc(item.id) : "";
       const disabled = item ? "" : " disabled";
-      return '<div class="command-actionbar" aria-label="メール操作"><button data-action="compose-new">新規メール</button><button data-action="reply" data-id="' + id + '"' + disabled + '>返信</button><button data-action="forward" data-id="' + id + '"' + disabled + '>転送</button><button data-action="move-archive" data-id="' + id + '"' + disabled + '>アーカイブ</button><button data-action="profile-move"' + disabled + '>移動</button><button data-action="profile-more">その他</button></div>';
+      return '<div class="command-actionbar" role="toolbar" aria-label="メール操作"><button data-action="compose-new">新規メール</button><button data-action="reply" data-id="' + id + '"' + disabled + '>返信</button><button data-action="forward" data-id="' + id + '"' + disabled + '>転送</button><button data-action="move-archive" data-id="' + id + '"' + disabled + '>アーカイブ</button><button data-action="profile-move"' + disabled + '>移動</button><button data-action="profile-more">その他</button></div>';
     }
 
     function renderCommand(context) {
@@ -1074,8 +1081,8 @@
       const item = selectedPreview(context.items);
       const id = item ? esc(item.id) : "";
       const disabled = item ? "" : " disabled";
-      const actions = '<div class="classic-actionbar" aria-label="メール操作"><button data-action="profile-refresh">更新</button><button data-action="compose-new">新規メール</button><button data-action="reply" data-id="' + id + '"' + disabled + '>返信</button><button data-action="forward" data-id="' + id + '"' + disabled + '>転送</button><button data-action="profile-tag"' + disabled + '>タグ</button><button data-action="profile-more">その他</button><form class="classic-quick-filter-form" data-form="search"><input class="classic-quick-filter" data-input="search" name="query" value="' + esc(state.search) + '" placeholder="一覧を絞り込み" aria-label="一覧を絞り込み"><button aria-label="一覧を絞り込む">絞り込む</button></form></div>';
-      const columns = '<div class="classic-columns" data-role="thread-columns" aria-label="メール一覧の列"><span class="optional-column">選択</span><span>★</span><span class="optional-column">印</span><span>差出人</span><span>件名</span><span>受信日時</span></div>';
+      const actions = '<div class="classic-actionbar" role="toolbar" aria-label="メール操作"><button data-action="profile-refresh">更新</button><button data-action="compose-new">新規メール</button><button data-action="reply" data-id="' + id + '"' + disabled + '>返信</button><button data-action="forward" data-id="' + id + '"' + disabled + '>転送</button><button data-action="profile-tag"' + disabled + '>タグ</button><button data-action="profile-more">その他</button><form class="classic-quick-filter-form" data-form="search"><input class="classic-quick-filter" data-input="search" name="query" value="' + esc(state.search) + '" placeholder="一覧を絞り込み" aria-label="一覧を絞り込み"><button aria-label="一覧を絞り込む">絞り込む</button></form></div>';
+      const columns = '<div class="classic-columns" data-role="thread-columns" role="group" aria-label="メール一覧の列"><span class="optional-column">選択</span><span>★</span><span class="optional-column">印</span><span>差出人</span><span>件名</span><span>受信日時</span></div>';
       return '<div class="classic-profile-shell" data-profile="classic" data-structure="folder-thread-message">' + actions + '<div class="classic-profile-grid"><section class="classic-thread-table" data-pane="thread-list" aria-label="スレッド一覧">' + columns + context.toolbar + context.list + '</section>' + readingPane(item,"classic-reading-pane") + '</div></div>';
     }
 
@@ -1095,10 +1102,11 @@
         const active = state.view === "folder" && state.activeMailId === folder.id;
         return '<div class="folder-row"><button class="nav-btn' + (active ? ' active' : '') + '" data-action="folder-open" data-id="' + esc(folder.id) + '" aria-label="' + esc(folder.name) + '" title="' + esc(folder.name) + '"' + (active ? ' aria-current="page"' : '') + '><span class="nav-icon" aria-hidden="true">▰</span><span>' + esc(folder.name) + '</span>' + (count ? '<span class="count">' + count + '</span>' : '') + '</button><button class="icon-button folder-tools" data-action="folder-menu" data-id="' + esc(folder.id) + '" aria-label="' + esc(folder.name) + 'を編集" title="' + esc(folder.name) + 'を編集">•••</button></div>';
       }).join("");
-      const profileSwitcher = '<div class="demo-profile-switcher" aria-label="画面構成">' + Object.values(UI_PROFILES).map(function(profile){ return '<button class="' + (state.profile === profile.id ? 'active' : '') + '" data-action="profile" data-profile="' + profile.id + '" data-focus-anchor="profile-selector" aria-pressed="' + String(state.profile === profile.id) + '">' + profile.publicLabel + '</button>'; }).join("") + '</div>';
-      return '<div class="demo-banner"><span class="demo-dot"></span><span class="demo-copy">非公式の比較デモです。架空データのみを使用し、実際のメールは送受信しません。AI相談は押した時だけ外部サービスを開きます</span>' + profileSwitcher + '</div>' +
+      const profileSwitcher = '<div class="demo-profile-switcher" role="group" aria-label="画面構成">' + Object.values(UI_PROFILES).map(function(profile){ return '<button class="' + (state.profile === profile.id ? 'active' : '') + '" data-action="profile" data-profile="' + profile.id + '" data-focus-anchor="profile-selector" aria-pressed="' + String(state.profile === profile.id) + '">' + profile.publicLabel + '</button>'; }).join("") + '</div>';
+      const connectivityToggle = '<button class="demo-connectivity-toggle" data-action="offline-toggle" aria-pressed="' + String(state.offline) + '" aria-label="' + (state.offline ? 'デモをオンラインに戻す' : 'デモをオフラインにする') + '">' + (state.offline ? 'オフライン' : 'オンライン') + '</button>';
+      return '<div class="demo-banner"><span class="demo-dot"></span><span class="demo-copy">非公式の比較デモです。架空データのみを使用し、実際のメールは送受信しません。AI相談は押した時だけ外部サービスを開きます</span>' + profileSwitcher + connectivityToggle + '</div>' +
         '<div class="app" data-theme="' + esc(state.theme === "system" ? "light" : state.theme) + '" data-profile="' + esc(state.profile) + '">' +
-        (state.offline ? '<div class="offline-status" data-status="offline" role="status" aria-live="polite">オフラインです。接続が戻るまでメールを送受信できません。</div>' : '') +
+        '<div class="' + (state.offline ? 'offline-status' : 'sr-only') + '" data-status="connectivity" role="status" aria-live="polite">' + (state.offline ? 'オフラインです。接続が戻るまでメールを送受信できません。' : 'オンラインです。デモ操作を続けられます。') + '</div>' +
         '<aside class="sidebar"' + (state.profile === "calm" ? '' : ' data-pane="navigation"') + ' aria-label="メールメニュー">' +
           '<div class="brand"><span class="brand-mark">✉</span><span>QuickMail-ja</span></div>' +
           '<button class="compose-new" data-action="compose-new"><span aria-hidden="true">✎</span><span class="compose-label">新規メール</span></button>' +
@@ -1186,7 +1194,7 @@
         return '<li class="mail-row' + (item.unread ? ' unread' : '') + (item.id === state.selectedMessageId ? ' current' : '') + '" data-message-id="' + esc(item.id) + '"' + (item.id === state.listAnchorId ? ' data-list-anchor="true"' : '') + '>' +
           '<span class="select-wrap"><input class="select-box" data-change="select" data-id="' + esc(item.id) + '" type="checkbox" ' + (selected.includes(item.id) ? 'checked' : '') + ' aria-label="' + esc(sender) + 'のメールを選択"></span>' +
           '<button class="star' + (item.starred ? ' on' : '') + '" data-action="star" data-id="' + esc(item.id) + '" aria-label="' + (item.starred ? 'スターを外す' : 'スターを付ける') + '">' + (item.starred ? '★' : '☆') + '</button>' +
-          '<button class="row-avatar" data-action="' + (item.draft ? 'open-draft' : 'open-mail') + '" data-id="' + esc(item.id) + '">' + esc(sender.slice(0,1).toUpperCase()) + '</button>' +
+          '<button class="row-avatar" data-action="' + (item.draft ? 'open-draft' : 'open-mail') + '" data-id="' + esc(item.id) + '" aria-label="' + esc(sender + 'のメールを開く') + '"><span aria-hidden="true">' + esc(sender.slice(0,1).toUpperCase()) + '</span></button>' +
           '<button class="sender" data-action="' + (item.draft ? 'open-draft' : 'open-mail') + '" data-id="' + esc(item.id) + '">' + esc(sender) + '</button>' +
           '<button class="subject mail-open" data-action="' + (item.draft ? 'open-draft' : 'open-mail') + '" data-id="' + esc(item.id) + '" data-focus-key="message-' + esc(item.id) + '" aria-label="' + esc(accessibleName) + '"' + (current ? ' aria-current="true"' : '') + '><span class="subject-main" data-sender="' + esc(sender) + '">' + esc(item.subject) + '</span><span class="preview">— ' + esc(item.preview) + '</span>' + (item.attachment ? '<span class="tag">添付</span>' : '') + '</button>' +
           '<span class="row-date">' + esc(item.date) + '</span>' +
@@ -1230,7 +1238,7 @@
               '<button class="button small" data-action="move-archive" data-id="' + esc(mail.id) + '">アーカイブ</button><button class="button small" data-action="trash-one" data-id="' + esc(mail.id) + '">ゴミ箱</button>') +
           '</div>' +
           '<div class="message-meta"><span class="row-avatar">' + esc(mail.from.slice(0,1)) + '</span><div class="meta-copy"><strong>' + esc(mail.from) + ' &lt;' + esc(mail.fromAddress) + '&gt;</strong><span>宛先: ' + esc(mail.to) + ' · ' + esc(mail.date) + '</span></div></div>' +
-          '<div class="message-body" tabindex="0" data-focus-key="message-body" aria-label="メール本文">' + esc(mail.body) + '</div>' +
+          '<div class="message-body" role="region" tabindex="0" data-focus-key="message-body" aria-label="メール本文">' + esc(mail.body) + '</div>' +
           (mail.attachment ? '<div class="attachments"><button class="attachment" data-action="attachment-demo">▧ ' + esc(mail.attachment) + '</button></div>' : '') +
         '</article>' +
         (!inTrash ? '<div class="reply-actions"><button class="button-primary" data-action="reply" data-id="' + esc(mail.id) + '">↩ 返信</button><button class="button" data-action="reply-all" data-id="' + esc(mail.id) + '">全員に返信</button><button class="button" data-action="forward" data-id="' + esc(mail.id) + '">→ 転送</button><button class="button" data-action="mark-unread" data-id="' + esc(mail.id) + '">未読にする</button></div>' : '') +
@@ -1391,6 +1399,7 @@
       const action = target.dataset.action;
       const id = target.dataset.id;
       if (action === "navigate") dispatch({type:"NAVIGATE",view:target.dataset.view});
+      else if (action === "offline-toggle") dispatch({type:"SET_OFFLINE",value:!state.offline});
       else if (action === "mobile-more") dispatch({type:"MOBILE_MENU"});
       else if (action === "mobile-close") dispatch({type:"MOBILE_CLOSE"});
       else if (action === "compose-new") dispatch({type:"OPEN_COMPOSE",mode:"new"});
