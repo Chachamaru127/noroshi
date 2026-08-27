@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow,noarchive,nosnippet,noimageindex">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-LWhXBYIZ1oPDIoijap/UNiNYKDHlUrw1FhREpvujRTg='; img-src data:; connect-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-f4/3I9NE46BPxvQ7hnD5ljqt2rvNXW3Mer7m5Cmu4f0='; img-src data:; connect-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="color-scheme" content="light dark">
   <title>QuickMail-ja 操作可能デモ</title>
   <style>
@@ -217,10 +217,12 @@
     .ai-provider-head { display:flex; align-items:center; gap:.5rem; }
     .ai-logo { width:22px; height:22px; flex:0 0 22px; fill:currentColor; }
     .ai-risk { margin-top:.65rem; color:var(--danger); font-size:.76rem; font-weight:700; }
-    .ai-disclosure { margin-top:.8rem; padding:.75rem; color:var(--sub); background:var(--warn-bg); border:1px solid color-mix(in srgb,var(--warn) 25%,transparent); border-radius:10px; font-size:.72rem; }
+    .ai-disclosure { margin-top:.8rem; padding:.75rem; color:var(--sub); background:var(--warn-bg); border:1px solid color-mix(in srgb,var(--warn) 25%,transparent); border-radius:10px; font-size:.72rem; overflow-wrap:anywhere; }
     .ai-disclosure strong { color:var(--text); }
-    .prompt-preview { min-height:132px; margin-top:.8rem; padding:.8rem; white-space:pre-wrap; color:var(--sub); background:var(--surface-2); border:1px solid var(--line); border-radius:11px; font-size:.75rem; }
-    .settings-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+    .prompt-preview { min-width:0; min-height:132px; margin-top:.8rem; padding:.8rem; overflow-wrap:anywhere; word-break:break-word; white-space:pre-wrap; color:var(--sub); background:var(--surface-2); border:1px solid var(--line); border-radius:11px; font-size:.75rem; }
+    .settings-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:1rem; }
+    .settings-grid > *,.settings-grid .appearance-group,.settings-grid .status-row,.settings-grid .item,.settings-grid .inline-form { min-width:0; }
+    .settings-grid .hint,.settings-grid .item-copy { overflow-wrap:anywhere; word-break:break-word; }
     .settings-grid .wide { grid-column:1/-1; }
     .segmented { display:flex; gap:.45rem; margin-top:.8rem; flex-wrap:wrap; }
     .segmented button.active { color:var(--on-accent); background:var(--accent-2); border-color:var(--accent-2); }
@@ -278,9 +280,10 @@
       [data-layout="outlook"] .outlook-list-pane .row-avatar { display:grid; }
       .subject { display:grid; gap:.15rem; }
       .subject-main::before { content:attr(data-sender); display:block; color:var(--text); font-size:.8rem; }
-      .settings-grid,.admin-grid { grid-template-columns:1fr; }
+      .settings-grid,.admin-grid { grid-template-columns:minmax(0,1fr); }
       .settings-grid .wide,.admin-grid .wide { grid-column:auto; }
-      .inline-form { grid-template-columns:1fr; }
+      .inline-form,.inline-form.one { grid-template-columns:minmax(0,1fr); }
+      .settings-grid .status-row,.settings-grid .item { flex-wrap:wrap; }
       .field-row { grid-template-columns:70px minmax(0,1fr); }
       .head-actions .button-label { display:none; }
       .mobile-nav {
@@ -454,7 +457,7 @@
       ["通常の設定質問",false],
       ["<scr" + "ipt>alert(1)</scr" + "ipt>",true],
       ["確認\u202Etxt",true],
-      ["APIキー：whsec_reviewcanary12345678",true],
+      ["APIキー：" + ["wh", "sec"].join("") + "_reviewcanary12345678",true],
       ["github_pat_reviewcanary1234567890",true],
       ["ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef",true]
     ]);

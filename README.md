@@ -293,6 +293,7 @@ bun run quickmail -- send --to recipient@example.net --subject "確認" --body "
 | `bun run preview` | 本番ビルド + `wrangler dev` |
 | `bun test` | 単体・統合テスト |
 | `bun run test:d1-forwarding` | D1自動転送の競合テスト |
+| `bun run test:live-demo` | 開発専用UI比較デモの構造・モバイル・アクセシビリティ・安全性確認 |
 | `bun run check` | Svelte/TypeScript確認 |
 | `bun run format:check` | フォーマット確認 |
 | `bun run check:clean` | 秘密値・実運用識別子・有効routeの混入確認 |

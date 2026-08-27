@@ -355,12 +355,22 @@ Binary DoD:
 
 Priority: Required
 Depends on: QMJ-7; may run in parallel with QMJ-8 through QMJ-11
-Status: Not started
+Status: In progress — interactive comparison prototype complete; full evaluation gates remain
 
 - Capture the existing light/dark baseline at 1440x900, 1024x768, and 390x844.
 - Build the `calm`, `command`, and `classic` concepts from one synthetic Japanese fixture and one interaction contract. In the user-approved development-only comparison demo, label the selector buttons exactly `Gmail風`, `Outlook風`, and `Thunderbird風`; production naming remains generic.
 - Keep prototypes development-only and out of production routes and bundle.
 - Cover selection, body, compose, loading, empty, error, success, offline, long Japanese subject, attachment, and HTML body states.
+
+Completed prototype scope (2026-08-27):
+
+- The isolated synthetic demo implements structurally distinct Gmail-style single-list, Outlook-style three-pane, and Thunderbird-style folder-tree/table layouts.
+- Automated checks cover the initial shell, all three desktop structures, 390x844 overflow and 44px targets, light/dark switching, dialog focus containment/restoration, and AI handoff refusal cases.
+
+Remaining before QMJ-12 completion:
+
+- Complete the full state matrix above at 1440x900 and 1024x768 as well as 390x844.
+- Verify the complete keyboard flow through message body and reply, run axe with 0 serious/critical violations, and record WCAG AA text/form/button contrast results.
 
 Binary DoD:
 

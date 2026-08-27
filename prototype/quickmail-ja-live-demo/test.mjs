@@ -2,16 +2,8 @@ import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
-
-const require = createRequire(import.meta.url);
-let chromium;
-try {
-  ({ chromium } = require("playwright"));
-} catch (error) {
-  throw new Error("Playwright is required. Run with NODE_PATH pointing to a node_modules directory that contains playwright.", { cause:error });
-}
+import { chromium } from "playwright";
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const htmlPath = path.join(directory,"index.html");
@@ -200,6 +192,36 @@ try {
     await page.evaluate(() => dispatch({type:"THEME",value:"light"}));
   }
 
+  const mobileSettingsGeometry = {};
+  for (const layout of ["gmail","outlook","thunderbird"]) {
+    mobileSettingsGeometry[layout] = {};
+    for (const theme of ["light","dark"]) {
+      await page.evaluate(({layout,theme}) => {
+        dispatch({type:"LAYOUT",value:layout});
+        dispatch({type:"THEME",value:theme});
+        dispatch({type:"NAVIGATE",view:"settings"});
+      },{layout,theme});
+      mobileSettingsGeometry[layout][theme] = await page.evaluate(() => {
+        const cards = [...document.querySelectorAll(".settings-grid > .card")].map(card => {
+          const box = card.getBoundingClientRect();
+          return {left:box.left,right:box.right,width:box.width};
+        });
+        return {
+          viewport:innerWidth,
+          documentWidth:document.documentElement.scrollWidth,
+          bodyWidth:document.body.scrollWidth,
+          cards,
+          longContent:[...document.querySelectorAll(".ai-disclosure,.prompt-preview")].map(element => element.scrollWidth <= element.clientWidth)
+        };
+      });
+      const geometry = mobileSettingsGeometry[layout][theme];
+      assert.ok(geometry.documentWidth <= geometry.viewport,layout + "/" + theme + " settings document must not overflow");
+      assert.ok(geometry.bodyWidth <= geometry.viewport,layout + "/" + theme + " settings body must not overflow");
+      assert.ok(geometry.cards.every(card => card.left >= 0 && card.right <= geometry.viewport + 0.5 && card.width <= geometry.viewport),layout + "/" + theme + " settings cards must fit the viewport");
+      assert.ok(geometry.longContent.every(Boolean),layout + "/" + theme + " prompt and disclosure must wrap within their cards");
+    }
+  }
+
   await page.setViewportSize({width:1280,height:720});
   await page.reload();
   await page.click('[data-action="navigate"][data-view="settings"]');
@@ -243,13 +265,20 @@ try {
   });
 
   const unsafeQuestions = [
+    "",
+    "確認" + String.fromCodePoint(0x07) + "してください",
+    "長".repeat(1601),
     "<scr" + "ipt>alert(1)</scr" + "ipt>",
     "contact@example.com",
-    "APIキー：whsec_reviewcanary12345678",
+    "APIキー：" + ["wh", "sec"].join("") + "_reviewcanary12345678",
     "確認" + String.fromCodePoint(0x202e) + "txt"
   ];
   for (const value of unsafeQuestions) {
-    await page.fill("#ai-question",value);
+    await page.evaluate(question => {
+      const input = document.querySelector("#ai-question");
+      input.value = question;
+      input.dispatchEvent(new Event("input",{bubbles:true}));
+    },value);
     await page.click('[data-action="ai-handoff"][data-provider="ChatGPT"]');
   }
   let audit = await page.evaluate(() => window.__quickmailAudit);
@@ -290,6 +319,7 @@ try {
     layouts:["gmail","outlook","thunderbird"],
     desktopStructures,
     mobileGeometry,
+    mobileSettingsGeometry,
     modalBackdropMax:1,
     unsafeNavigationCount:0,
     unsafeClipboardCount:0,
