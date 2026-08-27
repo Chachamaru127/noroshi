@@ -390,6 +390,8 @@ Completed prototype scope (2026-08-27):
 - The isolated synthetic demo implements structurally distinct Gmail-style single-list, Outlook-style three-pane, and Thunderbird-style folder-tree/table layouts.
 - Automated checks cover the initial shell, all three desktop structures, 390x844 overflow and 44px targets, light/dark switching, dialog focus containment/restoration, and AI handoff refusal cases.
 
+Current verification state (2026-08-27): automated QA and the non-human AI rubric evaluation pass, but neither authorizes release. QMJ-12C remains in progress until an actual human reviews all 18 screens and real Safari + VoiceOver evidence is approved.
+
 Remaining before QMJ-12 completion:
 
 | Task | 内容 | DoD | Depends | Status |
@@ -397,7 +399,7 @@ Remaining before QMJ-12 completion:
 | QMJ-12A | `[lane:fast] [stage:foundation] [tdd:skip:docs-only]` Add `sources.md`, shared `base.DESIGN.md`, and `calm/command/classic.DESIGN.md`; define the minimal static `UIProfile` contract and explicit non-goals. | Source roles and local values are separated; runtime registry fields are limited to ID, label, renderer, and optional evaluator description; profile files contain layout deltas; dynamic plugins, remote themes, and production multi-profile switching are excluded. | QMJ-7 | cc:COMPLETED |
 | QMJ-12B | `[lane:gate] [stage:tdd-implementation] [tdd:required]` Improve the existing static demo through one minimal `UIProfile` registry and three renderers; keep metrics/breakpoints in DESIGN.md, CSS/renderers, and RED contract tests rather than registry data. | Generic IDs/labels, profile isolation, all three fixed viewport structures, state preservation, row metrics, `noindex`, notice, same-origin passive network, and 0 new runtime design-system dependencies pass. | QMJ-12A | cc:COMPLETED |
 | QMJ-12C | `[lane:gate] [stage:verification] [tdd:required]` Add bounded accessibility, responsive, contrast, deterministic snapshot, and browser-functional coverage without duplicating the UI implementation. | The 48-run axe contract, WCAG ratios, VoiceOver smoke, 18 default snapshots, keyboard/focus flow, overflow, reduced motion, and Chromium/Firefox/WebKit functional checks meet the Binary DoD. | QMJ-12B | cc:IN_PROGRESS |
-| QMJ-12D | `[lane:gate] [stage:review] [tdd:skip:independent-review]` Run integrated scope, UI, security, accessibility, regression, and skeptic reviews; fix and re-review up to three iterations. | Independent reviewers return APPROVE with no unresolved P0/P1; full local checks pass; Plans/spec alignment is read back; no deploy occurs. | QMJ-12C | cc:TODO |
+| QMJ-12D | `[lane:gate] [stage:review] [tdd:skip:independent-review]` Run integrated scope, UI, security, accessibility, regression, and skeptic reviews; fix and re-review up to three iterations. | Independent reviewers return APPROVE with no unresolved P0/P1; full local checks pass; Plans/spec alignment is read back; no deploy occurs. | QMJ-12C | cc:COMPLETED |
 
 Binary DoD:
 
@@ -477,6 +479,7 @@ Binary DoD:
 
 - Public artifact checksum/signature/provenance verifies and contains no secret, customer value, browser profile, local path, state folder, backup, or unselected design prototype.
 - Every public capability claim has recorded evidence; unsupported host behavior is labeled.
+- The publish job is gated by a human-controlled GitHub protected environment or equivalent identity-attested reviewer approval bound to the exact release revision; a free-text receipt `reviewer` field alone is insufficient.
 - The user explicitly approves each external release action immediately before it occurs.
 
 ### Review loops
