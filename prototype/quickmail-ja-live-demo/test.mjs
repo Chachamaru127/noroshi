@@ -20,6 +20,11 @@ assert.doesNotThrow(() => new Function(script),"inline script must parse as Java
 const hash = "sha256-" + crypto.createHash("sha256").update(script).digest("base64");
 assert.ok(html.includes("script-src '" + hash + "'"),"HTML CSP hash must match the inline script");
 assert.ok(headers.includes("script-src '" + hash + "'"),"deployed CSP hash must match the inline script");
+assert.match(headers,/X-Robots-Tag: noindex, nofollow/u,"deployed headers must keep the preview out of indexes");
+assert.doesNotMatch(html,/<(?:script|link|img|iframe)[^>]+(?:src|href)=["']https?:/iu,"demo must not load external assets");
+assert.doesNotMatch(html,/@import\s+url|url\(\s*["']?https?:/iu,"demo must not load external fonts or CSS");
+assert.doesNotMatch(script,/\b(?:fetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon)\s*\(/u,"passive demo runtime must not contain network APIs");
+assert.match(html,/connect-src 'none'/u,"passive network must be disabled by CSP");
 
 const chromeCandidates = [
   process.env.CHROME_PATH,
@@ -32,9 +37,11 @@ const executablePath = chromeCandidates.find(candidate => fs.existsSync(candidat
 assert.ok(executablePath,"Chrome or Chromium executable must be available");
 
 const browser = await chromium.launch({headless:true,executablePath});
-const page = await browser.newPage({viewport:{width:1280,height:720}});
+const page = await browser.newPage({viewport:{width:1440,height:900}});
 const pageErrors = [];
+const passiveRequests = [];
 page.on("pageerror",error => pageErrors.push(error.message));
+page.on("request",request => passiveRequests.push(request.url()));
 
 try {
   await page.goto(pathToFileURL(htmlPath).href);
@@ -59,31 +66,141 @@ try {
     };
   });
   assert.deepEqual(parsed,{appRendered:true,scriptElements:1,rawSourceNodes:[],modalBackdrops:0});
-  assert.match(await page.textContent(".demo-banner"),/外部サービスへの移動を要求します/u);
-  assert.equal(await page.locator('[data-structure="gmail-single-list"]').count(),1,"Gmail-style must be one airy list");
-  assert.equal(await page.locator(".outlook-preview-pane,.thunderbird-columns").count(),0,"Gmail-style must not expose preview or table panes");
+  assert.match(await page.textContent(".demo-banner"),/非公式.*架空.*送受信しません/u);
+  assert.equal(await page.locator('[data-profile="calm"][data-structure="list-detail-replacement"]').count(),1,"calm must render its list/detail replacement structure");
+  assert.equal(await page.locator('[data-pane="reading"],[data-structure="thread-table"]').count(),0,"calm list view must not expose a reading pane or thread table");
+
+  const profileContract = await page.evaluate(() => ({
+    ids:Object.keys(UI_PROFILES),
+    entries:Object.values(UI_PROFILES).map(profile => ({
+      keys:Object.keys(profile).sort(),
+      id:profile.id,
+      publicLabel:profile.publicLabel,
+      renderer:typeof profile.render
+    }))
+  }));
+  assert.deepEqual(profileContract.ids,["calm","command","classic"]);
+  assert.deepEqual(profileContract.entries,[
+    {keys:["id","publicLabel","render"],id:"calm",publicLabel:"シンプル",renderer:"function"},
+    {keys:["id","publicLabel","render"],id:"command",publicLabel:"3ペイン",renderer:"function"},
+    {keys:["id","publicLabel","render"],id:"classic",publicLabel:"高密度",renderer:"function"}
+  ],"registry entries must remain minimal and contain no layout schema");
 
   await page.click('[data-action="navigate"][data-view="settings"]');
-  assert.deepEqual(await page.locator('[data-action="layout"]').allTextContents(),["Gmail風","Outlook風","Thunderbird風"]);
+  assert.deepEqual(await page.locator('[data-action="profile"]').allTextContents(),["シンプル","3ペイン","高密度"]);
   const desktopStructures = {};
-  for (const layout of ["gmail","outlook","thunderbird"]) {
-    await page.click('[data-action="layout"][data-layout="' + layout + '"]');
-    assert.equal(await page.getAttribute(".app","data-layout"),layout,layout + " layout must render");
+  for (const profile of ["calm","command","classic"]) {
+    await page.click('[data-action="profile"][data-profile="' + profile + '"]');
+    assert.equal(await page.getAttribute(".app","data-profile"),profile,profile + " profile must render");
+    assert.equal(await page.evaluate(() => document.activeElement?.dataset.profile),profile,profile + " switch must restore focus to the selected profile control");
     await page.click('[data-action="navigate"][data-view="inbox"]');
-    desktopStructures[layout] = await page.evaluate(() => ({
-      gmail:document.querySelectorAll('[data-structure="gmail-single-list"]').length,
-      outlook:document.querySelectorAll('[data-structure="outlook-three-pane"]').length,
-      listPane:document.querySelectorAll('.outlook-list-pane[data-pane="message-list"]').length,
-      readingPane:document.querySelectorAll('.outlook-preview-pane[data-pane="reading"]').length,
-      thunderbird:document.querySelectorAll('[data-structure="thunderbird-table"]').length,
-      folderTree:document.querySelectorAll(".sidebar .folder-row").length,
-      columnHeader:document.querySelectorAll(".thunderbird-columns").length
+    desktopStructures[profile] = await page.evaluate(() => ({
+      calm:document.querySelectorAll('[data-profile="calm"][data-structure="list-detail-replacement"]').length,
+      command:document.querySelectorAll('[data-profile="command"][data-structure="nav-list-reader"]').length,
+      classic:document.querySelectorAll('[data-profile="classic"][data-structure="folder-thread-message"]').length,
+      navigation:document.querySelectorAll('[data-pane="navigation"]').length,
+      messageList:document.querySelectorAll('[data-pane="message-list"],[data-pane="thread-list"]').length,
+      readingPane:document.querySelectorAll('[data-pane="reading"]').length,
+      columnHeader:document.querySelectorAll('[data-role="thread-columns"]').length
     }));
-    if (layout !== "thunderbird") await page.click('[data-action="navigate"][data-view="settings"]');
+    if (profile !== "classic") await page.click('[data-action="navigate"][data-view="settings"]');
   }
-  assert.deepEqual(desktopStructures.gmail,{gmail:1,outlook:0,listPane:0,readingPane:0,thunderbird:0,folderTree:2,columnHeader:0});
-  assert.deepEqual(desktopStructures.outlook,{gmail:0,outlook:1,listPane:1,readingPane:1,thunderbird:0,folderTree:2,columnHeader:0});
-  assert.deepEqual(desktopStructures.thunderbird,{gmail:0,outlook:0,listPane:0,readingPane:0,thunderbird:1,folderTree:2,columnHeader:1});
+  assert.deepEqual(desktopStructures.calm,{calm:1,command:0,classic:0,navigation:0,messageList:1,readingPane:0,columnHeader:0});
+  assert.deepEqual(desktopStructures.command,{calm:0,command:1,classic:0,navigation:1,messageList:1,readingPane:1,columnHeader:0});
+  assert.deepEqual(desktopStructures.classic,{calm:0,command:0,classic:1,navigation:1,messageList:1,readingPane:1,columnHeader:1});
+
+  const geometry = {};
+  for (const width of [1440,1024]) {
+    geometry[width] = {};
+    await page.setViewportSize({width,height:900});
+    for (const profile of ["calm","command","classic"]) {
+      await page.evaluate(value => {
+        dispatch({type:"NAVIGATE",view:"inbox"});
+        dispatch({type:"PROFILE",value});
+      },profile);
+      geometry[width][profile] = await page.evaluate(() => {
+        const box = selector => {
+          const element = document.querySelector(selector);
+          if (!element) return null;
+          const rect = element.getBoundingClientRect();
+          return {width:Math.round(rect.width),height:Math.round(rect.height),display:getComputedStyle(element).display};
+        };
+        const visible = selector => [...document.querySelectorAll(selector)].filter(element => {
+          const style = getComputedStyle(element);
+          const rect = element.getBoundingClientRect();
+          return style.display !== "none" && rect.width > 0 && rect.height > 0;
+        }).length;
+        return {
+          sidebar:box(".sidebar"),
+          row:box(".mail-row"),
+          list:box('[data-pane="message-list"],[data-pane="thread-list"]'),
+          visiblePanes:visible('.sidebar,[data-pane="message-list"],[data-pane="thread-list"],[data-pane="reading"]'),
+          optionalColumnDisplay:document.querySelector(".optional-column") ? getComputedStyle(document.querySelector(".optional-column")).display : null,
+          overflow:document.documentElement.scrollWidth > innerWidth
+        };
+      });
+    }
+  }
+  assert.deepEqual({
+    calm:{sidebar:geometry[1440].calm.sidebar.width,row:geometry[1440].calm.row.height,panes:geometry[1440].calm.visiblePanes},
+    command:{sidebar:geometry[1440].command.sidebar.width,row:geometry[1440].command.row.height,panes:geometry[1440].command.visiblePanes},
+    classic:{sidebar:geometry[1440].classic.sidebar.width,row:geometry[1440].classic.row.height,panes:geometry[1440].classic.visiblePanes}
+  },{
+    calm:{sidebar:236,row:56,panes:2},
+    command:{sidebar:240,row:44,panes:3},
+    classic:{sidebar:220,row:40,panes:3}
+  },"1440px geometry must match the profile documents");
+  assert.deepEqual({
+    calm:{sidebar:geometry[1024].calm.sidebar.width,row:geometry[1024].calm.row.height,panes:geometry[1024].calm.visiblePanes},
+    command:{sidebar:geometry[1024].command.sidebar.width,row:geometry[1024].command.row.height,panes:geometry[1024].command.visiblePanes},
+    classic:{sidebar:geometry[1024].classic.sidebar.width,row:geometry[1024].classic.row.height,panes:geometry[1024].classic.visiblePanes,optional:geometry[1024].classic.optionalColumnDisplay}
+  },{
+    calm:{sidebar:80,row:56,panes:2},
+    command:{sidebar:64,row:44,panes:3},
+    classic:{sidebar:184,row:40,panes:3,optional:"none"}
+  },"1024px geometry must match the compact profile documents");
+  for (const width of [1440,1024]) {
+    for (const profile of ["calm","command","classic"]) {
+      assert.equal(geometry[width][profile].overflow,false,width + "/" + profile + " must not overflow horizontally");
+    }
+  }
+
+  await page.evaluate(() => {
+    dispatch({type:"SEARCH",value:"保持する検索語"});
+    dispatch({type:"OPEN_COMPOSE",mode:"new"});
+    dispatch({type:"COMPOSE_FIELD",field:"to",value:"person@recipient.invalid"});
+    dispatch({type:"COMPOSE_FIELD",field:"cc",value:"copy@recipient.invalid"});
+    dispatch({type:"COMPOSE_FIELD",field:"bcc",value:"hidden@recipient.invalid"});
+    dispatch({type:"COMPOSE_FIELD",field:"subject",value:"切替保持テスト"});
+    dispatch({type:"COMPOSE_FIELD",field:"body",value:"本文も保持します"});
+    dispatch({type:"ADD_ATTACHMENT"});
+    dispatch({type:"PROFILE",value:"calm"});
+    dispatch({type:"PROFILE",value:"command"});
+    dispatch({type:"PROFILE",value:"classic"});
+  });
+  assert.deepEqual(await page.evaluate(() => ({
+    profile:state.profile,
+    view:state.view,
+    compose:state.compose,
+    search:state.search,
+    previousView:state.previousView,
+    selectedMessageId:state.selectedMessageId,
+    listAnchorId:state.listAnchorId,
+    focusAnchor:state.focusAnchor
+  })),{
+    profile:"classic",
+    view:"compose",
+    compose:{mode:"new",from:"info@quickmail.invalid",to:"person@recipient.invalid",cc:"copy@recipient.invalid",bcc:"hidden@recipient.invalid",subject:"切替保持テスト",body:"本文も保持します",attachments:[{id:"demo-attachment",name:"参考資料.pdf",size:128000,type:"application/pdf"}],draftId:null},
+    search:"保持する検索語",
+    previousView:"inbox",
+    selectedMessageId:"m1",
+    listAnchorId:"m1",
+    focusAnchor:"profile-selector"
+  },"profile switching must preserve the complete fixture and logical state");
+  await page.evaluate(() => {
+    dispatch({type:"SEARCH",value:""});
+    dispatch({type:"NAVIGATE",view:"inbox"});
+  });
 
   await page.evaluate(() => dispatch({type:"THEME",value:"dark"}));
   assert.equal(await page.getAttribute("html","data-theme"),"dark","dark mode must render with the selected layout");
@@ -134,14 +251,14 @@ try {
 
   await page.setViewportSize({width:390,height:844});
   const mobileGeometry = {};
-  for (const layout of ["gmail","outlook","thunderbird"]) {
+  for (const profile of ["calm","command","classic"]) {
     await page.evaluate(value => {
       dispatch({type:"NAVIGATE",view:"inbox"});
-      dispatch({type:"LAYOUT",value});
+      dispatch({type:"PROFILE",value});
       dispatch({type:"THEME",value:"dark"});
-    },layout);
+    },profile);
     assert.equal(await page.getAttribute("html","data-theme"),"dark");
-    mobileGeometry[layout] = await page.evaluate(() => {
+    mobileGeometry[profile] = await page.evaluate(() => {
       const visible = element => {
         const style = getComputedStyle(element);
         const rect = element.getBoundingClientRect();
@@ -178,30 +295,33 @@ try {
         headerOverlap:banner.bottom > topbar.top + 1 || topbar.bottom > main.top + 1,
         rowControlOverlaps:overlaps,
         undersized,
-        previewVisible:Boolean(document.querySelector(".outlook-preview-pane") && visible(document.querySelector(".outlook-preview-pane"))),
-        columnHeaderVisible:Boolean(document.querySelector(".thunderbird-columns") && visible(document.querySelector(".thunderbird-columns")))
+        rowHeight:Math.round(document.querySelector(".mail-row").getBoundingClientRect().height),
+        visibleMailPanes:[...document.querySelectorAll('[data-pane="navigation"],[data-pane="message-list"],[data-pane="thread-list"],[data-pane="reading"]')].filter(visible).length,
+        columnHeaderVisible:Boolean(document.querySelector('[data-role="thread-columns"]') && visible(document.querySelector('[data-role="thread-columns"]')))
       };
     });
-    assert.equal(mobileGeometry[layout].documentWidth,390,layout + " must not overflow the mobile viewport");
-    assert.equal(mobileGeometry[layout].bodyWidth,390,layout + " body must not overflow the mobile viewport");
-    assert.equal(mobileGeometry[layout].headerOverlap,false,layout + " fixed and flow headers must not overlap");
-    assert.deepEqual(mobileGeometry[layout].rowControlOverlaps,[],layout + " row controls must not overlap");
-    assert.deepEqual(mobileGeometry[layout].undersized,[],layout + " visible interactive targets must be at least 44px");
-    assert.equal(mobileGeometry[layout].previewVisible,false,"Outlook reading pane must collapse on mobile");
-    assert.equal(mobileGeometry[layout].columnHeaderVisible,false,"Thunderbird table header must collapse on mobile");
+    assert.equal(mobileGeometry[profile].documentWidth,390,profile + " must not overflow the mobile viewport");
+    assert.equal(mobileGeometry[profile].bodyWidth,390,profile + " body must not overflow the mobile viewport");
+    assert.equal(mobileGeometry[profile].headerOverlap,false,profile + " fixed and flow headers must not overlap");
+    assert.deepEqual(mobileGeometry[profile].rowControlOverlaps,[],profile + " row controls must not overlap");
+    assert.deepEqual(mobileGeometry[profile].undersized,[],profile + " visible interactive targets must be at least 44px");
+    assert.equal(mobileGeometry[profile].visibleMailPanes,1,profile + " must collapse to one mail screen at 390px");
+    if (profile === "calm") assert.equal(mobileGeometry[profile].rowHeight,64,"calm mobile rows must be 64px");
+    if (profile === "classic") assert.equal(mobileGeometry[profile].rowHeight,52,"classic mobile rows must be 52px");
+    assert.equal(mobileGeometry[profile].columnHeaderVisible,false,"classic table header must collapse on mobile");
     await page.evaluate(() => dispatch({type:"THEME",value:"light"}));
   }
 
   const mobileSettingsGeometry = {};
-  for (const layout of ["gmail","outlook","thunderbird"]) {
-    mobileSettingsGeometry[layout] = {};
+  for (const profile of ["calm","command","classic"]) {
+    mobileSettingsGeometry[profile] = {};
     for (const theme of ["light","dark"]) {
-      await page.evaluate(({layout,theme}) => {
-        dispatch({type:"LAYOUT",value:layout});
+      await page.evaluate(({profile,theme}) => {
+        dispatch({type:"PROFILE",value:profile});
         dispatch({type:"THEME",value:theme});
         dispatch({type:"NAVIGATE",view:"settings"});
-      },{layout,theme});
-      mobileSettingsGeometry[layout][theme] = await page.evaluate(() => {
+      },{profile,theme});
+      mobileSettingsGeometry[profile][theme] = await page.evaluate(() => {
         const cards = [...document.querySelectorAll(".settings-grid > .card")].map(card => {
           const box = card.getBoundingClientRect();
           return {left:box.left,right:box.right,width:box.width};
@@ -214,11 +334,11 @@ try {
           longContent:[...document.querySelectorAll(".ai-disclosure,.prompt-preview")].map(element => element.scrollWidth <= element.clientWidth)
         };
       });
-      const geometry = mobileSettingsGeometry[layout][theme];
-      assert.ok(geometry.documentWidth <= geometry.viewport,layout + "/" + theme + " settings document must not overflow");
-      assert.ok(geometry.bodyWidth <= geometry.viewport,layout + "/" + theme + " settings body must not overflow");
-      assert.ok(geometry.cards.every(card => card.left >= 0 && card.right <= geometry.viewport + 0.5 && card.width <= geometry.viewport),layout + "/" + theme + " settings cards must fit the viewport");
-      assert.ok(geometry.longContent.every(Boolean),layout + "/" + theme + " prompt and disclosure must wrap within their cards");
+      const geometry = mobileSettingsGeometry[profile][theme];
+      assert.ok(geometry.documentWidth <= geometry.viewport,profile + "/" + theme + " settings document must not overflow");
+      assert.ok(geometry.bodyWidth <= geometry.viewport,profile + "/" + theme + " settings body must not overflow");
+      assert.ok(geometry.cards.every(card => card.left >= 0 && card.right <= geometry.viewport + 0.5 && card.width <= geometry.viewport),profile + "/" + theme + " settings cards must fit the viewport");
+      assert.ok(geometry.longContent.every(Boolean),profile + "/" + theme + " prompt and disclosure must wrap within their cards");
     }
   }
 
@@ -312,11 +432,12 @@ try {
   });
 
   assert.deepEqual(pageErrors,[],"browser must not report page errors");
+  assert.ok(passiveRequests.length > 0 && passiveRequests.every(url => url === pathToFileURL(htmlPath).href),"passive operation may request only the same local document");
   console.log(JSON.stringify({
     status:"PASS",
     hash,
     parsed,
-    layouts:["gmail","outlook","thunderbird"],
+    profiles:["calm","command","classic"],
     desktopStructures,
     mobileGeometry,
     mobileSettingsGeometry,
