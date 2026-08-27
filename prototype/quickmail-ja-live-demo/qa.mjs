@@ -675,7 +675,7 @@ async function contrastRecord(page, profile, theme) {
 	const normal = await sample('.mail-row[data-message-id="m3"] .mail-open');
 	const unread = await sample('.mail-row[data-message-id="m2"] .mail-open');
 	const iconSamples = {
-		compose: await sample('.compose-new > span[aria-hidden="true"]'),
+		compose: await sample('.compose-new > .qm-icon[aria-hidden="true"]'),
 		activeNavigation: await sample('.nav-btn.active .nav-icon'),
 		inactiveNavigation: await sample('.nav-btn:not(.active) .nav-icon'),
 		activeStar: await sample('.mail-row.current .star.on'),
