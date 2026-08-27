@@ -5,7 +5,7 @@
 - 共通theme: `base.DESIGN.md`
 - 公式原則の参照: [Material 3 canonical layouts](https://m3.material.io/foundations/layout/canonical-examples/overview) のlist-detail適応
 
-公式資料から参照するのは、検索を優先すること、主要作成操作を明確にすること、幅に応じてlistとdetailを切り替える考え方だけである。色、font、icon、component codeは取り込まない。
+公式資料から参照するのは、幅に応じてlistとdetailを切り替えるcanonical layoutの考え方だけである。検索を主役にすることと、新規メール操作を目立たせることはQuickMail-jaが所有するlocal decisionである。色、font、icon、component codeは取り込まない。
 
 ## Runtime entry
 

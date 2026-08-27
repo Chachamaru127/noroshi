@@ -93,14 +93,22 @@ line-height: 1.5;
 
 ## State contract
 
-3profileは同じfixtureと状態を表示する。
+### QMJ-12: 3profile共通のcore state
 
-- default / selected / unread / starred
-- loading / empty / error / offline / success
-- 長い日本語件名 / 添付 / HTML本文
+3profileは同じ架空fixtureで、比較に必要な日常操作だけを共通表示する。
+
+- default / unread / starred
+- inbox
+- selected message
 - compose / draft復帰
 
 profile切替時は、選択中mailbox、選択中message、検索語、下書き、logical focus anchorを維持する。送信などの外部実行は比較デモでは行わない。
+
+QMJ-12の異常系とaccessibilityは、同じfixture contractを使う代表経路だけを対象にする。検証面は `inbox / selected message / compose / error` の48-run axe contractとする。3profileすべてに全状態の完成matrixを要求しない。
+
+### QMJ-14: 選定profileの完成責任
+
+採用profileを本番へ統合する段階で、loading、empty、error、success、offline、長い日本語件名、添付、HTML本文を含む完全な状態matrixを検証する。未選択profileへこの責任を遡及させない。
 
 ## Runtime境界
 

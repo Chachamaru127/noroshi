@@ -12,7 +12,7 @@
 | [Fluent Nav](https://fluent2.microsoft.design/components/web/react/core/nav/usage) | 業務用ナビゲーションの階層と選択状態 | React component、Microsoft固有の外観 |
 | [Fluent Toolbar](https://fluent2.microsoft.design/components/web/react/core/toolbar/usage) | 頻出操作とoverflow操作の分離 | ribbonの複製、製品固有icon |
 | [Fluent List](https://fluent2.microsoft.design/components/web/react/core/list/usage/) | 高密度リストの情報階層 | component code、token値 |
-| [Material 3 canonical layouts](https://m3.material.io/foundations/layout/canonical-examples/overview) | list-detailの幅別適応と、検索・主要操作の優先順位 | Material Web、Google固有の色・形・asset |
+| [Material 3 canonical layouts](https://m3.material.io/foundations/layout/canonical-examples/overview) | canonical layoutとlist-detailの幅別適応 | Material Web、Google固有の色・形・asset |
 | [Thunderbird Mail front-end](https://developer.thunderbird.net/thunderbird-development/codebase-overview/mail-front-end) | folder / thread / messageの3ペイン構造 | Thunderbird固有の外観、icon、配色、XUL |
 | [Thunderbird Bolt Design System](https://github.com/thunderbird/bolt-design-system) | 公式design systemが発展途上であることの確認、語彙の参考 | 未確立tokenをQuickMail-jaの正本として採用すること |
 
