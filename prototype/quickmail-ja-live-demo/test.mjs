@@ -16,6 +16,7 @@ assert.equal((html.match(/<\/script/giu) || []).length,1,"HTML must contain one 
 const script = html.match(/<script>([\s\S]*?)<\/script>/iu)?.[1];
 assert.ok(script,"inline script must be extractable");
 assert.doesNotThrow(() => new Function(script),"inline script must parse as JavaScript");
+assert.doesNotMatch(script,/[✉✎▣▤➤☆★♲⚙⌘▰＋×←→↩☾☼⌕↵••▧◐⇄●○]/u,"common mail actions and navigation must not depend on OS-rendered Unicode glyphs");
 
 const hash = "sha256-" + crypto.createHash("sha256").update(script).digest("base64");
 assert.ok(html.includes("script-src '" + hash + "'"),"HTML CSP hash must match the inline script");
@@ -66,6 +67,16 @@ try {
     };
   });
   assert.deepEqual(parsed,{appRendered:true,scriptElements:1,rawSourceNodes:[],modalBackdrops:0});
+  const iconContract = await page.evaluate(() => ({
+    keys:Object.keys(ICON_PATHS),
+    frozen:Object.isFrozen(ICON_PATHS),
+    rendered:[...document.querySelectorAll("[data-qm-icon]")].every(element => element.matches('svg[viewBox="0 0 24 24"][aria-hidden="true"]') && element.querySelectorAll("path").length === 1)
+  }));
+  assert.deepEqual(iconContract,{
+    keys:["mail","edit","inbox","draft","send","star","starFill","trash","folder","add","settings","userSettings","search","moon","sun","more","back","close","reply","forward","attachment","key","palette","swap","userAdd","upload","statusOn","statusOff"],
+    frozen:true,
+    rendered:true
+  },"the demo must use one bounded local generic inline SVG icon source");
   assert.match(await page.textContent(".demo-banner"),/非公式.*架空.*送受信しません/u);
   assert.equal(await page.locator(".demo-profile-switcher").count(),1,"the comparison profile selector must remain visible outside settings");
   assert.deepEqual(await page.locator('.demo-profile-switcher [data-action="profile"]').allTextContents(),["シンプル","3ペイン","高密度"]);

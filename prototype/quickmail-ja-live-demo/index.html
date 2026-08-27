@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow,noarchive,nosnippet,noimageindex">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-A12TZjKCBeP4v+B9JOgSsYBIay+Jbc9l1p11I7kT9CE='; img-src data:; connect-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-O/vdk0uIFZuvCTlU2ktupInDE0oWqEWEJPnBn1eCrkQ='; img-src data:; connect-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="color-scheme" content="light dark">
   <title>QuickMail-ja 操作可能デモ</title>
   <style>
@@ -37,6 +37,8 @@
     button:disabled { cursor:not-allowed; opacity:.5; }
     a { color:inherit; text-decoration:none; }
     .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+    .qm-icon { display:inline-block; width:1.1rem; height:1.1rem; flex:none; fill:currentColor; vertical-align:-.18em; }
+    .brand-mark .qm-icon { width:1.2rem; height:1.2rem; }
     .demo-banner {
       position:fixed; inset:0 0 auto; z-index:100; height:var(--banner-height);
       display:flex; align-items:center; justify-content:center; gap:.75rem;
@@ -405,6 +407,43 @@
   <div id="app"></div>
   <script>
     "use strict";
+
+    const ICON_PATHS = Object.freeze({
+      mail:"M3 3H21C21.5523 3 22 3.44772 22 4V20C22 20.5523 21.5523 21 21 21H3C2.44772 21 2 20.5523 2 20V4C2 3.44772 2.44772 3 3 3ZM20 7.23792L12.0718 14.338L4 7.21594V19H20V7.23792ZM4.51146 5L12.0619 11.662L19.501 5H4.51146Z",
+      edit:"M6.41421 15.89L16.5563 5.74785L15.1421 4.33363L5 14.4758V15.89H6.41421ZM7.24264 17.89H3V13.6473L14.435 2.21231C14.8256 1.82179 15.4587 1.82179 15.8492 2.21231L18.6777 5.04074C19.0682 5.43126 19.0682 6.06443 18.6777 6.45495L7.24264 17.89ZM3 19.89H21V21.89H3V19.89Z",
+      inbox:"M21 3C21.5523 3 22 3.44772 22 4V20C22 20.5523 21.5523 21 21 21H3C2.44772 21 2 20.5523 2 20V4C2 3.44772 2.44772 3 3 3H21ZM7.41604 14H4V19H20V14H16.584C15.8124 15.7659 14.0503 17 12 17C9.94968 17 8.1876 15.7659 7.41604 14ZM20 5H4V12H9C9 13.6569 10.3431 15 12 15C13.6569 15 15 13.6569 15 12H20V5Z",
+      draft:"M20 2C20.5523 2 21 2.44772 21 3V6.757L19 8.757V4H5V20H19V17.242L21 15.242V21C21 21.5523 20.5523 22 20 22H4C3.44772 22 3 21.5523 3 21V3C3 2.44772 3.44772 2 4 2H20ZM21.7782 8.80761L23.1924 10.2218L15.4142 18L13.9979 17.9979L14 16.5858L21.7782 8.80761ZM13 12V14H8V12H13ZM16 8V10H8V8H16Z",
+      send:"M21.7267 2.95694L16.2734 22.0432C16.1225 22.5716 15.7979 22.5956 15.5563 22.1126L11 13L1.9229 9.36919C1.41322 9.16532 1.41953 8.86022 1.95695 8.68108L21.0432 2.31901C21.5716 2.14285 21.8747 2.43866 21.7267 2.95694ZM19.0353 5.09647L6.81221 9.17085L12.4488 11.4255L15.4895 17.5068L19.0353 5.09647Z",
+      star:"M12.0006 18.26L4.94715 22.2082L6.52248 14.2799L0.587891 8.7918L8.61493 7.84006L12.0006 0.5L15.3862 7.84006L23.4132 8.7918L17.4787 14.2799L19.054 22.2082L12.0006 18.26ZM12.0006 15.968L16.2473 18.3451L15.2988 13.5717L18.8719 10.2674L14.039 9.69434L12.0006 5.27502L9.96214 9.69434L5.12921 10.2674L8.70231 13.5717L7.75383 18.3451L12.0006 15.968Z",
+      starFill:"M12.0006 18.26L4.94715 22.2082L6.52248 14.2799L0.587891 8.7918L8.61493 7.84006L12.0006 0.5L15.3862 7.84006L23.4132 8.7918L17.4787 14.2799L19.054 22.2082L12.0006 18.26Z",
+      trash:"M17 6H22V8H20V21C20 21.5523 19.5523 22 19 22H5C4.44772 22 4 21.5523 4 21V8H2V6H7V3C7 2.44772 7.44772 2 8 2H16C16.5523 2 17 2.44772 17 3V6ZM18 8H6V20H18V8ZM9 11H11V17H9V11ZM13 11H15V17H13V11ZM9 4V6H15V4H9Z",
+      folder:"M4 5V19H20V7H11.5858L9.58579 5H4ZM12.4142 5H21C21.5523 5 22 5.44772 22 6V20C22 20.5523 21.5523 21 21 21H3C2.44772 21 2 20.5523 2 20V4C2 3.44772 2.44772 3 3 3H10.4142L12.4142 5Z",
+      add:"M11 11V5H13V11H19V13H13V19H11V13H5V11H11Z",
+      settings:"M12 2C13.1 2 14 2.9 14 4V4.35C14.64 4.54 15.24 4.79 15.8 5.1L16.05 4.85C16.83 4.07 18.1 4.07 18.88 4.85L19.15 5.12C19.93 5.9 19.93 7.17 19.15 7.95L18.9 8.2C19.21 8.76 19.46 9.36 19.65 10H20C21.1 10 22 10.9 22 12C22 13.1 21.1 14 20 14H19.65C19.46 14.64 19.21 15.24 18.9 15.8L19.15 16.05C19.93 16.83 19.93 18.1 19.15 18.88L18.88 19.15C18.1 19.93 16.83 19.93 16.05 19.15L15.8 18.9C15.24 19.21 14.64 19.46 14 19.65V20C14 21.1 13.1 22 12 22C10.9 22 10 21.1 10 20V19.65C9.36 19.46 8.76 19.21 8.2 18.9L7.95 19.15C7.17 19.93 5.9 19.93 5.12 19.15L4.85 18.88C4.07 18.1 4.07 16.83 4.85 16.05L5.1 15.8C4.79 15.24 4.54 14.64 4.35 14H4C2.9 14 2 13.1 2 12C2 10.9 2.9 10 4 10H4.35C4.54 9.36 4.79 8.76 5.1 8.2L4.85 7.95C4.07 7.17 4.07 5.9 4.85 5.12L5.12 4.85C5.9 4.07 7.17 4.07 7.95 4.85L8.2 5.1C8.76 4.79 9.36 4.54 10 4.35V4C10 2.9 10.9 2 12 2ZM12 8C9.79 8 8 9.79 8 12C8 14.21 9.79 16 12 16C14.21 16 16 14.21 16 12C16 9.79 14.21 8 12 8ZM12 10C13.1 10 14 10.9 14 12C14 13.1 13.1 14 12 14C10.9 14 10 13.1 10 12C10 10.9 10.9 10 12 10Z",
+      userSettings:"M12 13C8.685 13 6 10.315 6 7C6 3.685 8.685 1 12 1C15.315 1 18 3.685 18 7C18 10.315 15.315 13 12 13ZM12 11C14.21 11 16 9.21 16 7C16 4.79 14.21 3 12 3C9.79 3 8 4.79 8 7C8 9.21 9.79 11 12 11ZM12 14V16C8.68629 16 6 18.6863 6 22H4C4 17.5817 7.58172 14 12 14ZM18 15C19.6569 15 21 16.3431 21 18C21 19.6569 19.6569 21 18 21C16.3431 21 15 19.6569 15 18C15 16.3431 16.3431 15 18 15Z",
+      search:"M18.031 16.6168L22.3137 20.8995L20.8995 22.3137L16.6168 18.031C15.0769 19.263 13.124 20 11 20C6.032 20 2 15.968 2 11C2 6.032 6.032 2 11 2C15.968 2 20 6.032 20 11C20 13.124 19.263 15.0769 18.031 16.6168ZM16.0247 15.8748C17.2475 14.6146 18 12.8956 18 11C18 7.1325 14.8675 4 11 4C7.1325 4 4 7.1325 4 11C4 14.8675 7.1325 18 11 18C12.8956 18 14.6146 17.2475 15.8748 16.0247L16.0247 15.8748Z",
+      moon:"M10 7C10 10.866 13.134 14 17 14C18.9584 14 20.729 13.1957 21.9995 11.8995C22 11.933 22 11.9665 22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C12.0335 2 12.067 2 12.1005 2.00049C10.8043 3.27098 10 5.04157 10 7ZM4 12C4 16.4183 7.58172 20 12 20C15.0583 20 17.7158 18.2839 19.062 15.7621C18.3945 15.9187 17.7035 16 17 16C12.0294 16 8 11.9706 8 7C8 6.29648 8.08133 5.60547 8.2379 4.938C5.71611 6.28423 4 8.9417 4 12Z",
+      sun:"M12 18C8.68629 18 6 15.3137 6 12C6 8.68629 8.68629 6 12 6C15.3137 6 18 8.68629 18 12C18 15.3137 15.3137 18 12 18ZM12 16C14.2091 16 16 14.2091 16 12C16 9.79086 14.2091 8 12 8C9.79086 8 8 9.79086 8 12C8 14.2091 9.79086 16 12 16ZM11 1H13V4H11V1ZM11 20H13V23H11V20ZM23 11V13H20V11H23ZM4 11V13H1V11H4Z",
+      more:"M12 3C10.9 3 10 3.9 10 5C10 6.1 10.9 7 12 7C13.1 7 14 6.1 14 5C14 3.9 13.1 3 12 3ZM12 17C10.9 17 10 17.9 10 19C10 20.1 10.9 21 12 21C13.1 21 14 20.1 14 19C14 17.9 13.1 17 12 17ZM12 10C10.9 10 10 10.9 10 12C10 13.1 10.9 14 12 14C13.1 14 14 13.1 14 12C14 10.9 13.1 10 12 10Z",
+      back:"M7.82843 10.9999H20V12.9999H7.82843L13.1924 18.3638L11.7782 19.778L4 11.9999L11.7782 4.22168L13.1924 5.63589L7.82843 10.9999Z",
+      close:"M11.9997 10.5865L16.9495 5.63672L18.3637 7.05093L13.4139 12.0007L18.3637 16.9504L16.9495 18.3646L11.9997 13.4149L7.04996 18.3646L5.63574 16.9504L10.5855 12.0007L5.63574 7.05093L7.04996 5.63672L11.9997 10.5865Z",
+      reply:"M11 20L1 12L11 4V9C16.5228 9 21 13.4772 21 19C21 19.2727 20.9891 19.5428 20.9677 19.81C19.5055 17.0364 16.6381 15.119 13.313 15.0053L13 15H10.9999L11 20ZM8.99986 13H10.9999L13.0341 13.0003L13.3814 13.0065C14.6657 13.0504 15.9053 13.3165 17.0568 13.7734C15.5898 12.0749 13.4204 11 11 11H9V8.16125L4.20156 12L8.99992 15.8387L8.99986 13Z",
+      forward:"M13 14H11C7.54202 14 4.53953 15.9502 3.03239 18.8107C3.01093 18.5433 3 18.2729 3 18C3 12.4772 7.47715 8 13 8V2.5L23.5 11L13 19.5V14ZM11 12H15V15.3078L20.3214 11L15 6.69224V10H13C10.5795 10 8.41011 11.0749 6.94312 12.7735C8.20873 12.2714 9.58041 12 11 12Z",
+      attachment:"M14 13.5V8C14 5.79086 12.2091 4 10 4C7.79086 4 6 5.79086 6 8V13.5C6 17.0899 8.91015 20 12.5 20C16.0899 20 19 17.0899 19 13.5V4H21V13.5C21 18.1944 17.1944 22 12.5 22C7.80558 22 4 18.1944 4 13.5V8C4 4.68629 6.68629 2 10 2C13.3137 2 16 4.68629 16 8V13.5C16 15.433 14.433 17 12.5 17C10.567 17 9 15.433 9 13.5V8H11V13.5C11 14.3284 11.6716 15 12.5 15C13.3284 15 14 14.3284 14 13.5Z",
+      key:"M10.7577 11.8281L18.6066 3.97919L20.0208 5.3934L18.6066 6.80761L21.0815 9.28249L19.6673 10.6967L17.1924 8.22183L15.7782 9.63604L17.8995 11.7574L16.4853 13.1716L14.364 11.0503L12.1719 13.2423C13.4581 15.1837 13.246 17.8251 11.5355 19.5355C9.58291 21.4882 6.41709 21.4882 4.46447 19.5355C2.51184 17.5829 2.51184 14.4171 4.46447 12.4645C6.17493 10.754 8.81633 10.5419 10.7577 11.8281Z",
+      palette:"M12 2C17.5222 2 22 5.97778 22 10.8889C22 13.9556 19.5111 16.4444 16.4444 16.4444H14.4778C13.5556 16.4444 12.8111 17.1889 12.8111 18.1111C12.8111 18.5333 12.9778 18.9222 13.2333 19.2111C13.5 19.5111 13.6667 19.9 13.6667 20.3333C13.6667 21.2556 12.9 22 12 22C6.47778 22 2 17.5222 2 12C2 6.47778 6.47778 2 12 2ZM7.5 12C8.32843 12 9 11.3284 9 10.5C9 9.67157 8.32843 9 7.5 9C6.67157 9 6 9.67157 6 10.5C6 11.3284 6.67157 12 7.5 12ZM16.5 12C17.3284 12 18 11.3284 18 10.5C18 9.67157 17.3284 9 16.5 9C15.6716 9 15 9.67157 15 10.5C15 11.3284 15.6716 12 16.5 12Z",
+      swap:"M16.0503 12.0498L21 16.9996L16.0503 21.9493L14.636 20.5351L17.172 17.9988L4 17.9996V15.9996L17.172 15.9988L14.636 13.464L16.0503 12.0498ZM7.94975 2.0498L9.36396 3.46402L6.828 5.9988L20 5.99955V7.99955L6.828 7.9988L9.36396 10.5351L7.94975 11.9493L3 6.99955L7.94975 2.0498Z",
+      userAdd:"M14 14.252V16.3414C13.3744 16.1203 12.7013 16 12 16C8.68629 16 6 18.6863 6 22H4C4 17.5817 7.58172 14 12 14C12.6906 14 13.3608 14.0875 14 14.252ZM12 13C8.685 13 6 10.315 6 7C6 3.685 8.685 1 12 1C15.315 1 18 3.685 18 7C18 10.315 15.315 13 12 13ZM18 17V14H20V17H23V19H20V22H18V19H15V17H18Z",
+      upload:"M4 19H20V12H22V20C22 20.5523 21.5523 21 21 21H3C2.44772 21 2 20.5523 2 20V12H4V19ZM13 9V16H11V9H6L12 3L18 9H13Z",
+      statusOn:"M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22ZM17.4571 9.45711L11 15.9142L6.79289 11.7071L8.20711 10.2929L11 13.0858L16.0429 8.04289L17.4571 9.45711Z",
+      statusOff:"M12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22ZM12 20C16.4183 20 20 16.4183 20 12C20 7.58172 16.4183 4 12 4C7.58172 4 4 7.58172 4 12C4 16.4183 7.58172 20 12 20Z"
+    });
+
+    function icon(name) {
+      const path = ICON_PATHS[name];
+      if (!path) throw new Error("Unknown local icon");
+      return '<svg class="qm-icon" data-qm-icon="' + name + '" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="' + path + '"></path></svg>';
+    }
 
     /*
       Question answered by this prototype:
@@ -1024,9 +1063,9 @@
       }
     }
 
-    function navButton(view,label,icon,count) {
+    function navButton(view,label,iconName,count) {
       const active = state.view === view || (view === "inbox" && state.view === "mail" && state.previousView === "inbox");
-      return '<button class="nav-btn' + (active ? ' active' : '') + '" data-action="navigate" data-view="' + esc(view) + '" aria-label="' + esc(label) + '" title="' + esc(label) + '"' + (active ? ' aria-current="page"' : '') + '><span class="nav-icon" aria-hidden="true">' + icon + '</span><span>' + esc(label) + '</span>' + (count ? '<span class="count">' + count + '</span>' : '') + '</button>';
+      return '<button class="nav-btn' + (active ? ' active' : '') + '" data-action="navigate" data-view="' + esc(view) + '" aria-label="' + esc(label) + '" title="' + esc(label) + '"' + (active ? ' aria-current="page"' : '') + '><span class="nav-icon">' + icon(iconName) + '</span><span>' + esc(label) + '</span>' + (count ? '<span class="count">' + count + '</span>' : '') + '</button>';
     }
     function visibleMessages() {
       let items = state.messages.filter(function(item){
@@ -1082,7 +1121,7 @@
       const id = item ? esc(item.id) : "";
       const disabled = item ? "" : " disabled";
       const actions = '<div class="classic-actionbar" role="toolbar" aria-label="メール操作"><button data-action="profile-refresh">更新</button><button data-action="compose-new">新規メール</button><button data-action="reply" data-id="' + id + '"' + disabled + '>返信</button><button data-action="forward" data-id="' + id + '"' + disabled + '>転送</button><button data-action="profile-tag"' + disabled + '>タグ</button><button data-action="profile-more">その他</button><form class="classic-quick-filter-form" data-form="search"><input class="classic-quick-filter" data-input="search" name="query" value="' + esc(state.search) + '" placeholder="一覧を絞り込み" aria-label="一覧を絞り込み"><button aria-label="一覧を絞り込む">絞り込む</button></form></div>';
-      const columns = '<div class="classic-columns" data-role="thread-columns" role="group" aria-label="メール一覧の列"><span class="optional-column">選択</span><span>★</span><span class="optional-column">印</span><span>差出人</span><span>件名</span><span>受信日時</span></div>';
+      const columns = '<div class="classic-columns" data-role="thread-columns" role="group" aria-label="メール一覧の列"><span class="optional-column">選択</span><span>' + icon("star") + '</span><span class="optional-column">印</span><span>差出人</span><span>件名</span><span>受信日時</span></div>';
       return '<div class="classic-profile-shell" data-profile="classic" data-structure="folder-thread-message">' + actions + '<div class="classic-profile-grid"><section class="classic-thread-table" data-pane="thread-list" aria-label="スレッド一覧">' + columns + context.toolbar + context.list + '</section>' + readingPane(item,"classic-reading-pane") + '</div></div>';
     }
 
@@ -1100,7 +1139,7 @@
       const folderButtons = state.folders.map(function(folder){
         const count = state.messages.filter(function(item){ return item.folder === folder.id; }).length;
         const active = state.view === "folder" && state.activeMailId === folder.id;
-        return '<div class="folder-row"><button class="nav-btn' + (active ? ' active' : '') + '" data-action="folder-open" data-id="' + esc(folder.id) + '" aria-label="' + esc(folder.name) + '" title="' + esc(folder.name) + '"' + (active ? ' aria-current="page"' : '') + '><span class="nav-icon" aria-hidden="true">▰</span><span>' + esc(folder.name) + '</span>' + (count ? '<span class="count">' + count + '</span>' : '') + '</button><button class="icon-button folder-tools" data-action="folder-menu" data-id="' + esc(folder.id) + '" aria-label="' + esc(folder.name) + 'を編集" title="' + esc(folder.name) + 'を編集">•••</button></div>';
+        return '<div class="folder-row"><button class="nav-btn' + (active ? ' active' : '') + '" data-action="folder-open" data-id="' + esc(folder.id) + '" aria-label="' + esc(folder.name) + '" title="' + esc(folder.name) + '"' + (active ? ' aria-current="page"' : '') + '><span class="nav-icon">' + icon("folder") + '</span><span>' + esc(folder.name) + '</span>' + (count ? '<span class="count">' + count + '</span>' : '') + '</button><button class="icon-button folder-tools" data-action="folder-menu" data-id="' + esc(folder.id) + '" aria-label="' + esc(folder.name) + 'を編集" title="' + esc(folder.name) + 'を編集">' + icon("more") + '</button></div>';
       }).join("");
       const profileSwitcher = '<div class="demo-profile-switcher" role="group" aria-label="画面構成">' + Object.values(UI_PROFILES).map(function(profile){ return '<button class="' + (state.profile === profile.id ? 'active' : '') + '" data-action="profile" data-profile="' + profile.id + '" data-focus-anchor="profile-selector" aria-pressed="' + String(state.profile === profile.id) + '">' + profile.publicLabel + '</button>'; }).join("") + '</div>';
       const connectivityToggle = '<button class="demo-connectivity-toggle" data-action="offline-toggle" aria-pressed="' + String(state.offline) + '" aria-label="' + (state.offline ? 'デモをオンラインに戻す' : 'デモをオフラインにする') + '">' + (state.offline ? 'オフライン' : 'オンライン') + '</button>';
@@ -1108,26 +1147,26 @@
         '<div class="app" data-theme="' + esc(state.theme === "system" ? "light" : state.theme) + '" data-profile="' + esc(state.profile) + '">' +
         '<div class="' + (state.offline ? 'offline-status' : 'sr-only') + '" data-status="connectivity" role="status" aria-live="polite">' + (state.offline ? 'オフラインです。接続が戻るまでメールを送受信できません。' : 'オンラインです。デモ操作を続けられます。') + '</div>' +
         '<aside class="sidebar"' + (state.profile === "calm" ? '' : ' data-pane="navigation"') + ' aria-label="メールメニュー">' +
-          '<div class="brand"><span class="brand-mark">✉</span><span>QuickMail-ja</span></div>' +
-          '<button class="compose-new" data-action="compose-new"><span aria-hidden="true">✎</span><span class="compose-label">新規メール</span></button>' +
+          '<div class="brand"><span class="brand-mark">' + icon("mail") + '</span><span>QuickMail-ja</span></div>' +
+          '<button class="compose-new" data-action="compose-new">' + icon("edit") + '<span class="compose-label">新規メール</span></button>' +
           '<nav class="nav">' +
-            navButton("inbox","受信トレイ","▣",inboxUnread) +
-            navButton("drafts","下書き","▤",drafts) +
-            navButton("sent","送信済み","➤",0) +
-            navButton("starred","スター付き","☆",starred) +
-            navButton("trash","ゴミ箱","♲",trash) +
+            navButton("inbox","受信トレイ","inbox",inboxUnread) +
+            navButton("drafts","下書き","draft",drafts) +
+            navButton("sent","送信済み","send",0) +
+            navButton("starred","スター付き","star",starred) +
+            navButton("trash","ゴミ箱","trash",trash) +
           '</nav>' +
-          '<div class="section-label"><span>フォルダ</span><button class="icon-button folder-add" data-action="folder-modal" aria-label="フォルダを追加" title="フォルダを追加">＋</button></div>' +
+          '<div class="section-label"><span>フォルダ</span><button class="icon-button folder-add" data-action="folder-modal" aria-label="フォルダを追加" title="フォルダを追加">' + icon("add") + '</button></div>' +
           '<nav class="nav">' + folderButtons + '</nav>' +
           '<div class="sidebar-foot"><nav class="nav">' +
-            navButton("settings","設定","⚙",0) +
-            navButton("admin","管理","⌘",0) +
+            navButton("settings","設定","settings",0) +
+            navButton("admin","管理","userSettings",0) +
           '</nav></div>' +
         '</aside>' +
         '<div class="content-shell">' +
           '<header class="topbar">' +
-            '<form class="search-wrap" data-form="search"><span class="search-symbol">⌕</span><input class="search-input" data-input="search" name="query" type="search" value="' + esc(state.search) + '" placeholder="メールを検索" aria-label="メールを検索"><button class="search-go" aria-label="検索">↵</button></form>' +
-            '<button class="icon-button" data-action="theme-cycle" aria-label="テーマを切り替える">' + (state.theme === "dark" ? "☾" : "☼") + '</button>' +
+            '<form class="search-wrap" data-form="search"><span class="search-symbol">' + icon("search") + '</span><input class="search-input" data-input="search" name="query" type="search" value="' + esc(state.search) + '" placeholder="メールを検索" aria-label="メールを検索"><button class="search-go" aria-label="検索">' + icon("search") + '</button></form>' +
+            '<button class="icon-button" data-action="theme-cycle" aria-label="テーマを切り替える">' + icon(state.theme === "dark" ? "moon" : "sun") + '</button>' +
             '<div class="account"><button class="account-button" data-action="account"><span class="account-copy"><strong>デモ管理者</strong><span>info@quickmail.invalid</span></span><span class="avatar">D</span></button>' +
             (state.accountOpen ? '<div class="account-menu"><button data-action="navigate" data-view="settings">設定</button><button data-action="demo-logout">ログアウト</button><button data-action="reset">デモを初期状態に戻す</button></div>' : '') +
             '</div>' +
@@ -1142,33 +1181,33 @@
     }
 
     function renderMobileNav() {
-      const item = function(view,label,icon) {
+      const item = function(view,label,iconName) {
         const active = state.view === view;
-        return '<button class="' + (active ? 'active' : '') + '" data-action="navigate" data-view="' + view + '"' + (active ? ' aria-current="page"' : '') + '><span class="mobile-icon">' + icon + '</span><span>' + label + '</span></button>';
+        return '<button class="' + (active ? 'active' : '') + '" data-action="navigate" data-view="' + view + '"' + (active ? ' aria-current="page"' : '') + '><span class="mobile-icon">' + icon(iconName) + '</span><span>' + label + '</span></button>';
       };
       return '<nav class="mobile-nav" aria-label="モバイルメニュー">' +
-        item("inbox","受信","▣") + item("starred","スター","☆") +
-        '<button data-action="compose-new"><span class="mobile-icon">✎</span><span>作成</span></button>' +
-        item("sent","送信済み","➤") +
-        '<button class="' + (state.mobileMenuOpen ? 'active' : '') + '" data-action="mobile-more" aria-expanded="' + String(state.mobileMenuOpen) + '"><span class="mobile-icon">•••</span><span>その他</span></button>' +
+        item("inbox","受信","inbox") + item("starred","スター","star") +
+        '<button data-action="compose-new"><span class="mobile-icon">' + icon("edit") + '</span><span>作成</span></button>' +
+        item("sent","送信済み","send") +
+        '<button class="' + (state.mobileMenuOpen ? 'active' : '') + '" data-action="mobile-more" aria-expanded="' + String(state.mobileMenuOpen) + '"><span class="mobile-icon">' + icon("more") + '</span><span>その他</span></button>' +
         '</nav>';
     }
 
     function renderMobileDrawer() {
       if (!state.mobileMenuOpen) return "";
       const folders = state.folders.map(function(folder){
-        return '<button class="nav-btn" data-action="folder-open" data-id="' + esc(folder.id) + '"><span class="nav-icon">▰</span><span>' + esc(folder.name) + '</span></button>';
+        return '<button class="nav-btn" data-action="folder-open" data-id="' + esc(folder.id) + '"><span class="nav-icon">' + icon("folder") + '</span><span>' + esc(folder.name) + '</span></button>';
       }).join("");
       return '<button class="mobile-drawer-backdrop" data-action="mobile-close" aria-label="その他のメニューを閉じる"></button>' +
         '<section class="mobile-drawer" aria-label="その他のメールメニュー">' +
           '<h2>メールボックス</h2><nav class="nav">' +
-            navButton("drafts","下書き","▤",0) +
-            navButton("trash","ゴミ箱","♲",0) +
+            navButton("drafts","下書き","draft",0) +
+            navButton("trash","ゴミ箱","trash",0) +
           '</nav>' +
           '<h2>フォルダ</h2><nav class="nav">' + (folders || '<span class="hint">フォルダはありません</span>') + '</nav>' +
           '<h2>設定</h2><nav class="nav">' +
-            navButton("settings","設定","⚙",0) +
-            navButton("admin","管理","⌘",0) +
+            navButton("settings","設定","settings",0) +
+            navButton("admin","管理","userSettings",0) +
           '</nav>' +
         '</section>';
     }
@@ -1193,7 +1232,7 @@
         const accessibleName = accessibleState + sender + "、" + item.subject;
         return '<li class="mail-row' + (item.unread ? ' unread' : '') + (item.id === state.selectedMessageId ? ' current' : '') + '" data-message-id="' + esc(item.id) + '"' + (item.id === state.listAnchorId ? ' data-list-anchor="true"' : '') + '>' +
           '<span class="select-wrap"><input class="select-box" data-change="select" data-id="' + esc(item.id) + '" type="checkbox" ' + (selected.includes(item.id) ? 'checked' : '') + ' aria-label="' + esc(sender) + 'のメールを選択"></span>' +
-          '<button class="star' + (item.starred ? ' on' : '') + '" data-action="star" data-id="' + esc(item.id) + '" aria-label="' + (item.starred ? 'スターを外す' : 'スターを付ける') + '">' + (item.starred ? '★' : '☆') + '</button>' +
+          '<button class="star' + (item.starred ? ' on' : '') + '" data-action="star" data-id="' + esc(item.id) + '" aria-label="' + (item.starred ? 'スターを外す' : 'スターを付ける') + '">' + icon(item.starred ? "starFill" : "star") + '</button>' +
           '<button class="row-avatar" data-action="' + (item.draft ? 'open-draft' : 'open-mail') + '" data-id="' + esc(item.id) + '" aria-label="' + esc(sender + 'のメールを開く') + '"><span aria-hidden="true">' + esc(sender.slice(0,1).toUpperCase()) + '</span></button>' +
           '<button class="sender" data-action="' + (item.draft ? 'open-draft' : 'open-mail') + '" data-id="' + esc(item.id) + '">' + esc(sender) + '</button>' +
           '<button class="subject mail-open" data-action="' + (item.draft ? 'open-draft' : 'open-mail') + '" data-id="' + esc(item.id) + '" data-focus-key="message-' + esc(item.id) + '" aria-label="' + esc(accessibleName) + '"' + (current ? ' aria-current="true"' : '') + '><span class="subject-main" data-sender="' + esc(sender) + '">' + esc(item.subject) + '</span><span class="preview">— ' + esc(item.preview) + '</span>' + (item.attachment ? '<span class="tag">添付</span>' : '') + '</button>' +
@@ -1230,18 +1269,18 @@
       if (!mail) return '<section class="page narrow"><div class="empty">メールが見つかりません</div></section>';
       const inTrash = mail.folder === "trash";
       return '<section class="page narrow">' +
-        '<div class="page-head"><button class="icon-button" data-action="back" aria-label="戻る">←</button><h1>メール</h1></div>' +
+        '<div class="page-head"><button class="icon-button" data-action="back" aria-label="戻る">' + icon("back") + '</button><h1>メール</h1></div>' +
         '<article class="card">' +
           '<div class="mail-detail-head"><h1>' + esc(mail.subject) + '</h1>' +
-            '<button class="star' + (mail.starred ? ' on' : '') + '" data-action="star" data-id="' + esc(mail.id) + '">' + (mail.starred ? '★' : '☆') + '</button>' +
+            '<button class="star' + (mail.starred ? ' on' : '') + '" data-action="star" data-id="' + esc(mail.id) + '" aria-label="' + (mail.starred ? 'スターを外す' : 'スターを付ける') + '">' + icon(mail.starred ? "starFill" : "star") + '</button>' +
             (inTrash ? '<button class="button small" data-action="restore" data-id="' + esc(mail.id) + '">復元</button><button class="button-danger small" data-action="delete-forever" data-id="' + esc(mail.id) + '">完全削除</button>' :
               '<button class="button small" data-action="move-archive" data-id="' + esc(mail.id) + '">アーカイブ</button><button class="button small" data-action="trash-one" data-id="' + esc(mail.id) + '">ゴミ箱</button>') +
           '</div>' +
           '<div class="message-meta"><span class="row-avatar">' + esc(mail.from.slice(0,1)) + '</span><div class="meta-copy"><strong>' + esc(mail.from) + ' &lt;' + esc(mail.fromAddress) + '&gt;</strong><span>宛先: ' + esc(mail.to) + ' · ' + esc(mail.date) + '</span></div></div>' +
           '<div class="message-body" role="region" tabindex="0" data-focus-key="message-body" aria-label="メール本文">' + esc(mail.body) + '</div>' +
-          (mail.attachment ? '<div class="attachments"><button class="attachment" data-action="attachment-demo">▧ ' + esc(mail.attachment) + '</button></div>' : '') +
+          (mail.attachment ? '<div class="attachments"><button class="attachment" data-action="attachment-demo">' + icon("attachment") + ' ' + esc(mail.attachment) + '</button></div>' : '') +
         '</article>' +
-        (!inTrash ? '<div class="reply-actions"><button class="button-primary" data-action="reply" data-id="' + esc(mail.id) + '">↩ 返信</button><button class="button" data-action="reply-all" data-id="' + esc(mail.id) + '">全員に返信</button><button class="button" data-action="forward" data-id="' + esc(mail.id) + '">→ 転送</button><button class="button" data-action="mark-unread" data-id="' + esc(mail.id) + '">未読にする</button></div>' : '') +
+        (!inTrash ? '<div class="reply-actions"><button class="button-primary" data-action="reply" data-id="' + esc(mail.id) + '">' + icon("reply") + ' 返信</button><button class="button" data-action="reply-all" data-id="' + esc(mail.id) + '">全員に返信</button><button class="button" data-action="forward" data-id="' + esc(mail.id) + '">' + icon("forward") + ' 転送</button><button class="button" data-action="mark-unread" data-id="' + esc(mail.id) + '">未読にする</button></div>' : '') +
       '</section>';
     }
 
@@ -1252,7 +1291,7 @@
         return '<option value="' + esc(address.address) + '"' + (address.address === c.from ? ' selected' : '') + '>' + esc(address.name + " · " + address.address) + '</option>';
       }).join("");
       return '<section class="page narrow">' +
-        '<div class="page-head"><button class="icon-button" data-action="compose-close" aria-label="閉じる">×</button><h1>' + title + '</h1><div class="head-actions"><button class="button" data-action="save-draft">下書きを保存</button><button class="button-primary" data-action="send-modal">送信</button></div></div>' +
+        '<div class="page-head"><button class="icon-button" data-action="compose-close" aria-label="閉じる">' + icon("close") + '</button><h1>' + title + '</h1><div class="head-actions"><button class="button" data-action="save-draft">下書きを保存</button><button class="button-primary" data-action="send-modal">送信</button></div></div>' +
         '<div class="demo-notice">「送信」を押してもResendや外部APIは呼びません。送信済みへの画面遷移だけを再現します。</div>' +
         '<form data-form="compose" autocomplete="off">' +
           '<div class="card field-grid">' +
@@ -1264,8 +1303,8 @@
           '</div>' +
           '<div class="composer"><textarea data-compose="body" placeholder="メール本文を入力…">' + esc(c.body) + '</textarea></div>' +
           (state.composeError ? '<p class="form-error" role="alert">' + esc(state.composeError) + '</p>' : '') +
-          (c.attachments.length ? '<div class="attachments">' + c.attachments.map(function(item){ return '<span class="attachment" data-attachment-id="' + esc(item.id) + '">' + esc(item.name) + '（' + Math.round(item.size / 1000) + 'KB） <button type="button" data-action="remove-attachment" aria-label="添付を外す">×</button></span>'; }).join("") + '</div>' : '') +
-          '<div class="compose-foot"><button class="button" type="button" data-action="add-attachment">＋ 添付ファイル</button><span class="spacer"></span><button class="button" type="button" data-action="save-draft">下書きを保存</button><button id="compose-submit" class="button-primary" type="submit">送信</button></div>' +
+          (c.attachments.length ? '<div class="attachments">' + c.attachments.map(function(item){ return '<span class="attachment" data-attachment-id="' + esc(item.id) + '">' + esc(item.name) + '（' + Math.round(item.size / 1000) + 'KB） <button type="button" data-action="remove-attachment" aria-label="添付を外す">' + icon("close") + '</button></span>'; }).join("") + '</div>' : '') +
+          '<div class="compose-foot"><button class="button" type="button" data-action="add-attachment">' + icon("add") + ' 添付ファイル</button><span class="spacer"></span><button class="button" type="button" data-action="save-draft">下書きを保存</button><button id="compose-submit" class="button-primary" type="submit">送信</button></div>' +
         '</form>' +
       '</section>';
     }
@@ -1273,16 +1312,16 @@
     function renderSettings() {
       const s = state.settings;
       const rules = s.rules.map(function(rule){
-        return '<div class="item"><span>' + (rule.enabled ? '●' : '○') + '</span><div class="item-copy"><strong>' +
+        return '<div class="item"><span>' + icon(rule.enabled ? "statusOn" : "statusOff") + '</span><div class="item-copy"><strong>' +
           esc((rule.sender ? '差出人に「' + rule.sender + '」' : '') + (rule.sender && rule.subject ? ' / ' : '') + (rule.subject ? '件名に「' + rule.subject + '」' : '')) +
-          '</strong><span>移動先: ' + esc(folderName(rule.folder)) + '</span></div><button class="button small" data-action="rule-toggle" data-id="' + esc(rule.id) + '">' + (rule.enabled ? '無効' : '有効') + '</button><button class="icon-button" data-action="rule-delete" data-id="' + esc(rule.id) + '" aria-label="削除">×</button></div>';
+          '</strong><span>移動先: ' + esc(folderName(rule.folder)) + '</span></div><button class="button small" data-action="rule-toggle" data-id="' + esc(rule.id) + '">' + (rule.enabled ? '無効' : '有効') + '</button><button class="icon-button" data-action="rule-delete" data-id="' + esc(rule.id) + '" aria-label="削除">' + icon("close") + '</button></div>';
       }).join("");
       const addresses = s.addresses.map(function(address){
         return '<div class="item"><span class="row-avatar">@</span><div class="item-copy"><strong>' + esc(address.address) + (address.isDefault ? '（既定）' : '') + '</strong><span>差出人名: ' + esc(address.name) + '</span></div>' +
-          (!address.isDefault ? '<button class="button small" data-action="address-default" data-id="' + esc(address.id) + '">既定にする</button><button class="icon-button" data-action="address-remove" data-id="' + esc(address.id) + '">×</button>' : '') + '</div>';
+          (!address.isDefault ? '<button class="button small" data-action="address-default" data-id="' + esc(address.id) + '">既定にする</button><button class="icon-button" data-action="address-remove" data-id="' + esc(address.id) + '" aria-label="アドレスを削除">' + icon("close") + '</button>' : '') + '</div>';
       }).join("");
       const keys = s.apiKeys.map(function(key){
-        return '<div class="item"><span>⌘</span><div class="item-copy"><strong>' + esc(key.name) + '</strong><span>' + esc(key.scope) + ' · ' + esc(key.created) + '</span></div><button class="button small" data-action="key-revoke" data-id="' + esc(key.id) + '">無効化</button></div>';
+        return '<div class="item"><span>' + icon("key") + '</span><div class="item-copy"><strong>' + esc(key.name) + '</strong><span>' + esc(key.scope) + ' · ' + esc(key.created) + '</span></div><button class="button small" data-action="key-revoke" data-id="' + esc(key.id) + '">無効化</button></div>';
       }).join("");
       const folderOptions = state.folders.map(function(folder){ return '<option value="' + esc(folder.id) + '">' + esc(folder.name) + '</option>'; }).join("");
       const forwardingOrder = {pending:0,verified:1,enabled:3};
@@ -1292,11 +1331,11 @@
       return '<section class="page">' +
         '<div class="page-head"><h1>設定</h1></div>' +
         '<div class="settings-grid">' +
-          '<section class="card wide"><h2>◐ 外観</h2><div class="appearance-group"><span class="appearance-label">配色</span><p class="hint">デモ画面内だけで切り替わります。システム設定は読み取りません。</p><div class="segmented">' +
+          '<section class="card wide"><h2>' + icon("palette") + ' 外観</h2><div class="appearance-group"><span class="appearance-label">配色</span><p class="hint">デモ画面内だけで切り替わります。システム設定は読み取りません。</p><div class="segmented">' +
             ["light","dark","system"].map(function(theme){ const label={light:"ライト",dark:"ダーク",system:"システム（ライト固定デモ）"}[theme]; return '<button class="button small' + (state.theme === theme ? ' active' : '') + '" data-action="theme" data-theme="' + theme + '">' + label + '</button>'; }).join("") +
           '</div></div><p class="hint">画面構成は上部の「シンプル / 3ペイン / 高密度」から、現在の操作状態を保ったまま切り替えられます。</p></section>' +
-          '<section class="card"><h2>✎ 署名</h2><p class="hint">新規メールへ自動挿入する署名です。</p><textarea class="text-area" data-input="signature">' + esc(s.signature) + '</textarea><div class="card-actions"><button class="button-primary small" data-action="signature-save">保存</button></div></section>' +
-          '<section class="card wide"><h2>⇄ 自動転送</h2><p class="hint">受信後に別アドレスへ転送する設定です。デモでは確認メールも転送も行いません。</p>' +
+          '<section class="card"><h2>' + icon("edit") + ' 署名</h2><p class="hint">新規メールへ自動挿入する署名です。</p><textarea class="text-area" data-input="signature">' + esc(s.signature) + '</textarea><div class="card-actions"><button class="button-primary small" data-action="signature-save">保存</button></div></section>' +
+          '<section class="card wide"><h2>' + icon("swap") + ' 自動転送</h2><p class="hint">受信後に別アドレスへ転送する設定です。デモでは確認メールも転送も行いません。</p>' +
             '<div class="flow" aria-label="自動転送の安全な設定手順">' +
               '<span class="flow-step done">1 宛先保存</span><span class="flow-step' + (forwardingStep >= 1 ? ' done' : '') + '">2 宛先確認</span><span class="flow-step' + (s.forwardingAcknowledged || s.forwardingStatus === 'enabled' ? ' done' : '') + '">3 動作確認</span><span class="flow-step' + (s.forwardingStatus === 'enabled' ? ' done' : '') + '">4 有効化</span>' +
             '</div>' +
@@ -1319,7 +1358,7 @@
             '<form class="inline-form" data-form="address"><input class="text-input" name="name" placeholder="差出人名"><input class="text-input" name="address" placeholder="local@quickmail.invalid"><button class="button-primary">追加</button></form>' +
           '</section>' +
           '<section class="card"><h2>◎ 接続済みドメイン</h2><div class="status-row"><strong>quickmail.invalid</strong><span class="status-good">送信・受信・確認済み（デモ）</span></div></section>' +
-          '<section class="card"><h2>⌘ APIキー</h2><p class="hint">外部ツールからメール一覧などへアクセスするための鍵です。</p><div class="item-list">' + keys + '</div>' +
+          '<section class="card"><h2>' + icon("key") + ' APIキー</h2><p class="hint">外部ツールからメール一覧などへアクセスするための鍵です。</p><div class="item-list">' + keys + '</div>' +
             '<form class="inline-form one" data-form="key"><input class="text-input" name="name" placeholder="キーの名前"><select class="select-input" name="scope"><option>読み取り</option><option>読み書き</option></select><button class="button-primary">新規作成</button></form>' +
             (s.demoKey ? '<div class="demo-notice" style="margin-top:.8rem">今回だけ表示: <strong>' + esc(s.demoKey) + '</strong><br>デモ文字列であり、APIでは使用できません。</div>' : '') +
           '</section>' +
@@ -1349,9 +1388,9 @@
         '<div class="demo-notice" style="margin-bottom:1rem">管理操作も画面内の再現だけです。Cloudflare、Resend、ユーザー宛メールへ接続しません。</div>' +
         '<div class="admin-grid">' +
           '<section class="card"><h2>◎ ドメイン</h2><p class="hint">接続・状態更新・切断はデモ内の表示だけを変更します。</p><div class="item-list">' + domains + '</div></section>' +
-          '<section class="card"><h2>＋ 新しいユーザー</h2><p class="hint">ログイン利用者を追加します。招待は送信しません。</p><form class="field-grid" data-form="user"><input class="text-input" name="name" placeholder="表示名"><input class="text-input" name="address" placeholder="user@quickmail.invalid"><button class="button-primary">ユーザーを追加</button></form></section>' +
+          '<section class="card"><h2>' + icon("userAdd") + ' 新しいユーザー</h2><p class="hint">ログイン利用者を追加します。招待は送信しません。</p><form class="field-grid" data-form="user"><input class="text-input" name="name" placeholder="表示名"><input class="text-input" name="address" placeholder="user@quickmail.invalid"><button class="button-primary">ユーザーを追加</button></form></section>' +
           '<section class="card wide"><h2>人 ユーザー ' + state.admin.users.length + '人</h2><div class="item-list">' + users + '</div></section>' +
-          '<section class="card wide"><h2>▤ Outlookメール移行</h2><p class="hint">EMLの選択と取り込み結果を再現します。端末のファイルは読み取りません。</p><div class="status-row"><div><strong>' + esc(state.admin.importStatus) + '</strong><div class="hint">受信・アーカイブ・送信済みを選択できます</div></div><button class="button-primary" data-action="import-demo">EMLを選択して確認</button></div>' +
+          '<section class="card wide"><h2>' + icon("upload") + ' Outlookメール移行</h2><p class="hint">EMLの選択と取り込み結果を再現します。端末のファイルは読み取りません。</p><div class="status-row"><div><strong>' + esc(state.admin.importStatus) + '</strong><div class="hint">受信・アーカイブ・送信済みを選択できます</div></div><button class="button-primary" data-action="import-demo">EMLを選択して確認</button></div>' +
             '<div class="progress" style="--progress:' + (state.admin.importStatus === "未実行" ? '0%' : '100%') + '"><span></span></div></section>' +
           '<section class="card wide"><h2>? 未振り分けメール</h2><p class="hint">一致するアドレスやキャッチオールがないメールを確認します。</p><div class="empty" style="min-height:150px">現在、未振り分けメールはありません（デモ）</div></section>' +
         '</div>' +
