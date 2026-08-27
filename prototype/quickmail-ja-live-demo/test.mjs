@@ -67,6 +67,8 @@ try {
   });
   assert.deepEqual(parsed,{appRendered:true,scriptElements:1,rawSourceNodes:[],modalBackdrops:0});
   assert.match(await page.textContent(".demo-banner"),/非公式.*架空.*送受信しません/u);
+  assert.equal(await page.locator(".demo-profile-switcher").count(),1,"the comparison profile selector must remain visible outside settings");
+  assert.deepEqual(await page.locator('.demo-profile-switcher [data-action="profile"]').allTextContents(),["シンプル","3ペイン","高密度"]);
   assert.equal(await page.locator('[data-profile="calm"][data-structure="list-detail-replacement"]').count(),1,"calm must render its list/detail replacement structure");
   assert.equal(await page.locator('[data-pane="reading"],[data-structure="thread-table"]').count(),0,"calm list view must not expose a reading pane or thread table");
 
@@ -86,13 +88,11 @@ try {
     {keys:["id","publicLabel","render"],id:"classic",publicLabel:"高密度",renderer:"function"}
   ],"registry entries must remain minimal and contain no layout schema");
 
-  await page.click('[data-action="navigate"][data-view="settings"]');
-  assert.deepEqual(await page.locator('[data-action="profile"]').allTextContents(),["シンプル","3ペイン","高密度"]);
   const desktopStructures = {};
   for (const profile of ["calm","command","classic"]) {
-    await page.click('[data-action="profile"][data-profile="' + profile + '"]');
+    await page.click('.demo-profile-switcher [data-action="profile"][data-profile="' + profile + '"]');
     assert.equal(await page.getAttribute(".app","data-profile"),profile,profile + " profile must render");
-    assert.equal(await page.evaluate(() => document.activeElement?.dataset.profile),profile,profile + " switch must restore focus to the selected profile control");
+    assert.equal(await page.evaluate(() => document.activeElement?.dataset.focusKey),"message-m1",profile + " switch must preserve the current logical message focus when the row exists");
     await page.click('[data-action="navigate"][data-view="inbox"]');
     desktopStructures[profile] = await page.evaluate(() => ({
       calm:document.querySelectorAll('[data-profile="calm"][data-structure="list-detail-replacement"]').length,
@@ -103,11 +103,37 @@ try {
       readingPane:document.querySelectorAll('[data-pane="reading"]').length,
       columnHeader:document.querySelectorAll('[data-role="thread-columns"]').length
     }));
-    if (profile !== "classic") await page.click('[data-action="navigate"][data-view="settings"]');
   }
   assert.deepEqual(desktopStructures.calm,{calm:1,command:0,classic:0,navigation:0,messageList:1,readingPane:0,columnHeader:0});
   assert.deepEqual(desktopStructures.command,{calm:0,command:1,classic:0,navigation:1,messageList:1,readingPane:1,columnHeader:0});
   assert.deepEqual(desktopStructures.classic,{calm:0,command:0,classic:1,navigation:1,messageList:1,readingPane:1,columnHeader:1});
+  assert.equal(await page.locator('[data-profile="classic"] [role="table"],[data-profile="classic"] [role="row"]').count(),0,"classic must not expose incomplete table semantics");
+
+  for (const width of [1440,1024]) {
+    await page.setViewportSize({width,height:900});
+    for (const profile of ["command","classic"]) {
+      await page.reload();
+      await page.click('.demo-profile-switcher [data-action="profile"][data-profile="' + profile + '"]');
+      await page.click('.mail-row[data-message-id="m2"] .mail-open');
+      assert.deepEqual(await page.evaluate(() => ({view:state.view,selectedMessageId:state.selectedMessageId,listAnchorId:state.listAnchorId})),{view:"inbox",selectedMessageId:"m2",listAnchorId:"m2"},width + "/" + profile + " must select m2 without replacing the desktop list");
+      assert.equal(await page.locator('[data-pane="message-list"],[data-pane="thread-list"]').count(),1);
+      assert.equal(await page.locator('[data-pane="reading"]').count(),1);
+      assert.match(await page.textContent('[data-pane="reading"]'),/資料送付のお礼/u);
+      assert.equal(await page.evaluate(() => document.activeElement?.dataset.focusKey),"message-m2",profile + " must restore focus to m2 after in-place selection");
+      if (profile === "command") {
+        await page.click('.demo-profile-switcher [data-action="profile"][data-profile="classic"]');
+        assert.equal(await page.evaluate(() => document.activeElement?.dataset.focusKey),"message-m2","profile switching must preserve and refocus the non-first logical message");
+        assert.match(await page.textContent('[data-pane="reading"]'),/資料送付のお礼/u);
+      }
+    }
+    await page.reload();
+    await page.click('.demo-profile-switcher [data-action="profile"][data-profile="calm"]');
+    await page.click('.mail-row[data-message-id="m2"] .mail-open');
+    assert.deepEqual(await page.evaluate(() => ({view:state.view,selectedMessageId:state.selectedMessageId,listAnchorId:state.listAnchorId})),{view:"mail",selectedMessageId:"m2",listAnchorId:"m2"},width + "/calm must replace the list with detail");
+    assert.equal(await page.locator('[data-pane="message-list"],[data-pane="thread-list"]').count(),0);
+    await page.click('[data-action="back"]');
+    assert.equal(await page.evaluate(() => document.activeElement?.dataset.focusKey),"message-m2","calm back must focus and restore the logical m2 list anchor");
+  }
 
   const geometry = {};
   for (const width of [1440,1024]) {
@@ -134,6 +160,7 @@ try {
           sidebar:box(".sidebar"),
           row:box(".mail-row"),
           list:box('[data-pane="message-list"],[data-pane="thread-list"]'),
+          search:box(".search-wrap"),
           visiblePanes:visible('.sidebar,[data-pane="message-list"],[data-pane="thread-list"],[data-pane="reading"]'),
           optionalColumnDisplay:document.querySelector(".optional-column") ? getComputedStyle(document.querySelector(".optional-column")).display : null,
           overflow:document.documentElement.scrollWidth > innerWidth
@@ -159,28 +186,38 @@ try {
     command:{sidebar:64,row:44,panes:3},
     classic:{sidebar:184,row:40,panes:3,optional:"none"}
   },"1024px geometry must match the compact profile documents");
+  assert.equal(geometry[1440].calm.search.width,680,"calm desktop search must use the documented 680px cap");
+  assert.ok(geometry[1024].calm.search.width >= 600 && geometry[1024].calm.search.width <= 615,"calm 1024 search must remain the 60vw primary control");
+  assert.ok(geometry[1440].command.list.width >= 340 && geometry[1440].command.list.width <= 420,"command desktop list width must stay within its documented clamp");
+  assert.ok(geometry[1024].command.list.width >= 320 && geometry[1024].command.list.width <= 380,"command compact list width must stay within its documented clamp");
+  assert.ok(geometry[1440].classic.list.width >= 400 && geometry[1440].classic.list.width <= 560,"classic desktop thread width must stay within its documented clamp");
+  assert.ok(geometry[1024].classic.list.width >= 360,"classic compact thread width must preserve its documented minimum");
   for (const width of [1440,1024]) {
     for (const profile of ["calm","command","classic"]) {
       assert.equal(geometry[width][profile].overflow,false,width + "/" + profile + " must not overflow horizontally");
     }
   }
 
-  await page.evaluate(() => {
-    dispatch({type:"SEARCH",value:"保持する検索語"});
-    dispatch({type:"OPEN_COMPOSE",mode:"new"});
-    dispatch({type:"COMPOSE_FIELD",field:"to",value:"person@recipient.invalid"});
-    dispatch({type:"COMPOSE_FIELD",field:"cc",value:"copy@recipient.invalid"});
-    dispatch({type:"COMPOSE_FIELD",field:"bcc",value:"hidden@recipient.invalid"});
-    dispatch({type:"COMPOSE_FIELD",field:"subject",value:"切替保持テスト"});
-    dispatch({type:"COMPOSE_FIELD",field:"body",value:"本文も保持します"});
-    dispatch({type:"ADD_ATTACHMENT"});
-    dispatch({type:"PROFILE",value:"calm"});
-    dispatch({type:"PROFILE",value:"command"});
-    dispatch({type:"PROFILE",value:"classic"});
-  });
+  await page.reload();
+  await page.check('.mail-row[data-message-id="m2"] [data-change="select"]');
+  await page.click('[data-action="bulk-archive"]');
+  await page.click('[data-action="folder-open"][data-id="archive"]');
+  await page.fill('.search-input',"資料");
+  await page.click('.demo-profile-switcher [data-action="profile"][data-profile="command"]');
+  await page.click('.mail-row[data-message-id="m2"] .mail-open');
+  await page.click('[data-action="compose-new"]');
+  await page.selectOption('[data-compose="from"]',"support@quickmail.invalid");
+  await page.fill('[data-compose="to"]',"person@recipient.invalid");
+  await page.fill('[data-compose="cc"]',"copy@recipient.invalid");
+  await page.fill('[data-compose="bcc"]',"hidden@recipient.invalid");
+  await page.fill('[data-compose="subject"]',"切替保持テスト");
+  await page.fill('[data-compose="body"]',"本文も保持します");
+  await page.click('[data-action="add-attachment"]');
+  await page.click('.demo-profile-switcher [data-action="profile"][data-profile="classic"]');
   assert.deepEqual(await page.evaluate(() => ({
     profile:state.profile,
     view:state.view,
+    mailboxContext:state.mailboxContext,
     compose:state.compose,
     search:state.search,
     previousView:state.previousView,
@@ -190,18 +227,38 @@ try {
   })),{
     profile:"classic",
     view:"compose",
-    compose:{mode:"new",from:"info@quickmail.invalid",to:"person@recipient.invalid",cc:"copy@recipient.invalid",bcc:"hidden@recipient.invalid",subject:"切替保持テスト",body:"本文も保持します",attachments:[{id:"demo-attachment",name:"参考資料.pdf",size:128000,type:"application/pdf"}],draftId:null},
-    search:"保持する検索語",
-    previousView:"inbox",
-    selectedMessageId:"m1",
-    listAnchorId:"m1",
+    mailboxContext:{view:"folder",folderId:"archive"},
+    compose:{mode:"new",from:"support@quickmail.invalid",to:"person@recipient.invalid",cc:"copy@recipient.invalid",bcc:"hidden@recipient.invalid",subject:"切替保持テスト",body:"本文も保持します",attachments:[{id:"demo-attachment",name:"参考資料.pdf",size:128000,type:"application/pdf"}],draftId:null},
+    search:"資料",
+    previousView:"folder",
+    selectedMessageId:"m2",
+    listAnchorId:"m2",
     focusAnchor:"profile-selector"
-  },"profile switching must preserve the complete fixture and logical state");
-  await page.evaluate(() => {
-    dispatch({type:"SEARCH",value:""});
-    dispatch({type:"NAVIGATE",view:"inbox"});
-  });
+  },"real profile switching must preserve mailbox identity, m2, search, and every unsaved draft field");
+  assert.equal(await page.locator(".demo-profile-switcher").count(),1,"profile selector must remain visible while composing");
+  await page.click('[data-action="compose-close"]');
+  assert.deepEqual(await page.evaluate(() => ({view:state.view,folderId:state.activeMailId,selectedMessageId:state.selectedMessageId})),{view:"folder",folderId:"archive",selectedMessageId:"m2"},"closing compose must resume the explicit mailbox state path");
 
+  await page.click('.demo-profile-switcher [data-action="profile"][data-profile="command"]');
+  assert.match(await page.textContent(".command-actionbar"),/新規メール.*返信.*転送.*アーカイブ.*移動.*その他/u,"command profile must expose its one-line core command bar");
+  await page.click('.demo-profile-switcher [data-action="profile"][data-profile="classic"]');
+  assert.match(await page.textContent(".classic-actionbar"),/更新.*新規メール.*返信.*転送.*タグ.*その他/u,"classic profile must expose its top toolbar");
+  assert.equal(await page.locator(".classic-quick-filter").count(),1,"classic quick filter must be persistent");
+  await page.fill(".classic-quick-filter","2025年度");
+  await page.press(".classic-quick-filter","Enter");
+  assert.equal(await page.locator('.mail-row[data-message-id="m6"]').count(),1,"classic quick filter must retain a matching thread");
+  assert.equal(await page.locator('.mail-row[data-message-id="m2"]').count(),0,"classic quick filter must remove a non-matching thread");
+
+  await page.setViewportSize({width:1024,height:900});
+  await page.reload();
+  const calmRail = await page.evaluate(() => ({
+    folderLabelVisible:getComputedStyle(document.querySelector(".section-label > span")).clipPath === "none",
+    verticalText:[...document.querySelectorAll(".sidebar *")].some(element => getComputedStyle(element).writingMode !== "horizontal-tb"),
+    named:[...document.querySelectorAll(".sidebar button")].every(button => Boolean(button.getAttribute("aria-label") || button.getAttribute("title") || button.textContent.trim()))
+  }));
+  assert.deepEqual(calmRail,{folderLabelVisible:false,verticalText:false,named:true},"calm compact rail must use named controls without vertical folder text");
+
+  await page.setViewportSize({width:1440,height:900});
   await page.evaluate(() => dispatch({type:"THEME",value:"dark"}));
   assert.equal(await page.getAttribute("html","data-theme"),"dark","dark mode must render with the selected layout");
   await page.evaluate(() => dispatch({type:"THEME",value:"light"}));
@@ -309,6 +366,12 @@ try {
     if (profile === "calm") assert.equal(mobileGeometry[profile].rowHeight,64,"calm mobile rows must be 64px");
     if (profile === "classic") assert.equal(mobileGeometry[profile].rowHeight,52,"classic mobile rows must be 52px");
     assert.equal(mobileGeometry[profile].columnHeaderVisible,false,"classic table header must collapse on mobile");
+    await page.click('.mail-row[data-message-id="m2"] .mail-open');
+    assert.deepEqual(await page.evaluate(() => ({view:state.view,selectedMessageId:state.selectedMessageId,listAnchorId:state.listAnchorId})),{view:"mail",selectedMessageId:"m2",listAnchorId:"m2"},profile + " must use a single-screen detail at 390px");
+    assert.match(await page.textContent("main"),/資料送付のお礼/u);
+    assert.equal(await page.locator(".demo-profile-switcher").count(),1,"profile selector must remain visible on mobile detail");
+    await page.click('[data-action="back"]');
+    assert.equal(await page.evaluate(() => document.activeElement?.dataset.focusKey),"message-m2",profile + " mobile back must restore m2 focus");
     await page.evaluate(() => dispatch({type:"THEME",value:"light"}));
   }
 
