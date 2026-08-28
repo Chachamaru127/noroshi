@@ -79,7 +79,7 @@ try {
   },"the demo must use one bounded local generic inline SVG icon source");
   assert.match(await page.textContent(".demo-banner"),/非公式.*架空.*送受信しません/u);
   assert.equal(await page.locator(".demo-profile-switcher").count(),1,"the comparison profile selector must remain visible outside settings");
-  assert.deepEqual(await page.locator('.demo-profile-switcher [data-action="profile"]').allTextContents(),["シンプル","3ペイン","高密度"]);
+  assert.deepEqual(await page.locator('.demo-profile-switcher [data-action="profile"]').allTextContents(),["Gmail風","Outlook風","Thunderbird風"]);
   assert.equal(await page.locator('[data-profile="calm"][data-structure="list-detail-replacement"]').count(),1,"calm must render its list/detail replacement structure");
   assert.equal(await page.locator('[data-pane="reading"],[data-structure="thread-table"]').count(),0,"calm list view must not expose a reading pane or thread table");
 
@@ -94,9 +94,9 @@ try {
   }));
   assert.deepEqual(profileContract.ids,["calm","command","classic"]);
   assert.deepEqual(profileContract.entries,[
-    {keys:["id","publicLabel","render"],id:"calm",publicLabel:"シンプル",renderer:"function"},
-    {keys:["id","publicLabel","render"],id:"command",publicLabel:"3ペイン",renderer:"function"},
-    {keys:["id","publicLabel","render"],id:"classic",publicLabel:"高密度",renderer:"function"}
+    {keys:["id","publicLabel","render"],id:"calm",publicLabel:"Gmail風",renderer:"function"},
+    {keys:["id","publicLabel","render"],id:"command",publicLabel:"Outlook風",renderer:"function"},
+    {keys:["id","publicLabel","render"],id:"classic",publicLabel:"Thunderbird風",renderer:"function"}
   ],"registry entries must remain minimal and contain no layout schema");
 
   const desktopStructures = {};
@@ -191,7 +191,7 @@ try {
     command:{sidebar:geometry[1440].command.sidebar.width,row:geometry[1440].command.row.height,panes:geometry[1440].command.visiblePanes},
     classic:{sidebar:geometry[1440].classic.sidebar.width,row:geometry[1440].classic.row.height,panes:geometry[1440].classic.visiblePanes}
   },{
-    calm:{sidebar:236,row:56,panes:2},
+    calm:{sidebar:256,row:56,panes:2},
     command:{sidebar:240,row:44,panes:3},
     classic:{sidebar:220,row:40,panes:3}
   },"1440px geometry must match the profile documents");

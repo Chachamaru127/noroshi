@@ -19,15 +19,15 @@ Reading this as: 日本語利用者向けセルフホストWebメールの製品
 - 開発専用UIラボに隔離し、本番ルートとbundleから除外する。
 - 架空の日本語メールfixtureだけを使う。実メール、顧客固有値、バックアップ、実ドメインを使わない。
 - 現行の`/inbox`、`/folders/:id`、`/mail/:id`、`/compose`の意味と戻る操作を維持する。
-- QuickMail-jaのsageアクセント、system font、Remixicon、日本語ラベルを共通にする。3案ごとのブランド色は使わない。
-- Gmail、Outlook、Thunderbirdの名称は出典・ローカル評価資料だけに記載する。公開表示は`シンプル`、`3ペイン`、`高密度`とする。
+- semantic token名、Remixicon、日本語ラベル、状態の意味は共通にする。色、font fallback、角丸、密度はprofileが所有し、参照先を判別できる近似にする。
+- 公開表示は`Gmail風`、`Outlook風`、`Thunderbird風`とし、非公式・非提携の比較であることを明示する。製品ロゴ、固有フォント、スクリーンショット、コピーしたassetは使わない。
 - `docs/design/patterns/`の正本は共通visual themeのprimitive/semantic tokenと3つのUI profile deltaに分ける。公式sourceの役割とQuickMail-jaのlocal valueを同じ値として扱わない。
-- UI profileのruntime registryは固定ID、公開ラベル、renderer、任意の短い評価説明だけを持つ。pane幅、row高、breakpoint、collapse規則はDESIGN.md、renderer/CSS、契約testに置き、data-driven runtime schemaへ膨らませない。色、書体、focus、icon、light/darkは共通visual theme側に置く。
+- UI profileのruntime registryは固定ID、公開ラベル、renderer、任意の短い評価説明だけを持つ。pane幅、row高、breakpoint、collapse規則、paletteはDESIGN.mdとCSSに置き、data-driven runtime schemaへ膨らませない。focus semanticsとicon languageは共通にする。
 - 新しい比較案はprofile entry、delta文書、renderer、契約testの追加で完結させる。dynamic plugin、外部profile、remote theme、任意inheritance、productionの利用者別切替は作らない。
 - 比較段階では全案にライト、ダーク、モバイル、キーボード、スクリーンリーダー、`prefers-reduced-motion`の代表経路を用意する。全状態の完成責任は選定案の本番統合へ移す。
 - 一覧、選択中の本文、作成を同じfixtureで比較する。Loading、Empty、Error、Success、Offline、長い日本語件名、添付、HTML本文は代表ケースで構造を壊さないことを確認する。
 
-## Pattern A: `calm` / シンプル
+## Pattern A: `calm` / Gmail風
 
 参考: Gmailの会話重視パターンと[Material 3 canonical layouts](https://m3.material.io/foundations/layout/canonical-examples/overview)
 
@@ -40,7 +40,7 @@ Reading this as: 日本語利用者向けセルフホストWebメールの製品
 
 向く利用者: 非技術者、Gmail経験者、メール量が中程度の小規模組織。
 
-## Pattern B: `command` / 3ペイン
+## Pattern B: `command` / Outlook風
 
 参考: Outlookの業務向け構造と[Fluent Nav](https://fluent2.microsoft.design/components/web/react/core/nav/usage)、[Fluent Toolbar](https://fluent2.microsoft.design/components/web/react/core/toolbar/usage)、[Fluent List](https://fluent2.microsoft.design/components/web/react/core/list/usage/)
 
@@ -54,7 +54,7 @@ Reading this as: 日本語利用者向けセルフホストWebメールの製品
 
 向く利用者: 事務局、複数フォルダを頻繁に扱う組織、Outlook経験者。
 
-## Pattern C: `classic` / 高密度
+## Pattern C: `classic` / Thunderbird風
 
 参考: Thunderbirdの[folder pane / thread pane / message pane](https://developer.thunderbird.net/thunderbird-development/codebase-overview/mail-front-end)
 
@@ -63,7 +63,7 @@ Reading this as: 日本語利用者向けセルフホストWebメールの製品
 - 差出人、件名、日付、添付、状態を規則的な列で示す。
 - 行高36-44px、角丸2-6px、影を減らして境界線を使う。
 - `標準`と`コンパクト`の密度選択を将来拡張点として残す。
-- Thunderbirdロゴ、アイコン、配色、XUL外観を使わない。
+- Thunderbirdロゴ、製品固有アイコン、XUL assetを使わない。配色と密度はBoltとdesktop UIに近いlocal tokenで表現する。
 
 向く利用者: 大量メール、フォルダ運用、キーボード中心の熟練者。
 

@@ -5,7 +5,7 @@
 ## 固定条件
 
 - URL: ローカルの `index.html`（架空データのみ）
-- 画面構成: `シンプル`、`3ペイン`、`高密度`
+- 画面構成: `Gmail風`、`Outlook風`、`Thunderbird風`
 - 操作: キーボードと VoiceOver キーのみ
 - 記録: 実施日、macOS/Safari版、画面構成、合否、聞こえた文言、問題箇所
 

@@ -14,6 +14,6 @@
 - P1: 0
 - P2: 0
 
-評価対象のUIと18枚のbaselineは、上記commit時点の検証対象とbyte単位で同一と確認された。
+この評価は上記commit時点の記録である。2026-08-28に比較名を「Gmail風 / Outlook風 / Thunderbird風」へ変更してbaselineを更新したため、現在の18枚に対するAI評価としては失効している。現在のbaselineは人間・AIとも再レビュー待ちである。
 
 この記録は人間による視覚レビューではない。`approvals/baseline-review-receipt.json` の代わりにはならず、releaseの許可にも使わない。公開には、実在する人間の確認者による視覚レビューと、Safari / VoiceOver実音声レビューの両方が必要である。

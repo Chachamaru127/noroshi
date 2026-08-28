@@ -1,16 +1,16 @@
 # `classic` UI profile delta
 
-- 公開ラベル: `高密度`
+- 公開ラベル: `Thunderbird風`
 - 検証日: 2026-08-27
-- 共通theme: `base.DESIGN.md`
+- 共通semantic contract: `base.DESIGN.md`
 - 公式原則の参照: [Thunderbird Mail front-end](https://developer.thunderbird.net/thunderbird-development/codebase-overview/mail-front-end) のfolder / thread / message pane
 
-公式資料から参照するのは、folder tree、thread table、message paneを分ける情報構造だけである。ThunderbirdやBoltのtoken、icon、配色、XUL外観は取り込まない。
+Thunderbird Mailのfolder / thread / message paneとBoltのdesktop / mobile / web一貫性を参照する。ロゴ、製品固有icon、XUL assetは取り込まず、local CSS tokenで再実装する。
 
 ## Runtime entry
 
 ```js
-{ id: "classic", publicLabel: "高密度", render: renderClassic }
+{ id: "classic", publicLabel: "Thunderbird風", render: renderClassic }
 ```
 
 任意の `evaluatorDescription` を除き、これ以上のlayout dataをregistryへ追加しない。
@@ -30,6 +30,13 @@
 - 列headerと各cellの対応をsemanticsで伝える。見た目だけのCSS gridにせず、screen readerで列の意味が分かる構造を使う。
 - pane幅、表示列、row高はrenderer、CSS、geometry testで固定し、registry dataにはしない。
 
+## Visual delta
+
+- light: background `#f0f0f4`、blue `#0060df`、selected `#d9e8f6`。
+- dark: background `#1c1b22`、primary `#0a84ff`、selected `#1f3449`、secondary accent `#80ebff`。
+- OS標準font、2-6px radius、40px thread rowでdesktop mail clientの密度を出す。
+- surfaceの境界はshadowよりborderを優先する。
+
 ## Action placement
 
 - 最上部toolbar: 更新、新規メール、返信、手動転送、tag、その他。
@@ -40,8 +47,8 @@
 
 ## Profile contract
 
-- 公開UIにThunderbird、Mozilla、Boltの名称を表示しない。
-- Thunderbirdのロゴ、固有icon、配色、XUL外観を使わない。
+- 公開ラベルは`Thunderbird風`とし、非公式の近似であることをデモ説明に残す。
+- Thunderbirdのロゴ、製品固有icon、XUL assetを使わない。
 - `標準` / `コンパクト` 切替は将来候補に留め、今回のruntime設定やregistry fieldにしない。
 - 3ペインと列縮退をrendererとresponsive CSSで固定し、任意schemaへ変換しない。
 

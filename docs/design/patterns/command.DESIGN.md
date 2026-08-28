@@ -1,16 +1,16 @@
 # `command` UI profile delta
 
-- 公開ラベル: `3ペイン`
+- 公開ラベル: `Outlook風`
 - 検証日: 2026-08-27
-- 共通theme: `base.DESIGN.md`
+- 共通semantic contract: `base.DESIGN.md`
 - 公式原則の参照: [Fluent Nav](https://fluent2.microsoft.design/components/web/react/core/nav/usage)、[Fluent Toolbar](https://fluent2.microsoft.design/components/web/react/core/toolbar/usage)、[Fluent List](https://fluent2.microsoft.design/components/web/react/core/list/usage/)
 
-公式資料から参照するのは、業務ナビゲーション、commandの優先順位、密度のあるlistの役割だけである。Fluent token値、React component、Microsoft固有の外観は取り込まない。
+Fluent 2の業務ナビゲーション、command階層、global/alias token、light/dark themeを参照する。React component、Microsoft asset、配布フォントは取り込まず、local CSS tokenで再実装する。
 
 ## Runtime entry
 
 ```js
-{ id: "command", publicLabel: "3ペイン", render: renderCommand }
+{ id: "command", publicLabel: "Outlook風", render: renderCommand }
 ```
 
 任意の `evaluatorDescription` を除き、これ以上のlayout dataをregistryへ追加しない。
@@ -29,6 +29,13 @@
 - 読み取りpaneは選択なし、loading、errorをpane内状態として表示し、list選択を失わない。
 - pane幅は実装とgeometry testで固定し、利用者設定やregistry dataにはしない。
 
+## Visual delta
+
+- light: background `#f5f5f5`、Fluent系blue `#0f6cbd`、selected `#ebf3fc`。
+- dark: background `#1f1f1f`、primary `#479ef5`、selected `#243b4d`。
+- fontはOSにある`Segoe UI`を先頭候補にし、配布しない。
+- radiusは4-6px、shadowは弱く、paneとcommand barを1px borderで分ける。
+
 ## Action placement
 
 - command bar: 新規メール、返信、手動転送、archive、移動、その他。
@@ -39,8 +46,8 @@
 
 ## Profile contract
 
-- 公開UIにOutlook、Microsoft、Fluentの名称を表示しない。
-- Microsoft固有の青、配布版Segoe UI、ロゴ、製品固有iconを使わない。
+- 公開ラベルは`Outlook風`とし、非公式の近似であることをデモ説明に残す。
+- Segoe UIを配布せず、Microsoftロゴ、製品固有icon、コピーしたassetを使わない。
 - ribbonを複製しない。commandを増やすための多段toolbarを作らない。
 - pane構成とcollapseをrendererとresponsive CSSで固定し、registry値で調整しない。
 

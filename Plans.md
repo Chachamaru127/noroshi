@@ -15,7 +15,7 @@ Separate an existing customer deployment from a publishable generic Japanese pro
 - GitHub repository creation/push, Cloudflare deployment, DNS changes, production D1/R2 access, and external email sends are separate Risk Gates and are out of scope.
 - QMJ-12 implementation may add a pinned QA-only accessibility dependency after lockfile/license review; it may not add Fluent UI React, Material Web, Bolt, a vendor font, or another runtime design-system dependency.
 - Updating the public Pages comparison preview is an external deployment Risk Gate. It requires a final local review, exact artifact readback, and explicit approval immediately before deployment. It does not authorize email send, DNS, production Worker, D1, or R2 changes.
-- The currently deployed preview predates the generic-label and `noindex` contract. Treat it as a known non-compliant baseline and do not describe or share it as the approved comparison until a reviewed artifact is explicitly approved and redeployed.
+- The currently deployed preview predates the current `noindex` and reviewed-artifact contract. Treat it as a known non-compliant baseline and do not describe or share it as the approved comparison until a reviewed artifact is explicitly approved and redeployed.
 - QMJ-13 participant outreach is an external-contact Risk Gate. Collect only anonymous usage categories, never names, email addresses, recordings, or mailbox content, and request approval before inviting participants.
 
 ## Task graph
@@ -367,7 +367,7 @@ Spec delta:
 - Separate one shared visual theme from statically registered layout profiles. The user-provided hex values are not adopted as official or local pattern palettes.
 - Make future comparison patterns additive through a minimal `UIProfile` registry, delta document, renderer, and tests; reject a general plugin/theme SDK until a concrete second consumer requires it.
 - Limit pre-selection parity to comparable inbox, selected-message, and compose states. Move the exhaustive state matrix to the selected production pattern in QMJ-14.
-- Change publicly reachable selector labels from vendor-style names to `シンプル`, `3ペイン`, and `高密度`; keep the vendor mapping only in sources and local evaluator notes.
+- Use the explicit comparison labels `Gmail風`, `Outlook風`, and `Thunderbird風`; retain the unofficial and unaffiliated notice and do not add vendor logos, fonts, screenshots, exact palettes, or pixel copying.
 
 Planning classification:
 
@@ -380,9 +380,9 @@ Planning classification:
 | Reject | Dynamic theme plugins, third-party profile loading, three production runtime themes, vendor palettes/fonts/logos/screenshots, pixel clones, or checked-in Figma exports | They solve no current user need and add maintenance, security, and trademark risk | Public UI remains QuickMail-ja and the extension contract stays small | Static and visual review |
 
 - Capture the existing light/dark baseline at 1440x900, 1024x768, and 390x844 before visual changes.
-- Build the `calm`, `command`, and `classic` concepts from one synthetic Japanese fixture and one interaction contract. A publicly reachable preview labels them `シンプル`, `3ペイン`, and `高密度`; vendor-style comparison names remain local evaluation notes only.
+- Build the `calm`, `command`, and `classic` concepts from one synthetic Japanese fixture and one interaction contract. A publicly reachable preview labels them `Gmail風`, `Outlook風`, and `Thunderbird風` while stating that the comparison is unofficial and unaffiliated.
 - Keep prototypes development-only and out of production routes and bundle.
-- Keep one QuickMail-ja visual theme across all profiles. Compare information architecture rather than vendor colors or assets.
+- Keep one semantic token contract, but give each profile its own light/dark palette, typography fallback, radius, and density so the three references are visually distinguishable. Do not use vendor logos, proprietary fonts, screenshots, or copied assets.
 - Use official Fluent 2, Material 3, and Thunderbird/Bolt sources as design references only. Keep a shared QuickMail-ja theme source plus statically registered profile deltas; add no runtime vendor design-system dependency.
 
 Completed prototype scope (2026-08-27):
@@ -410,8 +410,8 @@ Binary DoD:
 - axe serious/critical and WCAG A/AA moderate violations are 0 for the specified 48 runs unless a dated waiver names the owner, reason, and expiry.
 - Normal text contrast is at least 4.5:1; large text, component boundaries, and focus indicators are at least 3:1. Light/dark default, hover, focus, selected, unread, and disabled states are recorded.
 - One VoiceOver/Safari smoke per pattern verifies search, folder navigation, unread/selected announcement, message body, reply/back, compose validation, and error/offline live regions; automated accessible-name/state tests complement but do not replace it.
-- Public preview has both `<meta name="robots" content="noindex,nofollow">` and a Pages `_headers` `X-Robots-Tag` rule, a persistent unofficial/no-real-mail notice, generic pattern labels, and 0 external font requests. Page load and passive operation are same-origin only; fixed ChatGPT, Claude, and Gemini navigation is permitted only after the existing explicit user gesture and safety validation. Deployed HTML and headers are read back before the preview is called compliant.
-- Mail-client vendor names in public selector labels, logos, proprietary fonts, screenshots, trademark images, exact vendor palettes, checked-in Figma exports, new runtime design-system dependencies, and production imports of prototype code are 0. The only vendor-mark exception is the three equal-size bundled Remix Icon marks used beside the permanent ChatGPT, Claude, and Gemini consultation text labels; it does not extend to layout branding.
+- Public preview has both `<meta name="robots" content="noindex,nofollow">` and a Pages `_headers` `X-Robots-Tag` rule, a persistent unofficial/no-real-mail notice, explicit `Gmail風` / `Outlook風` / `Thunderbird風` comparison labels, and 0 external font requests. Page load and passive operation are same-origin only; fixed ChatGPT, Claude, and Gemini navigation is permitted only after the existing explicit user gesture and safety validation. Deployed HTML and headers are read back before the preview is called compliant.
+- Mail-client vendor logos, proprietary fonts, screenshots, trademark images, exact vendor palettes, checked-in Figma exports, new runtime design-system dependencies, and production imports of prototype code are 0. Product names may appear only as text labels ending in `風` to identify an unofficial comparison reference. The only vendor-mark exception is the three equal-size bundled Remix Icon marks used beside the permanent ChatGPT, Claude, and Gemini consultation text labels; it does not extend to layout branding.
 
 #### QMJ-13 — UI evaluation and one-system decision
 
