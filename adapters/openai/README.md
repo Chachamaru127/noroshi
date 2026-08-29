@@ -13,7 +13,7 @@
 Codex CLI 0.149.1の一時クリーンプロファイルで、次を実測した（2026-08-30）。
 
 - `codex plugin marketplace add <repo-root>` でこのリポジトリの `.agents/plugins/marketplace.json` を登録できた。
-- `codex plugin list --available` で `quickmail-ja-setup@quickmail-ja` とBYOK setup Skillを含むnative pluginを発見し、`codex plugin add` 後にinstalled/enabled表示まで成功した。インストール先は公式のcache配下であった。
+- `codex plugin list --json --available` で `quickmail-ja-setup@quickmail-ja` とBYOK setup Skillを含むnative pluginを発見し、`codex plugin add` 後にinstalled/enabled表示まで成功した。インストール先は公式のcache配下であった。
 - インストール済みcacheの同じMCPコマンドでstdio initializeとtools/listを確認し、`setup_apply` は `provider_adapter_unavailable` で停止した。provider、DNS、メール、秘密値、外部送信は扱っていない。
 - 一時 `HOME` / `CODEX_HOME`だけを使い、既存のglobal configはハッシュが変わらないことを確認した。
 

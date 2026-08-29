@@ -51,7 +51,7 @@ MCP のツール一覧は次の6つに固定する。
 
 ### Codex / ChatGPT
 
-ルートの `plugin.json`、`skills/`、`mcp.json` が Agent Plugins 1.0のportable sourceである。Codex native sourceは `.agents/plugins/marketplace.json` と `.agents/plugins/quickmail-ja-setup/` に分離している。Codex CLI 0.149.1の一時クリーンプロファイルで、`codex plugin marketplace add <repo-root>`、`codex plugin list --available`、`codex plugin add quickmail-ja-setup@quickmail-ja`、installed/enabled表示、cache上のBYOK setup Skill確認、MCP stdio initialize、tools/list、`setup_apply` blockedまで成功した。
+ルートの `plugin.json`、`skills/`、`mcp.json` が Agent Plugins 1.0のportable sourceである。Codex native sourceは `.agents/plugins/marketplace.json` と `.agents/plugins/quickmail-ja-setup/` に分離している。Codex CLI 0.149.1の一時クリーンプロファイルで、`codex plugin marketplace add <repo-root>`、`codex plugin list --json --available`、`codex plugin add quickmail-ja-setup@quickmail-ja`、installed/enabled表示、cache上のBYOK setup Skill確認、MCP stdio initialize、tools/list、`setup_apply` blockedまで成功した。
 
 Codex CLIの確認はアカウントログインなしで行った。一時 `HOME` / `CODEX_HOME`を使ったため、既存global configは変更されていない。provider、DNS、メール、秘密値、外部送信は扱っていない。ChatGPTデスクトップは、公式のPlugins Directoryでlocal/repo marketplaceを選択してインストールし、再起動後の新規チャットで確認する別gateである。Agent Plugin ZIPの導入後に利用できる範囲は、同梱した非接続のoperations SkillとBYOK guidance Skillである。
 

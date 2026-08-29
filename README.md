@@ -68,7 +68,7 @@ Codex CLIでrepo marketplaceを使う場合は、リポジトリのルートで�
 
 ```bash
 codex plugin marketplace add .
-codex plugin list --available
+codex plugin list --json --available
 codex plugin add quickmail-ja-setup@quickmail-ja
 codex plugin list
 ```

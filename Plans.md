@@ -417,7 +417,7 @@ Binary DoD:
 - Agent Plugins 1.0 schema validation passes.
 - Unsupported transport, unknown capability, capability drift, and provider-write fixtures fail closed.
 - Installing the setup plugin grants 0 mailbox/provider-email read, email send, or QuickMail admin capability, and exposes 0 provider tool outside the capability registry.
-- Codex native discovery is reproducible from a temporary profile with `codex plugin marketplace add`, `codex plugin list --available`, `codex plugin add`, `codex plugin list`, and installed-cache MCP stdio initialize; the existing global config remains unchanged.
+- Codex native discovery is reproducible from a temporary profile with `codex plugin marketplace add`, `codex plugin list --json --available`, `codex plugin add`, `codex plugin list`, and installed-cache MCP stdio initialize; the existing global config remains unchanged.
 
 #### QMJ-12 — Isolated UI comparison lab
 
