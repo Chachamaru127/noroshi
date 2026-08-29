@@ -34,15 +34,24 @@ export function normalizeLocalResendApiBase(value?: string): string | undefined 
 	if (!value?.trim()) return undefined;
 	try {
 		const url = new URL(value);
-		const hostname = url.hostname.toLowerCase();
-		const loopback = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '[::1]';
-		if (url.protocol !== 'http:' || !loopback) throw new Error('non_loopback_resend_api_base');
+		const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+		const loopback = hostname === '127.0.0.1' || hostname === '::1';
+		if (
+			url.protocol !== 'http:' ||
+			!loopback ||
+			url.username ||
+			url.password ||
+			url.search ||
+			url.hash
+		) {
+			throw new Error('invalid_local_resend_api_base');
+		}
 		return normalizeResendApiBase(value);
 	} catch {
 		throw new ResendError(
 			500,
 			'invalid_local_api_base',
-			'FakeProvider API override must use an http loopback URL'
+			'FakeProvider API override must use an http loopback IP URL without credentials, query, or fragment'
 		);
 	}
 }
