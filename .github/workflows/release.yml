@@ -152,14 +152,15 @@ jobs:
             -o "quickmail-ja-${{ steps.version.outputs.version }}.zip" \
             "${{ needs.preflight.outputs.commit_sha }}"
           unzip -l "quickmail-ja-${{ steps.version.outputs.version }}.zip" | tail -5
-          ARCHIVE_SHA="$(sha256sum "quickmail-ja-${{ steps.version.outputs.version }}.zip" | cut -d' ' -f1)"
-          jq -n \
-            --arg tag "${{ needs.preflight.outputs.tag }}" \
-            --arg version "${{ steps.version.outputs.version }}" \
-            --arg commitSha "${{ needs.preflight.outputs.commit_sha }}" \
-            --arg archiveSha256 "$ARCHIVE_SHA" \
-            '{tag:$tag,version:$version,commitSha:$commitSha,archiveSha256:$archiveSha256}' \
-            > release-evidence.json
+          bun scripts/release-supply-chain.mjs generate \
+            "quickmail-ja-${{ steps.version.outputs.version }}.zip" \
+            "${{ needs.preflight.outputs.tag }}" \
+            "${{ needs.preflight.outputs.commit_sha }}"
+          bun scripts/release-supply-chain.mjs verify \
+            "quickmail-ja-${{ steps.version.outputs.version }}.zip" \
+            "${{ needs.preflight.outputs.tag }}" \
+            "${{ needs.preflight.outputs.commit_sha }}"
+          sha256sum --check SHA256SUMS
 
       - name: Upload verified release package
         # actions/upload-artifact v4.6.2
@@ -168,6 +169,9 @@ jobs:
           name: quickmail-ja-release-${{ github.run_id }}
           path: |
             quickmail-ja-${{ steps.version.outputs.version }}.zip
+            SHA256SUMS
+            quickmail-ja.spdx.json
+            release-provenance.json
             release-evidence.json
           if-no-files-found: error
 
@@ -228,5 +232,9 @@ jobs:
           fi
           gh release create "$TAG" \
             "$ARCHIVE" \
+            SHA256SUMS \
+            quickmail-ja.spdx.json \
+            release-provenance.json \
+            release-evidence.json \
             --title "QuickMail-ja $TAG" \
             --generate-notes

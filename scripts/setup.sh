@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# QuickMail-jaの準備: Bunがなければ確認後に公式インストーラーを実行し、ウィザードを開始します。
+# QuickMail-jaの準備: 検証済みBunを確認し、ウィザードを開始します。
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -7,6 +7,7 @@ cd "$ROOT"
 
 export BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
 export PATH="$BUN_INSTALL/bin:$PATH"
+REVIEWED_BUN_VERSION="1.3.14"
 
 say() { printf '%s\n' "$*"; }
 ok() { printf '  ✓ %s\n' "$*"; }
@@ -16,45 +17,25 @@ has_bun() {
 	command -v bun >/dev/null 2>&1
 }
 
-ask_yes() {
-	# $1 prompt, default yes
-	local reply
-	if [[ ! -t 0 ]]; then
-		return 1
-	fi
-	read -r -p "  $1 [Y/n] " reply || true
-	reply="$(printf '%s' "$reply" | tr '[:upper:]' '[:lower:]')"
-	[[ -z "$reply" || "$reply" == y || "$reply" == yes ]]
-}
-
 say ""
 say "QuickMail-ja セットアップ"
 say "  Bunと依存パッケージを確認し、ドメイン設定ウィザードを開始します。"
 say ""
 
 if ! has_bun; then
-	warn "Bunがありません。QuickMail-jaはBunだけをサポートします。"
-	if ask_yes "bun.shの公式インストーラーでBunを導入しますか？"; then
-		if [[ "$(uname -s)" == "MINGW"* || "$(uname -s)" == "MSYS"* || "$(uname -s)" == "CYGWIN"* ]]; then
-			say "  Windowsでは https://bun.sh の手順でBunを導入後、bash scripts/setup.shを再実行してください。"
-			exit 1
-		fi
-		curl -fsSL https://bun.sh/install | bash
-		export PATH="$BUN_INSTALL/bin:$PATH"
-		if ! has_bun; then
-			say "  Bunを導入しましたが、このシェルのPATHから見つかりません。"
-			say "  $BUN_INSTALL/bin をPATHへ追加し、bash scripts/setup.shを再実行してください。"
-			exit 1
-		fi
-		ok "bun $(bun --version)"
-	else
-		say "  Bunを導入してから再実行してください: https://bun.sh"
+	warn "Bunがありません。QuickMail-jaはBun 1.3.14を検証済みです。"
+	say "  https://bun.sh/docs/installation の公式手順でBun 1.3.14を導入してください。"
+	say "  ダウンロードしたインストーラーは内容と公式checksumを確認し、pipe実行しないでください。"
+	exit 1
+else
+	installed_bun_version="$(bun --version)"
+	if [[ "$installed_bun_version" != "$REVIEWED_BUN_VERSION" ]]; then
+		warn "Bun $installed_bun_version は未検証です。検証済みの $REVIEWED_BUN_VERSION を使用してください。"
 		exit 1
 	fi
-else
-	ok "bun $(bun --version)"
+	ok "bun $installed_bun_version"
 fi
 
-bun install
+bun install --frozen-lockfile
 ok "依存パッケージを準備しました"
 exec bun "$ROOT/scripts/setup.mjs" "$@"

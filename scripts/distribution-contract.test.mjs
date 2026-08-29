@@ -224,10 +224,10 @@ test('clean scanner checks every match and scans the text Bun lockfile', () => {
 	assert.doesNotMatch(clean, /pdf\|zip\|lock/);
 });
 
-test('non-interactive setup never approves a Bun download', () => {
+test('setup never downloads or executes a Bun installer', () => {
 	const setup = read('scripts/setup.sh');
-	assert.match(setup, /if \[\[ ! -t 0 \]\]; then\s+return 1/);
-	assert.doesNotMatch(setup, /if \[\[ ! -t 0 \]\]; then\s+return 0/);
+	assert.doesNotMatch(setup, /curl[^\n|]*\|\s*(?:ba)?sh/u);
+	assert.match(setup, /Bun 1\.3\.14を検証済み/u);
 	const temporaryHome = mkdtempSync(join(tmpdir(), 'quickmail-ja-no-bun-'));
 	try {
 		const result = spawnSync('/bin/bash', ['scripts/setup.sh'], {
@@ -241,7 +241,7 @@ test('non-interactive setup never approves a Bun download', () => {
 			}
 		});
 		assert.equal(result.status, 1);
-		assert.match(result.stdout, /Bunを導入してから再実行してください/);
+		assert.match(result.stdout, /公式手順でBun 1\.3\.14を導入してください/u);
 	} finally {
 		rmSync(temporaryHome, { recursive: true, force: true });
 	}

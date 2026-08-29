@@ -4,6 +4,7 @@ import { lstat, mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { findExternalFontReferences } from './release-supply-chain.mjs';
 
 const repository = fileURLToPath(new URL('..', import.meta.url));
 const temporary = await mkdtemp(join(tmpdir(), 'quickmail-ja-archive-smoke-'));
@@ -22,6 +23,14 @@ function run(command, args, options = {}) {
 }
 
 try {
+	const treeEntries = run('git', ['ls-tree', '-r', '-z', treeish], { cwd: repository })
+		.stdout.split('\0')
+		.filter(Boolean);
+	for (const entry of treeEntries) {
+		if (!/^(?:100644|100755) blob [0-9a-f]+\t/u.test(entry)) {
+			throw new Error(`Release tree contains a symlink, gitlink, or special entry: ${entry}`);
+		}
+	}
 	const adapters = [
 		'.agents/skills/quickmail-ja-setup/SKILL.md',
 		'.claude/skills/quickmail-ja-setup/SKILL.md'
@@ -67,6 +76,10 @@ try {
 		throw new Error(
 			`Release archive contains unexpected .claude content: ${claudeEntries.join(', ')}`
 		);
+	}
+	const externalFonts = findExternalFontReferences(extracted);
+	if (externalFonts.length > 0) {
+		throw new Error(`Release archive contains external font requests: ${externalFonts.join(', ')}`);
 	}
 	run(process.execPath, ['run', 'check:clean'], { cwd: extracted });
 	console.log('✓ Extracted release archive passed check:clean.');
