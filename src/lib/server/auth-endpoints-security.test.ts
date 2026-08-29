@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { _createLoginPostHandler } from '../../routes/api/auth/login/+server';
 import { _createSetupPostHandler } from '../../routes/api/setup/+server';
+import { resolveAuthRateLimitSecret } from './bootstrap-secret';
 
 const limited = async () => ({
 	allowed: false,
@@ -12,7 +13,7 @@ const limited = async () => ({
 
 function platform() {
 	return {
-		env: { DB: {}, AUTH_RATE_LIMIT_SECRET: 'test-rate-limit-secret-at-least-32-bytes' },
+		env: { DB: {} },
 		ctx: { waitUntil: () => undefined }
 	};
 }
@@ -40,6 +41,13 @@ describe('public authentication endpoint throttling', () => {
 	test('blocks a limited login before password verification', async () => {
 		let loginCalls = 0;
 		const handler = _createLoginPostHandler({
+			resolveAuthRateLimitSecret: (platform) =>
+				resolveAuthRateLimitSecret(platform, {
+					isDev: true,
+					privateEnvironment: {
+						AUTH_RATE_LIMIT_SECRET: 'test-rate-limit-secret-at-least-32-bytes'
+					}
+				}),
 			consumeAuthRateLimit: limited,
 			pruneAuthRateLimits: async () => undefined,
 			login: async () => {
@@ -63,6 +71,13 @@ describe('public authentication endpoint throttling', () => {
 	test('blocks a limited setup before user/provider inspection', async () => {
 		let countCalls = 0;
 		const handler = _createSetupPostHandler({
+			resolveAuthRateLimitSecret: (platform) =>
+				resolveAuthRateLimitSecret(platform, {
+					isDev: true,
+					privateEnvironment: {
+						AUTH_RATE_LIMIT_SECRET: 'test-rate-limit-secret-at-least-32-bytes'
+					}
+				}),
 			consumeAuthRateLimit: limited,
 			pruneAuthRateLimits: async () => undefined,
 			countUsers: async () => {

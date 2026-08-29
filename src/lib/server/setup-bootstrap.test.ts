@@ -1,6 +1,19 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { _createSetupPostHandler, POST } from '../../routes/api/setup/+server';
+import { _createSetupPostHandler } from '../../routes/api/setup/+server';
+import { resolveAuthRateLimitSecret, resolveBootstrapSecret } from './bootstrap-secret';
+
+const childEnvironment = {
+	BOOTSTRAP_SECRET: 'correct-bootstrap-secret-value',
+	AUTH_RATE_LIMIT_SECRET: 'test-rate-limit-secret-at-least-32-bytes'
+};
+
+const setupPost = _createSetupPostHandler({
+	resolveBootstrapSecret: (platform) =>
+		resolveBootstrapSecret(platform, { isDev: true, privateEnvironment: childEnvironment }),
+	resolveAuthRateLimitSecret: (platform) =>
+		resolveAuthRateLimitSecret(platform, { isDev: true, privateEnvironment: childEnvironment })
+});
 
 function setupEvent(options: { configuredSecret?: string; providedSecret?: string }) {
 	let queryCount = 0;
@@ -32,8 +45,7 @@ function setupEvent(options: { configuredSecret?: string; providedSecret?: strin
 			platform: {
 				env: {
 					DB: db,
-					BOOTSTRAP_SECRET: options.configuredSecret,
-					AUTH_RATE_LIMIT_SECRET: 'test-rate-limit-secret-at-least-32-bytes'
+					BOOTSTRAP_SECRET: options.configuredSecret
 				}
 			}
 		},
@@ -42,9 +54,75 @@ function setupEvent(options: { configuredSecret?: string; providedSecret?: strin
 }
 
 describe('first-run bootstrap secret gate', () => {
+	test('uses only the exact dev private secret and ignores process-style env in production', () => {
+		const privateEnvironment = {
+			BOOTSTRAP_SECRET: 'exact-child-secret',
+			OTHER_SECRET: 'never-read'
+		};
+		assert.equal(
+			resolveBootstrapSecret(undefined, { isDev: true, privateEnvironment }),
+			'exact-child-secret'
+		);
+		assert.equal(resolveBootstrapSecret(undefined, { isDev: false, privateEnvironment }), null);
+		assert.equal(
+			resolveBootstrapSecret(
+				{ env: { BOOTSTRAP_SECRET: 'platform-secret' } },
+				{ isDev: false, privateEnvironment }
+			),
+			'platform-secret'
+		);
+	});
+
+	test('passes the child OS bootstrap secret through the actual setup endpoint adapter', async () => {
+		const handler = _createSetupPostHandler({
+			resolveAuthRateLimitSecret: (platform) =>
+				resolveAuthRateLimitSecret(platform, {
+					isDev: true,
+					privateEnvironment: childEnvironment
+				}),
+			resolveBootstrapSecret: (platform) =>
+				resolveBootstrapSecret(platform, {
+					isDev: true,
+					privateEnvironment: { BOOTSTRAP_SECRET: 'exact-child-secret' }
+				}),
+			consumeAuthRateLimit: async () => ({
+				allowed: true,
+				attempts: 1,
+				retryAfterSeconds: 1,
+				keyHash: 'test'
+			}),
+			pruneAuthRateLimits: async () => undefined,
+			countUsers: async () => 0
+		});
+		const response = await handler({
+			request: new Request('https://mail.example/api/setup', {
+				method: 'POST',
+				body: JSON.stringify({ bootstrapSecret: 'exact-child-secret' })
+			}),
+			cookies: {},
+			platform: {
+				env: { DB: {} },
+				ctx: { waitUntil: () => undefined }
+			}
+		} as never);
+		assert.equal(response.status, 400);
+		assert.deepEqual(await response.json(), { error: 'Choose a domain first' });
+	});
 	test('fails closed with 503 when BOOTSTRAP_SECRET is missing', async () => {
 		const { event, observed } = setupEvent({ providedSecret: 'provided-key' });
-		const response = await POST(event as never);
+		const productionPost = _createSetupPostHandler({
+			resolveAuthRateLimitSecret: (platform) =>
+				resolveAuthRateLimitSecret(platform, {
+					isDev: true,
+					privateEnvironment: childEnvironment
+				}),
+			resolveBootstrapSecret: (platform) =>
+				resolveBootstrapSecret(platform, {
+					isDev: false,
+					privateEnvironment: childEnvironment
+				})
+		});
+		const response = await productionPost(event as never);
 		assert.equal(response.status, 503);
 		assert.deepEqual(await response.json(), { error: 'Setup protection is not configured' });
 		assert.deepEqual(observed(), { queryCount: 1, cookieWrites: 0 });
@@ -55,7 +133,7 @@ describe('first-run bootstrap secret gate', () => {
 			configuredSecret: 'correct-bootstrap-secret-value',
 			providedSecret: 'wrong-bootstrap-secret-value'
 		});
-		const response = await POST(event as never);
+		const response = await setupPost(event as never);
 		assert.equal(response.status, 403);
 		assert.deepEqual(await response.json(), { error: 'Invalid setup key' });
 		assert.deepEqual(observed(), { queryCount: 1, cookieWrites: 0 });
@@ -68,6 +146,11 @@ describe('first-run bootstrap secret gate', () => {
 		});
 		const calls: string[] = [];
 		const handler = _createSetupPostHandler({
+			resolveAuthRateLimitSecret: (platform) =>
+				resolveAuthRateLimitSecret(platform, {
+					isDev: true,
+					privateEnvironment: childEnvironment
+				}),
 			consumeAuthRateLimit: async () => ({
 				allowed: true,
 				attempts: 1,

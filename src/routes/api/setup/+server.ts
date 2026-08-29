@@ -16,6 +16,7 @@ import {
 	renewSetupBootstrap
 } from '$lib/server/auth-rate-limit';
 import { finalizeSetup } from '$lib/server/setup-finalize';
+import { resolveAuthRateLimitSecret, resolveBootstrapSecret } from '$lib/server/bootstrap-secret';
 import { readJsonBody, RequestBodyError } from '$lib/server/request-security';
 
 async function matchesBootstrapSecret(
@@ -46,7 +47,9 @@ const defaultSetupDependencies = {
 	pruneAuthRateLimits,
 	claimSetupBootstrap,
 	releaseSetupBootstrap,
-	renewSetupBootstrap
+	renewSetupBootstrap,
+	resolveBootstrapSecret,
+	resolveAuthRateLimitSecret
 };
 
 export const GET: RequestHandler = async ({ platform }) => {
@@ -80,7 +83,7 @@ export function _createSetupPostHandler(
 	return async ({ request, cookies, platform }) => {
 		const db = platform?.env.DB;
 		if (!db) return json({ error: 'Database unavailable' }, { status: 503 });
-		const rateLimitSecret = platform?.env.AUTH_RATE_LIMIT_SECRET?.trim();
+		const rateLimitSecret = dependencies.resolveAuthRateLimitSecret(platform);
 		if (!rateLimitSecret || rateLimitSecret.length < 32) {
 			return json({ error: 'Setup protection is not configured' }, { status: 503 });
 		}
@@ -121,7 +124,7 @@ export function _createSetupPostHandler(
 			throw error;
 		}
 
-		const bootstrapSecret = platform?.env.BOOTSTRAP_SECRET?.trim();
+		const bootstrapSecret = dependencies.resolveBootstrapSecret(platform);
 		if (!bootstrapSecret) {
 			return json({ error: 'Setup protection is not configured' }, { status: 503 });
 		}

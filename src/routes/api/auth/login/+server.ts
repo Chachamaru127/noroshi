@@ -13,12 +13,14 @@ import {
 	resetAuthRateLimit
 } from '$lib/server/auth-rate-limit';
 import { readJsonBody, RequestBodyError } from '$lib/server/request-security';
+import { resolveAuthRateLimitSecret } from '$lib/server/bootstrap-secret';
 
 const defaultDependencies = {
 	login,
 	consumeAuthRateLimit,
 	resetAuthRateLimit,
-	pruneAuthRateLimits
+	pruneAuthRateLimits,
+	resolveAuthRateLimitSecret
 };
 
 export function _createLoginPostHandler(
@@ -28,7 +30,7 @@ export function _createLoginPostHandler(
 	return async ({ request, cookies, platform }) => {
 		const db = platform?.env.DB;
 		if (!db) return json({ error: 'Database unavailable' }, { status: 503 });
-		const rateLimitSecret = platform?.env.AUTH_RATE_LIMIT_SECRET?.trim();
+		const rateLimitSecret = dependencies.resolveAuthRateLimitSecret(platform);
 		if (!rateLimitSecret || rateLimitSecret.length < 32) {
 			return json({ error: 'Login protection is not configured' }, { status: 503 });
 		}
