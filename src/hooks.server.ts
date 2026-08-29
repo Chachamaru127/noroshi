@@ -1,9 +1,14 @@
-import { redirect, type Handle } from '@sveltejs/kit';
+import { isHttpError, isRedirect, type Handle } from '@sveltejs/kit';
 import { authorizeApiRequest } from '$lib/server/api-access';
 import { getUserByApiToken, readBearerToken } from '$lib/server/api-tokens';
 import { countUsers, getUserFromSession, readSessionToken } from '$lib/server/auth';
 import { DOMAIN_COOKIE } from '$lib/server/constants';
 import { listAddressesForUser, listDomains } from '$lib/server/domains';
+import {
+	applySecurityHeaders,
+	rejectCrossOriginMutation,
+	RequestBodyError
+} from '$lib/server/request-security';
 
 const PUBLIC_PREFIXES = [
 	'/login',
@@ -25,7 +30,7 @@ function jsonError(error: string, status: number): Response {
 	});
 }
 
-export const handle: Handle = async ({ event, resolve }) => {
+const handleRequest: Handle = async ({ event, resolve }) => {
 	const db = event.platform?.env.DB;
 	event.locals.user = null;
 	event.locals.authMethod = null;
@@ -36,6 +41,25 @@ export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.activeDomainId = null;
 
 	const { pathname } = event.url;
+	const resolveSecurely = async () => {
+		try {
+			return applySecurityHeaders(await resolve(event), event.url);
+		} catch (error) {
+			if (error instanceof RequestBodyError) {
+				return applySecurityHeaders(jsonError(error.message, error.status), event.url);
+			}
+			throw error;
+		}
+	};
+	const secureRedirect = (location: string) =>
+		applySecurityHeaders(
+			new Response(null, { status: 303, headers: { Location: location } }),
+			event.url
+		);
+
+	if (rejectCrossOriginMutation(event.request, event.url)) {
+		return applySecurityHeaders(jsonError('Cross-origin request rejected', 403), event.url);
+	}
 
 	if (db) {
 		const session = readSessionToken(event.cookies);
@@ -58,7 +82,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	// Webhooks authenticate with a signature, not a session.
 	if (pathname.startsWith('/api/webhooks/')) {
-		return resolve(event);
+		return resolveSecurely();
 	}
 
 	if (db && event.locals.user) {
@@ -80,10 +104,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	if (pathname.startsWith('/api/')) {
 		if (isPublicPath(pathname)) {
-			return resolve(event);
+			return resolveSecurely();
 		}
 		if (!event.locals.user || !event.locals.authMethod) {
-			return jsonError('Unauthorized', 401);
+			return applySecurityHeaders(jsonError('Unauthorized', 401), event.url);
 		}
 
 		const access = authorizeApiRequest({
@@ -93,41 +117,41 @@ export const handle: Handle = async ({ event, resolve }) => {
 			scopes: event.locals.apiScopes
 		});
 		if (!access.ok) {
-			return jsonError(access.error, access.status);
+			return applySecurityHeaders(jsonError(access.error, access.status), event.url);
 		}
 
-		return resolve(event);
+		return resolveSecurely();
 	}
 
 	const needsSetup = db ? (await countUsers(db)) === 0 : false;
 
 	if (needsSetup && pathname !== '/setup') {
-		throw redirect(303, '/setup');
+		return secureRedirect('/setup');
 	}
 
 	if (pathname === '/setup') {
 		if (!needsSetup && event.locals.user) {
-			throw redirect(303, '/inbox');
+			return secureRedirect('/inbox');
 		}
 		if (!needsSetup && !event.locals.user) {
-			throw redirect(303, '/login');
+			return secureRedirect('/login');
 		}
-		return resolve(event);
+		return resolveSecurely();
 	}
 
 	if (pathname === '/login') {
 		if (event.locals.user) {
-			throw redirect(303, '/inbox');
+			return secureRedirect('/inbox');
 		}
-		return resolve(event);
+		return resolveSecurely();
 	}
 
 	if (isPublicPath(pathname)) {
-		return resolve(event);
+		return resolveSecurely();
 	}
 
 	if (!event.locals.user) {
-		throw redirect(303, '/login');
+		return secureRedirect('/login');
 	}
 
 	// Nothing works until a provider domain is connected and the user owns an
@@ -135,16 +159,26 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const needsOnboarding = event.locals.domains.length === 0 || event.locals.addresses.length === 0;
 
 	if (needsOnboarding && pathname !== '/onboarding') {
-		throw redirect(303, '/onboarding');
+		return secureRedirect('/onboarding');
 	}
 
 	if (!needsOnboarding && pathname === '/onboarding') {
-		throw redirect(303, '/inbox');
+		return secureRedirect('/inbox');
 	}
 
 	if (pathname.startsWith('/admin') && !event.locals.user.is_admin) {
-		throw redirect(303, '/inbox');
+		return secureRedirect('/inbox');
 	}
 
-	return resolve(event);
+	return resolveSecurely();
+};
+
+export const handle: Handle = async (input) => {
+	try {
+		return await handleRequest(input);
+	} catch (error) {
+		if (isRedirect(error) || isHttpError(error)) throw error;
+		console.error('Runtime request failed', error instanceof Error ? error.name : 'unknown_error');
+		return applySecurityHeaders(jsonError('Internal server error', 500), input.event.url);
+	}
 };

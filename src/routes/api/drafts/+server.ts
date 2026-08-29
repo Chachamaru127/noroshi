@@ -1,4 +1,5 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
+import { MAX_DRAFT_JSON_BYTES, readJsonBody } from '$lib/server/request-security';
 import { resolveFromAddress } from '$lib/server/outbox';
 import { saveDraft } from '$lib/server/mail-store';
 
@@ -20,7 +21,7 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 
-	const body = (await request.json()) as DraftBody;
+	const body = (await readJsonBody(request, MAX_DRAFT_JSON_BYTES)) as DraftBody;
 
 	try {
 		const from = await resolveFromAddress(db, locals.user, body.fromAddressId);

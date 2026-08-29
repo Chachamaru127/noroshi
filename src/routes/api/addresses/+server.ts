@@ -1,4 +1,5 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
+import { MAX_SMALL_JSON_BYTES, readJsonBody } from '$lib/server/request-security';
 import { createAddress, listAddressesForUser, listAllAddresses } from '$lib/server/domains';
 
 export const GET: RequestHandler = async ({ locals, platform, url }) => {
@@ -24,7 +25,7 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 
-	const body = (await request.json()) as {
+	const body = (await readJsonBody(request, MAX_SMALL_JSON_BYTES)) as {
 		domainId?: string;
 		localPart?: string;
 		label?: string;

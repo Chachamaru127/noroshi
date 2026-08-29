@@ -1,4 +1,5 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
+import { MAX_SMALL_JSON_BYTES, readJsonBody } from '$lib/server/request-security';
 import { MAX_EMAIL_SIGNATURE_LENGTH } from '$lib/email-signature';
 import { updateEmailSignature } from '$lib/server/email-signature';
 
@@ -10,7 +11,7 @@ export const PATCH: RequestHandler = async ({ request, locals, platform }) => {
 
 	let body: { signature?: unknown };
 	try {
-		body = (await request.json()) as { signature?: unknown };
+		body = (await readJsonBody(request, MAX_SMALL_JSON_BYTES)) as { signature?: unknown };
 	} catch {
 		return json({ error: 'Invalid request' }, { status: 400 });
 	}

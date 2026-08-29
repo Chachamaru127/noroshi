@@ -8,6 +8,7 @@
 	import { formatFileSize, htmlToPlainText, isHtmlEmpty } from '$lib/utils/html';
 	import { requestSkipViewTransition } from '$lib/app-chrome';
 	import type { OutboundAttachmentInput } from '$lib/types';
+	import { mailMultipartBody } from '$lib/utils/attachments';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -90,7 +91,8 @@
 		}
 		if (hasDraftText && !(await saveDraft())) return;
 		if (attachments.length > 0) {
-			error = '添付ファイルは下書きに保存されません。メールを送信するか、先に添付を外してください。';
+			error =
+				'添付ファイルは下書きに保存されません。メールを送信するか、先に添付を外してください。';
 			return;
 		}
 		requestSkipViewTransition();
@@ -121,24 +123,21 @@
 		error = '';
 
 		try {
+			const payload = {
+				draftId: draftId ?? undefined,
+				fromAddressId,
+				to,
+				cc: cc.trim() || undefined,
+				bcc: bcc.trim() || undefined,
+				subject,
+				html,
+				text: htmlToPlainText(html),
+				forwardOfId: forward?.id,
+				forwardAttachmentIds: forward ? forwardedAttachments.map((item) => item.id) : undefined
+			};
 			const res = await fetch('/api/mail', {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					draftId: draftId ?? undefined,
-					fromAddressId,
-					to,
-					cc: cc.trim() || undefined,
-					bcc: bcc.trim() || undefined,
-					subject,
-					html,
-					text: htmlToPlainText(html),
-					attachments,
-					forwardOfId: forward?.id,
-					forwardAttachmentIds: forward
-						? forwardedAttachments.map((attachment) => attachment.id)
-						: undefined
-				})
+				body: mailMultipartBody(payload, attachments)
 			});
 			const body = await res.json();
 			if (!res.ok) {
@@ -271,7 +270,13 @@
 			</div>
 			<div class="field-row">
 				<label class="field-label" for="bcc">Bcc</label>
-				<input id="bcc" type="text" bind:value={bcc} placeholder="カンマ区切り" class="field-input" />
+				<input
+					id="bcc"
+					type="text"
+					bind:value={bcc}
+					placeholder="カンマ区切り"
+					class="field-input"
+				/>
 			</div>
 		{/if}
 
@@ -316,11 +321,7 @@
 
 	{#if attachments.length}
 		<div class="compose-chips">
-			<AttachmentPicker
-				bind:attachments
-				mode="chips"
-				reservedCount={forwardedAttachments.length}
-			/>
+			<AttachmentPicker bind:attachments mode="chips" reservedCount={forwardedAttachments.length} />
 		</div>
 	{/if}
 

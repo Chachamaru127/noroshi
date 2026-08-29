@@ -11,6 +11,7 @@ import {
 	type ResendWebhookEvent
 } from '$lib/server/inbound';
 import { verifyWebhookSignature } from '$lib/server/webhook';
+import { MAX_WEBHOOK_BYTES, readTextBody, RequestBodyError } from '$lib/server/request-security';
 
 /**
  * Resend webhook receiver — used when EMAIL_PROVIDER=resend.
@@ -32,7 +33,14 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 	}
 
 	// Must be the raw body — parsing first would invalidate the signature.
-	const rawBody = await request.text();
+	let rawBody: string;
+	try {
+		rawBody = await readTextBody(request, MAX_WEBHOOK_BYTES);
+	} catch (error) {
+		if (error instanceof RequestBodyError)
+			return json({ error: error.message }, { status: error.status });
+		throw error;
+	}
 	const verified = await verifyWebhookSignature(request.headers, rawBody, secret);
 	if (!verified.ok) {
 		console.warn('Rejected webhook signature:', verified.reason);
@@ -51,7 +59,11 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 	}
 
 	if (event.type === 'email.received' && getInboundEmailProviderKind(platform) === 'cloudflare') {
-		return json({ ok: true, handled: false, note: 'Inbound is handled by Cloudflare Email Routing' });
+		return json({
+			ok: true,
+			handled: false,
+			note: 'Inbound is handled by Cloudflare Email Routing'
+		});
 	}
 
 	const eventId =
@@ -65,7 +77,11 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 
 	try {
 		const client = getResendClient(platform);
-		const outcome = await handleResendWebhook(event, createResendWebhookInboundEnv(platform!), client);
+		const outcome = await handleResendWebhook(
+			event,
+			createResendWebhookInboundEnv(platform!),
+			client
+		);
 		return json({ ok: true, ...outcome });
 	} catch (error) {
 		// Release the claim so Resend's retry can succeed.

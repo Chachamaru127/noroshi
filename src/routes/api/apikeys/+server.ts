@@ -1,4 +1,5 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
+import { MAX_SMALL_JSON_BYTES, readJsonBody } from '$lib/server/request-security';
 import { createApiToken, listApiTokens, parseScopes, type ApiScope } from '$lib/server/api-tokens';
 
 export const GET: RequestHandler = async ({ locals, platform }) => {
@@ -20,7 +21,9 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 
-	const body = (await request.json().catch(() => null)) as CreateTokenBody | null;
+	const body = (await readJsonBody(request, MAX_SMALL_JSON_BYTES).catch(
+		() => null
+	)) as CreateTokenBody | null;
 	const scopes = body?.scopes ?? [];
 	const parsed = scopes.length === 0 ? null : parseScopes(scopes, locals.user.is_admin);
 	if (body && !parsed) {

@@ -1,4 +1,5 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
+import { MAX_SMALL_JSON_BYTES, readJsonBody } from '$lib/server/request-security';
 import {
 	describeProviderError,
 	getEmailProvider,
@@ -80,7 +81,9 @@ export const POST: RequestHandler = async ({ request, locals, platform, url }) =
 	const db = platform?.env.DB;
 	if (!db || !locals.user) return json({ error: 'Unauthorized' }, { status: 401 });
 
-	const body = (await request.json().catch(() => null)) as DestinationBody | null;
+	const body = (await readJsonBody(request, MAX_SMALL_JSON_BYTES).catch(
+		() => null
+	)) as DestinationBody | null;
 	if (!body || typeof body.sourceAddressId !== 'string' || typeof body.destination !== 'string') {
 		return json({ error: 'Source address and destination are required' }, { status: 400 });
 	}

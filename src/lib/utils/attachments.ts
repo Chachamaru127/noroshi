@@ -1,5 +1,19 @@
 import { MAX_ATTACHMENTS_PER_EMAIL } from '$lib/constants';
 
+export function mailMultipartBody(
+	payload: Record<string, unknown>,
+	attachments: Array<{ filename: string; type: string; content: string }>
+): FormData {
+	const form = new FormData();
+	form.set('payload', JSON.stringify(payload));
+	for (const attachment of attachments) {
+		const binary = atob(attachment.content);
+		const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+		form.append('attachment', new Blob([bytes], { type: attachment.type }), attachment.filename);
+	}
+	return form;
+}
+
 export function remainingAttachmentSlots(uploadedCount: number, reservedCount = 0): number {
 	return Math.max(0, MAX_ATTACHMENTS_PER_EMAIL - uploadedCount - reservedCount);
 }

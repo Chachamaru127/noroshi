@@ -1,4 +1,5 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
+import { MAX_SMALL_JSON_BYTES, readJsonBody } from '$lib/server/request-security';
 import { deleteUser, setUserPassword } from '$lib/server/auth';
 
 export const PATCH: RequestHandler = async ({ params, request, locals, platform }) => {
@@ -9,7 +10,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals, platform 
 	const db = platform?.env.DB;
 	if (!db) return json({ error: 'Database unavailable' }, { status: 503 });
 
-	const body = (await request.json()) as { password?: string };
+	const body = (await readJsonBody(request, MAX_SMALL_JSON_BYTES)) as { password?: string };
 	if (!body.password) {
 		return json({ error: 'Password is required' }, { status: 400 });
 	}

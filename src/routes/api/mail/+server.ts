@@ -5,13 +5,12 @@ import {
 	statusForProviderError
 } from '$lib/server/context';
 import { authorizeManualForward } from '$lib/server/api-access';
-import {
-	ManualForwardError,
-	prepareManualForward
-} from '$lib/server/manual-forward';
+import { ManualForwardError, prepareManualForward } from '$lib/server/manual-forward';
 import { deleteDraft, listMailbox } from '$lib/server/mail-store';
 import { sendAndStore } from '$lib/server/outbox';
 import type { MailboxView, OutboundAttachmentInput } from '$lib/types';
+import { RequestBodyError } from '$lib/server/request-security';
+import { readMailRequest } from '$lib/server/mail-request';
 
 type SendMailBody = {
 	/** Set when the composer was editing a draft — it is removed once sent. */
@@ -79,7 +78,14 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 
-	const body = (await request.json()) as SendMailBody;
+	let body: SendMailBody;
+	try {
+		body = await readMailRequest<SendMailBody>(request);
+	} catch (error) {
+		if (error instanceof RequestBodyError)
+			return json({ error: error.message }, { status: error.status });
+		throw error;
+	}
 	if (body.attachments !== undefined && !Array.isArray(body.attachments)) {
 		return json({ error: 'Invalid attachments' }, { status: 400 });
 	}
@@ -115,12 +121,12 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 		try {
 			attachments = (
 				await prepareManualForward(
-				db,
-				bucket,
-				locals.user.id,
-				body.forwardOfId,
-				body.forwardAttachmentIds ?? [],
-				attachments
+					db,
+					bucket,
+					locals.user.id,
+					body.forwardOfId,
+					body.forwardAttachmentIds ?? [],
+					attachments
 				)
 			).attachments;
 		} catch (error) {
@@ -133,22 +139,17 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 
 	try {
 		const provider = getEmailProvider(platform);
-		const { emailId } = await sendAndStore(
-			{ DB: db, ATTACHMENTS: bucket },
-			provider,
-			locals.user,
-			{
-				fromAddressId: body.fromAddressId,
-				to: body.to,
-				cc: body.cc,
-				bcc: body.bcc,
-				subject: body.subject,
-				text: body.text,
-				html: body.html,
-				attachments,
-				startNewThread: forwarding
-			}
-		);
+		const { emailId } = await sendAndStore({ DB: db, ATTACHMENTS: bucket }, provider, locals.user, {
+			fromAddressId: body.fromAddressId,
+			to: body.to,
+			cc: body.cc,
+			bcc: body.bcc,
+			subject: body.subject,
+			text: body.text,
+			html: body.html,
+			attachments,
+			startNewThread: forwarding
+		});
 
 		if (body.draftId) {
 			await deleteDraft(db, locals.user.id, body.draftId);

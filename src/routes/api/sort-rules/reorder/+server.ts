@@ -1,4 +1,5 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
+import { MAX_SMALL_JSON_BYTES, readJsonBody } from '$lib/server/request-security';
 import { MailSortRuleValidationError, reorderSortRules } from '$lib/server/folder-rules';
 
 export const POST: RequestHandler = async ({ request, locals, platform }) => {
@@ -6,7 +7,9 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 	if (locals.authMethod !== 'session') {
 		return json({ error: 'Sorting rules require a browser session.' }, { status: 403 });
 	}
-	const body = (await request.json().catch(() => null)) as { ids?: unknown } | null;
+	const body = (await readJsonBody(request, MAX_SMALL_JSON_BYTES).catch(() => null)) as {
+		ids?: unknown;
+	} | null;
 	if (!body || !Array.isArray(body.ids) || !body.ids.every((id) => typeof id === 'string')) {
 		return json({ error: 'Sorting rule order is invalid.' }, { status: 400 });
 	}

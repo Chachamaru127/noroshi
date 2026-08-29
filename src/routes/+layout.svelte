@@ -97,11 +97,6 @@
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
-	<link
-		href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap"
-		rel="stylesheet"
-		media="(min-width: 901px)"
-	/>
 </svelte:head>
 
 {#if showShell}

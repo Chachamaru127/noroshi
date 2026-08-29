@@ -42,7 +42,6 @@
 				error = `「${file.name}」は${limitMb}MBを超えています`;
 				continue;
 			}
-
 			const content = await fileToBase64(file);
 			attachments = [
 				...attachments,
@@ -106,7 +105,12 @@
 			<span class="attachment-chip">
 				<Icon name="file-3-line" size={14} />
 				<span class="max-w-[140px] truncate">{file.filename}</span>
-				<button type="button" class="chip-remove" aria-label="添付ファイルを削除" onclick={() => remove(index)}>
+				<button
+					type="button"
+					class="chip-remove"
+					aria-label="添付ファイルを削除"
+					onclick={() => remove(index)}
+				>
 					<Icon name="close-line" size={14} />
 				</button>
 			</span>
@@ -140,7 +144,9 @@
 		font-size: 0.8125rem;
 		color: var(--color-muted);
 		background: var(--color-surface-muted);
-		transition: background 0.15s, color 0.15s;
+		transition:
+			background 0.15s,
+			color 0.15s;
 	}
 
 	.attach-btn:hover {

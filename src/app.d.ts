@@ -20,6 +20,7 @@ declare global {
 				CLOUDFLARE_MAIL_DOMAINS?: string;
 				/** One-time secret required to create the first administrator. */
 				BOOTSTRAP_SECRET?: string;
+				AUTH_RATE_LIMIT_SECRET?: string;
 				/** Resend API key — `wrangler secret put RESEND_API_KEY`. */
 				RESEND_API_KEY: string;
 				/** Signing secret from the Resend webhook (whsec_…). */

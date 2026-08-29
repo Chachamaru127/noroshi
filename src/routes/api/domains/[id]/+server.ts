@@ -1,4 +1,5 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
+import { MAX_SMALL_JSON_BYTES, readJsonBody } from '$lib/server/request-security';
 import { getEmailProvider, ProviderError } from '$lib/server/context';
 import { disconnectDomain, getDomain, setCatchallUser, upsertDomain } from '$lib/server/domains';
 
@@ -14,7 +15,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals, platform 
 		return json({ error: 'Domain not connected' }, { status: 404 });
 	}
 
-	const body = (await request.json()) as {
+	const body = (await readJsonBody(request, MAX_SMALL_JSON_BYTES)) as {
 		catchallUserId?: string | null;
 		refresh?: boolean;
 	};

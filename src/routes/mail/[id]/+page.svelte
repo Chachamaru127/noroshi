@@ -10,6 +10,7 @@
 	import { htmlToPlainText, isHtmlEmpty } from '$lib/utils/html';
 	import { hasInAppHistory, requestSkipViewTransition } from '$lib/app-chrome';
 	import type { OutboundAttachmentInput } from '$lib/types';
+	import { mailMultipartBody } from '$lib/utils/attachments';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -110,12 +111,10 @@
 		try {
 			const res = await fetch(`/api/mail/${latest.id}`, {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					html: replyHtml,
-					text: htmlToPlainText(replyHtml),
-					attachments: replyAttachments
-				})
+				body: mailMultipartBody(
+					{ html: replyHtml, text: htmlToPlainText(replyHtml) },
+					replyAttachments
+				)
 			});
 			const body = await res.json();
 			if (!res.ok) {
@@ -180,12 +179,7 @@
 				<button type="button" class="icon-btn" aria-label="復元" onclick={restore}>
 					<Icon name="arrow-go-back-line" size={16} />
 				</button>
-				<button
-					type="button"
-					class="icon-btn danger"
-					aria-label="完全に削除"
-					onclick={destroy}
-				>
+				<button type="button" class="icon-btn danger" aria-label="完全に削除" onclick={destroy}>
 					<Icon name="delete-bin-2-line" size={16} />
 				</button>
 			{:else}
@@ -197,7 +191,11 @@
 				</button>
 			{/if}
 
-			<button type="button" class="btn-primary reply-launch" onclick={() => (replyOpen = !replyOpen)}>
+			<button
+				type="button"
+				class="btn-primary reply-launch"
+				onclick={() => (replyOpen = !replyOpen)}
+			>
 				<Icon name="reply-line" size={16} />
 				{replyOpen ? '閉じる' : '返信'}
 			</button>
@@ -241,7 +239,8 @@
 				<p class="reply-from">
 					差出人:
 					<strong>
-						{#if data.replyFromName}{data.replyFromName} · {/if}{data.replyFrom}
+						{#if data.replyFromName}{data.replyFromName} ·
+						{/if}{data.replyFrom}
 					</strong>
 				</p>
 			{/if}

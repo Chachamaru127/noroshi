@@ -9,9 +9,15 @@
 
 	function safeLoginError(value: unknown): string {
 		if (typeof value !== 'string') return 'ログインに失敗しました。';
-		if (value.includes('Email and password are required')) return 'メールアドレスとパスワードを入力してください。';
-		if (value.includes('Invalid email or password')) return 'メールアドレスまたはパスワードが正しくありません。';
+		if (value.includes('Email and password are required'))
+			return 'メールアドレスとパスワードを入力してください。';
+		if (value.includes('Invalid email or password'))
+			return 'メールアドレスまたはパスワードが正しくありません。';
 		if (value.includes('Database unavailable')) return 'データベースを利用できません。';
+		if (value.includes('Too many login attempts'))
+			return 'ログイン試行が多すぎます。時間をおいて再試行してください。';
+		if (value.includes('Login protection is not configured'))
+			return 'ログイン保護が設定されていません。管理者へ連絡してください。';
 		return 'ログインに失敗しました。';
 	}
 
@@ -46,7 +52,7 @@
 </script>
 
 <svelte:head>
-		<title>ログイン — QuickMail-ja</title>
+	<title>ログイン — QuickMail-ja</title>
 </svelte:head>
 
 <div class="auth-shell">
@@ -59,7 +65,14 @@
 		<form class="mt-8 space-y-4" onsubmit={submit}>
 			<div>
 				<label for="email" class="text-sm text-[var(--color-text-secondary)]">メールアドレス</label>
-				<input id="email" type="email" bind:value={email} required autocomplete="username" class="auth-input" />
+				<input
+					id="email"
+					type="email"
+					bind:value={email}
+					required
+					autocomplete="username"
+					class="auth-input"
+				/>
 			</div>
 			<div>
 				<label for="password" class="text-sm text-[var(--color-text-secondary)]">パスワード</label>

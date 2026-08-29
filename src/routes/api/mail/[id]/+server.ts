@@ -15,6 +15,8 @@ import {
 import { resolveReplyFromAddress, sendAndStore } from '$lib/server/outbox';
 import { buildReferences, displaySubject } from '$lib/server/threads';
 import type { OutboundAttachmentInput } from '$lib/types';
+import { MAX_SMALL_JSON_BYTES, readJsonBody, RequestBodyError } from '$lib/server/request-security';
+import { readMailRequest } from '$lib/server/mail-request';
 
 type ReplyBody = {
 	fromAddressId?: string;
@@ -51,7 +53,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals, platform 
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 
-	const body = (await request.json()) as {
+	const body = (await readJsonBody(request, MAX_SMALL_JSON_BYTES)) as {
 		isRead?: boolean;
 		isStarred?: boolean;
 		trashed?: boolean;
@@ -110,7 +112,14 @@ export const POST: RequestHandler = async ({ params, request, locals, platform }
 		return json({ error: 'Not found' }, { status: 404 });
 	}
 
-	const body = (await request.json()) as ReplyBody;
+	let body: ReplyBody;
+	try {
+		body = await readMailRequest<ReplyBody>(request);
+	} catch (error) {
+		if (error instanceof RequestBodyError)
+			return json({ error: error.message }, { status: error.status });
+		throw error;
+	}
 	if (!body.text?.trim() && !body.html?.trim()) {
 		return json({ error: 'Message body is required' }, { status: 400 });
 	}
@@ -127,25 +136,20 @@ export const POST: RequestHandler = async ({ params, request, locals, platform }
 
 	try {
 		const provider = getEmailProvider(platform);
-		const { emailId } = await sendAndStore(
-			{ DB: db, ATTACHMENTS: bucket },
-			provider,
-			locals.user,
-			{
-				fromAddressId: body.fromAddressId,
-				fromAddress,
-				to,
-				subject,
-				text: body.text,
-				html: body.html,
-				inReplyTo: original.message_id,
-				// Carry the chain forward so the recipient's client — and ours,
-				// when they answer — keeps the conversation together.
-				references: buildReferences(original.references_header, original.message_id),
-				replyToEmailId: original.id,
-				attachments: body.attachments
-			}
-		);
+		const { emailId } = await sendAndStore({ DB: db, ATTACHMENTS: bucket }, provider, locals.user, {
+			fromAddressId: body.fromAddressId,
+			fromAddress,
+			to,
+			subject,
+			text: body.text,
+			html: body.html,
+			inReplyTo: original.message_id,
+			// Carry the chain forward so the recipient's client — and ours,
+			// when they answer — keeps the conversation together.
+			references: buildReferences(original.references_header, original.message_id),
+			replyToEmailId: original.id,
+			attachments: body.attachments
+		});
 
 		return json({ ok: true, id: emailId });
 	} catch (error) {

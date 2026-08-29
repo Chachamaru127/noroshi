@@ -1,4 +1,5 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
+import { MAX_SMALL_JSON_BYTES, readJsonBody } from '$lib/server/request-security';
 import {
 	ConfigError,
 	getEmailProvider,
@@ -83,7 +84,10 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 		return json({ error: 'Forbidden' }, { status: 403 });
 	}
 
-	const body = (await request.json()) as { domainIds?: string[]; domainId?: string };
+	const body = (await readJsonBody(request, MAX_SMALL_JSON_BYTES)) as {
+		domainIds?: string[];
+		domainId?: string;
+	};
 	const ids = body.domainIds ?? (body.domainId ? [body.domainId] : []);
 
 	if (ids.length === 0) {

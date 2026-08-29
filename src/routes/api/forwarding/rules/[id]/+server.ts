@@ -1,4 +1,5 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
+import { MAX_SMALL_JSON_BYTES, readJsonBody } from '$lib/server/request-security';
 import {
 	describeProviderError,
 	getEmailProvider,
@@ -53,7 +54,9 @@ export const PATCH: RequestHandler = async ({ params, request, locals, platform,
 
 	const ruleId = params.id;
 	if (!ruleId) return json({ error: 'Rule not found' }, { status: 404 });
-	const body = (await request.json().catch(() => null)) as RuleBody | null;
+	const body = (await readJsonBody(request, MAX_SMALL_JSON_BYTES).catch(
+		() => null
+	)) as RuleBody | null;
 	if (!body || (body.enabled === undefined && body.destination === undefined)) {
 		return json({ error: 'Enabled or destination is required' }, { status: 400 });
 	}

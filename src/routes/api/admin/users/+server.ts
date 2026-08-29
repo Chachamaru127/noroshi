@@ -1,4 +1,5 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
+import { MAX_SMALL_JSON_BYTES, readJsonBody } from '$lib/server/request-security';
 import { createUser, listUsers } from '$lib/server/auth';
 import { createAddress, getDomain, listAllAddresses } from '$lib/server/domains';
 
@@ -26,7 +27,7 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 	const db = platform?.env.DB;
 	if (!db) return json({ error: 'Database unavailable' }, { status: 503 });
 
-	const body = (await request.json()) as {
+	const body = (await readJsonBody(request, MAX_SMALL_JSON_BYTES)) as {
 		name?: string;
 		domainId?: string;
 		localPart?: string;

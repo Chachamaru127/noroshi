@@ -1,4 +1,5 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
+import { MAX_SMALL_JSON_BYTES, readJsonBody } from '$lib/server/request-security';
 import {
 	hasPushSubscription,
 	parsePushSubscription,
@@ -33,18 +34,13 @@ export const POST: RequestHandler = async ({ request, url, locals, platform }) =
 	const crossOrigin = rejectCrossOrigin(request, url);
 	if (crossOrigin) return crossOrigin;
 
-	const body = await request.json().catch(() => null);
+	const body = await readJsonBody(request, MAX_SMALL_JSON_BYTES).catch(() => null);
 	const subscription = parsePushSubscription(body);
 	if (!subscription) {
 		return json({ error: 'Invalid push subscription' }, { status: 400 });
 	}
 
-	await savePushSubscription(
-		db,
-		locals.user.id,
-		subscription,
-		request.headers.get('user-agent')
-	);
+	await savePushSubscription(db, locals.user.id, subscription, request.headers.get('user-agent'));
 	return json({ ok: true }, { status: 201 });
 };
 
@@ -56,7 +52,9 @@ export const DELETE: RequestHandler = async ({ request, url, locals, platform })
 	const crossOrigin = rejectCrossOrigin(request, url);
 	if (crossOrigin) return crossOrigin;
 
-	const body = (await request.json().catch(() => null)) as { endpoint?: unknown } | null;
+	const body = (await readJsonBody(request, MAX_SMALL_JSON_BYTES).catch(() => null)) as {
+		endpoint?: unknown;
+	} | null;
 	if (typeof body?.endpoint !== 'string' || !body.endpoint.trim()) {
 		return json({ error: 'Push endpoint is required' }, { status: 400 });
 	}

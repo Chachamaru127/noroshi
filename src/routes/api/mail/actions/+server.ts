@@ -1,4 +1,5 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
+import { MAX_SMALL_JSON_BYTES, readJsonBody } from '$lib/server/request-security';
 import { authorizeMailAction, isMailAction, type MailAction } from '$lib/server/api-access';
 import {
 	deleteEmailsPermanently,
@@ -23,7 +24,7 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 
-	const body = (await request.json()) as ActionBody;
+	const body = (await readJsonBody(request, MAX_SMALL_JSON_BYTES)) as ActionBody;
 	const action = body.action;
 
 	if (!isMailAction(action)) {
@@ -72,13 +73,9 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 			affected = await setEmailFlags(db, locals.user.id, ids, { trashed: false });
 			break;
 		case 'delete':
-			affected = await deleteEmailsPermanently(
-				db,
-				platform?.env.ATTACHMENTS,
-				locals.user.id,
-				ids,
-				{ onlyTrashed: true }
-			);
+			affected = await deleteEmailsPermanently(db, platform?.env.ATTACHMENTS, locals.user.id, ids, {
+				onlyTrashed: true
+			});
 			break;
 		case 'read-all':
 			affected = await markAllRead(db, locals.user.id, locals.activeDomainId);

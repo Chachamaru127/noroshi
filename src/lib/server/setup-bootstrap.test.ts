@@ -7,6 +7,14 @@ function setupEvent(options: { configuredSecret?: string; providedSecret?: strin
 	let cookieWrites = 0;
 	const db = {
 		prepare(sql: string) {
+			if (/auth_rate_limits/i.test(sql)) {
+				return {
+					bind: () => ({
+						first: async () => ({ attempts: 1, window_started_at: new Date().toISOString() }),
+						run: async () => ({ meta: { changes: 0 } })
+					})
+				};
+			}
 			assert.match(sql, /COUNT\(\*\).*users/i);
 			queryCount += 1;
 			return { first: async () => ({ count: 0 }) };
@@ -21,7 +29,13 @@ function setupEvent(options: { configuredSecret?: string; providedSecret?: strin
 		event: {
 			request,
 			cookies: { set: () => (cookieWrites += 1) },
-			platform: { env: { DB: db, BOOTSTRAP_SECRET: options.configuredSecret } }
+			platform: {
+				env: {
+					DB: db,
+					BOOTSTRAP_SECRET: options.configuredSecret,
+					AUTH_RATE_LIMIT_SECRET: 'test-rate-limit-secret-at-least-32-bytes'
+				}
+			}
 		},
 		observed: () => ({ queryCount, cookieWrites })
 	};
@@ -54,6 +68,13 @@ describe('first-run bootstrap secret gate', () => {
 		});
 		const calls: string[] = [];
 		const handler = _createSetupPostHandler({
+			consumeAuthRateLimit: async () => ({
+				allowed: true,
+				attempts: 1,
+				retryAfterSeconds: 1,
+				keyHash: 'test'
+			}),
+			pruneAuthRateLimits: async () => undefined,
 			countUsers: async () => {
 				calls.push('countUsers');
 				return 0;
@@ -69,18 +90,10 @@ describe('first-run bootstrap secret gate', () => {
 						receivingEnabled: true
 					})
 				}) as never,
-			upsertDomain: async (_db, domain) =>
-				({
-					...domain,
-					sending_enabled: true,
-					receiving_enabled: true,
-					catchall_user_id: null,
-					created_at: '2026-01-01T00:00:00.000Z',
-					synced_at: null
-				}) as never,
-			bootstrapAdmin: async () => ({ id: 'user-1' }) as never,
-			createAddress: async () => ({}) as never,
-			setCatchallUser: async () => undefined,
+			claimSetupBootstrap: async () => 'claim-token',
+			releaseSetupBootstrap: async () => undefined,
+			renewSetupBootstrap: async () => true,
+			finalizeSetup: async () => ({ userId: 'user-1', address: 'info@example.com' }),
 			login: async () => null
 		});
 		event.request = new Request('https://mail.example.com/api/setup', {

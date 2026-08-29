@@ -1,5 +1,15 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
-import { importOutlookEml, type OutlookImportDirection } from '$lib/server/outlook-import';
+import {
+	importOutlookEml,
+	MAX_HISTORICAL_EML_BYTES,
+	type OutlookImportDirection
+} from '$lib/server/outlook-import';
+import {
+	MAX_EML_MULTIPART_BYTES,
+	requireBoundedContentLength,
+	RequestBodyError,
+	safeRuntimeErrorCode
+} from '$lib/server/request-security';
 
 export const POST: RequestHandler = async ({ locals, platform, request }) => {
 	if (!locals.user?.is_admin || locals.authMethod !== 'session') {
@@ -9,6 +19,14 @@ export const POST: RequestHandler = async ({ locals, platform, request }) => {
 		return json({ error: '保存先を利用できません。' }, { status: 503 });
 	}
 
+	try {
+		requireBoundedContentLength(request, MAX_EML_MULTIPART_BYTES);
+	} catch (error) {
+		if (error instanceof RequestBodyError) {
+			return json({ error: error.message }, { status: error.status });
+		}
+		throw error;
+	}
 	const form = await request.formData();
 	const file = form.get('file');
 	const direction = form.get('direction');
@@ -17,6 +35,9 @@ export const POST: RequestHandler = async ({ locals, platform, request }) => {
 		.toLowerCase();
 	if (!(file instanceof File) || !file.name.toLowerCase().endsWith('.eml')) {
 		return json({ error: 'EMLファイルを選択してください。' }, { status: 400 });
+	}
+	if (file.size === 0 || file.size > MAX_HISTORICAL_EML_BYTES) {
+		return json({ error: 'EMLファイルのサイズ上限を超えています。' }, { status: 413 });
 	}
 	if (direction !== 'inbound' && direction !== 'outbound') {
 		return json({ error: '受信または送信済みを選択してください。' }, { status: 400 });
@@ -42,7 +63,7 @@ export const POST: RequestHandler = async ({ locals, platform, request }) => {
 		);
 		return json(result);
 	} catch (error) {
-		console.error('Historical Outlook import failed', file.name, error);
+		console.error('Historical Outlook import failed', { code: safeRuntimeErrorCode(error) });
 		return json({ error: 'このメールを取り込めませんでした。' }, { status: 422 });
 	}
 };

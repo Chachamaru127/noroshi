@@ -33,12 +33,18 @@
 		if (typeof value !== 'string') return 'アカウントを作成できませんでした。';
 		if (value.includes('Setup already completed')) return '初期設定はすでに完了しています。';
 		if (value.includes('Invalid setup key')) return 'セットアップキーが正しくありません。';
-		if (value.includes('Setup protection is not configured')) return 'セットアップ保護が設定されていません。';
+		if (value.includes('Setup protection is not configured'))
+			return 'セットアップ保護が設定されていません。';
 		if (value.includes('Choose a domain first')) return 'ドメインを選択してください。';
 		if (value.includes('Your name is required')) return '名前を入力してください。';
 		if (value.includes('Choose an address')) return 'アドレスを選択してください。';
-		if (value.includes('Password must be at least 8 characters')) return 'パスワードは8文字以上で入力してください。';
+		if (value.includes('Password must be at least 8 characters'))
+			return 'パスワードは8文字以上で入力してください。';
 		if (value.includes('Database unavailable')) return 'データベースを利用できません。';
+		if (value.includes('Too many setup attempts'))
+			return '初期設定の試行が多すぎます。時間をおいて再試行してください。';
+		if (value.includes('Setup already completed or in progress'))
+			return '初期設定は完了済み、または別の処理が進行中です。';
 		return 'アカウントを作成できませんでした。';
 	}
 
@@ -46,7 +52,11 @@
 	const cleanLocal = $derived(localPart.trim().toLowerCase().replace(/@.*$/, ''));
 	// Once they type a name, offer the obvious mailbox for it.
 	const suggestion = $derived(
-		name.trim().split(/\s+/)[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'info'
+		name
+			.trim()
+			.split(/\s+/)[0]
+			?.toLowerCase()
+			.replace(/[^a-z0-9]/g, '') || 'info'
 	);
 
 	function goToDetails() {
@@ -100,14 +110,14 @@
 </script>
 
 <svelte:head>
-		<title>初期設定 — QuickMail-ja</title>
+	<title>初期設定 — QuickMail-ja</title>
 </svelte:head>
 
 <WizardShell
-		title={step === 1 ? 'ドメインを選択' : 'アカウントを作成'}
+	title={step === 1 ? 'ドメインを選択' : 'アカウントを作成'}
 	subtitle={step === 1
 		? domainPickerSubtitle(data.providerKind)
-			: `${chosen?.name}で送受信します。`}
+		: `${chosen?.name}で送受信します。`}
 	steps={['ドメイン', 'アカウント']}
 	current={step}
 	partner={step === 1}
@@ -128,8 +138,8 @@
 			<div class="surface-lg notice notice-warn">
 				<Icon name="error-warning-line" size={18} />
 				<div>
-						<p class="notice-title">ドメインを読み込めませんでした</p>
-						<p class="notice-body">{safeProviderError(data.loadError)}</p>
+					<p class="notice-title">ドメインを読み込めませんでした</p>
+					<p class="notice-body">{safeProviderError(data.loadError)}</p>
 				</div>
 			</div>
 		{:else if data.available.length === 0}
@@ -148,7 +158,7 @@
 			{#if error}<p class="error">{error}</p>{/if}
 
 			<button type="button" class="btn-primary w-full py-2.5 mt-4" onclick={goToDetails}>
-					続行{chosen ? `（${chosen.name}）` : ''}
+				続行{chosen ? `（${chosen.name}）` : ''}
 			</button>
 		{/if}
 	{:else}
@@ -178,8 +188,8 @@
 					bind:localPart
 					domainId={chosen?.id ?? ''}
 					domains={chosen ? [chosen] : []}
-						placeholder={suggestion}
-						label="メールアドレス"
+					placeholder={suggestion}
+					label="メールアドレス"
 				/>
 			</div>
 
@@ -256,7 +266,9 @@
 	}
 
 	.text-input:focus {
-		box-shadow: inset 0 0 0 1px var(--color-focus-line), 0 0 0 3px var(--color-focus-halo);
+		box-shadow:
+			inset 0 0 0 1px var(--color-focus-line),
+			0 0 0 3px var(--color-focus-halo);
 	}
 
 	.preview {
@@ -280,7 +292,9 @@
 	}
 
 	.notice-warn {
-		box-shadow: 0 0 0 1px var(--tone-notice-line), var(--shadow-sm);
+		box-shadow:
+			0 0 0 1px var(--tone-notice-line),
+			var(--shadow-sm);
 	}
 
 	.notice-title {

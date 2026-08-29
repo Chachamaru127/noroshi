@@ -1,4 +1,5 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
+import { MAX_SMALL_JSON_BYTES, readJsonBody } from '$lib/server/request-security';
 import {
 	deleteFolder,
 	getFolderDeletionImpact,
@@ -35,7 +36,9 @@ export const PATCH: RequestHandler = async ({ request, locals, platform, params 
 	const denied = accessError(locals, Boolean(platform?.env.DB));
 	if (denied) return denied;
 	if (!params.id) return json({ error: 'Folder was not found.' }, { status: 404 });
-	const body = (await request.json().catch(() => null)) as { name?: unknown } | null;
+	const body = (await readJsonBody(request, MAX_SMALL_JSON_BYTES).catch(() => null)) as {
+		name?: unknown;
+	} | null;
 	if (!body || typeof body.name !== 'string') {
 		return json({ error: 'Folder name is required.' }, { status: 400 });
 	}
