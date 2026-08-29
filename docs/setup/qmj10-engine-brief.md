@@ -57,7 +57,15 @@ An adapter implements only:
 Provider list/read failures must reject or return an explicit failure. They
 must never be converted to an empty collection. The production engine has no
 Cloudflare, Resend, browser, or DNS client; tests inject fakes through this
-boundary.
+boundary. Adapter inspection returns an object state. When present, the
+`resources`, `items`, `webhooks`, `domains`, `records`, and `routing_rules`
+fields are fixed collection fields and must be arrays; an unsupported shape is
+a read failure, not an empty result. The browser adapter is inspect-only in
+QMJ-10: apply and rollback stop before reaching browser mutation methods.
+
+Same-name resources and duplicate webhook configurations always stop. An
+ownership manifest cannot adopt an existing resource in this increment;
+adoption is outside the QMJ-10 contract.
 
 Approval and apply progress use `AtomicApprovalLedger` with
 `createAtomicSetupStateStore`. The local state record contains only one plan's
@@ -67,6 +75,11 @@ atomically renamed before the provider write. If the process stops after that
 write but before readback, a restart may inspect/readback and mark verification;
 it must not invoke the provider step again. A state record bound to another
 plan, hash, or approval fails closed.
+
+Every load/check/save transition is also wrapped by an exclusive
+same-directory `${statePath}.lock`. A lock that already exists, including one
+left by an interrupted process, is never removed automatically; the next
+operation fails closed for explicit recovery.
 
 ## Rollback safety
 

@@ -66,6 +66,7 @@ const FORBIDDEN_DATA_KEY_NAMES = new Set([
 	'refresh_token',
 	'authorization',
 	'cookie',
+	'cookies',
 	'body',
 	'body_text',
 	'body_html',
@@ -78,7 +79,10 @@ const FORBIDDEN_DATA_KEY_NAMES = new Set([
 	'private_key',
 	'client_secret',
 	'signing_secret',
-	'resend_api_key'
+	'resend_api_key',
+	'tokens',
+	'passwords',
+	'api_keys'
 ]);
 const FORBIDDEN_DATA_KEY_SUFFIXES = [
 	'_secret',
@@ -92,6 +96,10 @@ const FORBIDDEN_DATA_KEY_SUFFIXES = [
 	'_refresh_token',
 	'_authorization',
 	'_cookie',
+	'_cookies',
+	'_tokens',
+	'_passwords',
+	'_api_keys',
 	'_body',
 	'_body_text',
 	'_body_html',
@@ -448,6 +456,9 @@ function normalizeRollback(input, target) {
 			lower: true
 		});
 	}
+	if (input.approval_id !== undefined) {
+		rollback.approval_id = normalizeString(input.approval_id, 'rollback.approval_id');
+	}
 	return rollback;
 }
 
@@ -484,21 +495,23 @@ function ensureState(value, label) {
 	return cloneSafe(value);
 }
 
+function ensureInspectionState(value, label) {
+	const state = ensureState(value, label);
+	if (!state || typeof state !== 'object' || Array.isArray(state)) {
+		stop('provider_read_failed', `${label} must be an object`);
+	}
+	for (const key of ['resources', 'items', 'webhooks', 'domains', 'records', 'routing_rules']) {
+		if (key in state && !Array.isArray(state[key])) {
+			stop('provider_read_failed', `${label}.${key} must be an array`);
+		}
+	}
+	return state;
+}
+
 function stateResources(state) {
 	if (!state || typeof state !== 'object' || Array.isArray(state)) return [];
 	const lists = [state.resources, state.items, state.webhooks, state.domains];
 	return lists.flatMap((list) => (Array.isArray(list) ? list : []));
-}
-
-function ownershipMatches(resource, desired) {
-	const manifest = desired?.ownership_manifest;
-	if (!manifest || typeof manifest !== 'object') return false;
-	return (
-		String(manifest.resource_id ?? '') === String(resource.id ?? resource.resource_id ?? '') &&
-		String(manifest.resource_type ?? '') ===
-			String(desired.resource_type ?? resource.resource_type ?? '') &&
-		String(manifest.manifest_fingerprint ?? '') === String(resource.manifest_fingerprint ?? '')
-	);
 }
 
 function assertNoCollision(inspection, target, step, desired) {
@@ -508,15 +521,14 @@ function assertNoCollision(inspection, target, step, desired) {
 	}
 	if (!['resource_creation', 'webhook_creation'].includes(step.kind)) return;
 	const name = target.resource_name ?? desired?.resource_name ?? desired?.name;
-	if (!name) return;
-	const existing = stateResources(state).filter(
-		(resource) =>
-			String(resource.name ?? resource.resource_name ?? '').toLowerCase() ===
-			String(name).toLowerCase()
-	);
-	for (const resource of existing) {
-		if (!ownershipMatches(resource, desired)) {
-			stop('resource_collision', 'same-name resource exists without an exact ownership manifest');
+	if (name) {
+		const existing = stateResources(state).filter(
+			(resource) =>
+				String(resource.name ?? resource.resource_name ?? '').toLowerCase() ===
+				String(name).toLowerCase()
+		);
+		if (existing.length) {
+			stop('resource_collision', 'same-name resource exists; explicit adoption is outside QMJ-10');
 		}
 	}
 	if (step.kind === 'webhook_creation') {
@@ -540,12 +552,11 @@ function assertNoCollision(inspection, target, step, desired) {
 					: [];
 				if (
 					existingEndpoint === endpoint &&
-					canonicalJson(existingEvents) === canonicalJson(eventTypes) &&
-					!ownershipMatches(resource, desired)
+					canonicalJson(existingEvents) === canonicalJson(eventTypes)
 				) {
 					stop(
 						'resource_collision',
-						'duplicate webhook configuration exists without ownership adoption'
+						'duplicate webhook configuration exists; explicit adoption is outside QMJ-10'
 					);
 				}
 			}
@@ -648,6 +659,17 @@ function assertPlanShape(plan) {
 	if (plan.schema_version !== SETUP_ENGINE_SCHEMA_VERSION) {
 		stop('plan_schema_mismatch', 'plan schema is not supported');
 	}
+	for (const key of ['plan_id', 'approval_id']) {
+		if (typeof plan[key] !== 'string' || !plan[key].trim()) {
+			stop('invalid_plan', `plan ${key} must be a non-empty string`);
+		}
+		if (normalizeString(plan[key], key) !== plan[key]) {
+			stop('invalid_plan', `plan ${key} is not canonical`);
+		}
+	}
+	if (typeof plan.expires_at !== 'string' || !plan.expires_at.trim()) {
+		stop('plan_expired', 'plan expiry must be a non-empty string');
+	}
 	if (!plan.step || Array.isArray(plan.step)) stop('multiple_steps', 'plan must contain one step');
 	if (!plan.target || Array.isArray(plan.target)) stop('invalid_target', 'plan target is required');
 	const normalizedTarget = normalizeTarget(plan.target);
@@ -657,6 +679,10 @@ function assertPlanShape(plan) {
 	}
 	if (canonicalJson(normalizedStep) !== canonicalJson(plan.step)) {
 		stop('invalid_step', 'plan step is not canonical');
+	}
+	const normalizedRollback = normalizeRollback(plan.rollback, normalizedTarget);
+	if (canonicalJson(normalizedRollback) !== canonicalJson(plan.rollback)) {
+		stop('invalid_rollback', 'plan rollback is not canonical');
 	}
 	assertStepCapabilityContract(normalizedStep, normalizedTarget);
 	if (typeof plan.plan_hash !== 'string' || !/^[a-f0-9]{64}$/u.test(plan.plan_hash)) {
@@ -746,7 +772,7 @@ export async function inspectSetup({
 	if (result.list_complete === false || result.complete === false) {
 		stop('provider_read_failed', 'provider list was incomplete; an empty result is not safe');
 	}
-	const state = ensureState(result.state ?? result.snapshot, 'provider state');
+	const state = ensureInspectionState(result.state ?? result.snapshot, 'provider state');
 	const observedAt = new Date(now).toISOString();
 	return {
 		schema_version: SETUP_ENGINE_SCHEMA_VERSION,
@@ -833,7 +859,9 @@ export function verifyMutationPlan(plan, { now = Date.now(), target } = {}) {
 	if (target && canonicalJson(normalizedTarget) !== canonicalJson(normalizeTarget(target))) {
 		stop('target_mismatch', 'approved target does not match the plan target');
 	}
-	if (Date.parse(plan.expires_at) <= now) stop('plan_expired', 'approved plan has expired');
+	const expiryMs = Date.parse(plan.expires_at);
+	if (!Number.isFinite(expiryMs) || expiryMs <= now)
+		stop('plan_expired', 'approved plan has expired or has an invalid expiry');
 	return cloneSafe(plan);
 }
 
@@ -1030,15 +1058,22 @@ export class AtomicApprovalLedger {
 		if (
 			!stateStore ||
 			typeof stateStore.load !== 'function' ||
-			typeof stateStore.save !== 'function'
+			typeof stateStore.save !== 'function' ||
+			typeof stateStore.withLock !== 'function'
 		) {
-			stop('state_store_missing', 'an atomic QMJ-10 state store is required');
+			stop(
+				'state_store_missing',
+				'an atomic QMJ-10 state store with a cross-process lock is required'
+			);
 		}
 		this.#store = stateStore;
 	}
 
 	#withLock(operation) {
-		const run = this.#tail.then(operation, operation);
+		const run = this.#tail.then(
+			() => this.#store.withLock(operation),
+			() => this.#store.withLock(operation)
+		);
 		this.#tail = run.catch(() => undefined);
 		return run;
 	}
@@ -1155,6 +1190,12 @@ function resolveAdapter(adapters, plan, explicit) {
 	return adapterOrStop(adapter);
 }
 
+function assertBrowserReadOnly(target) {
+	if (target.adapter_kind === 'browser') {
+		stop('browser_read_only', 'browser adapters are inspect-only in QMJ-10');
+	}
+}
+
 export async function applyMutationPlan({
 	plan,
 	adapter,
@@ -1165,6 +1206,7 @@ export async function applyMutationPlan({
 	now = Date.now()
 }) {
 	const verified = verifyMutationPlan(plan, { now, target });
+	assertBrowserReadOnly(verified.target);
 	const ledger = approvalLedger ?? new InMemoryApprovalLedger();
 	const selectedAdapter = resolveAdapter(adapters, verified, adapter);
 	let current;
@@ -1277,6 +1319,7 @@ export async function rollbackMutationPlan({
 	target
 }) {
 	const verified = verifyMutationPlan(plan, { now, target });
+	assertBrowserReadOnly(verified.target);
 	if (isProtectedResourceType(verified.target.provider, verified.target.resource_type)) {
 		return {
 			status: 'manual_review_required',
@@ -1428,7 +1471,54 @@ export function createSetupEngine(options) {
 
 export function createAtomicSetupStateStore(filePath) {
 	const path = normalizeString(filePath, 'state file path');
+	const lockPath = `${path}.lock`;
 	return {
+		async withLock(operation) {
+			if (typeof operation !== 'function')
+				stop('state_lock_failed', 'state lock operation must be a function');
+			await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+			let lockHandle;
+			try {
+				lockHandle = await open(lockPath, 'wx', 0o600);
+			} catch (error) {
+				if (error?.code === 'EEXIST') {
+					stop(
+						'state_lock_unavailable',
+						'atomic setup state is locked; stale locks are never removed automatically'
+					);
+				}
+				throw new SetupEngineError(
+					'state_lock_failed',
+					'atomic setup state lock could not be acquired'
+				);
+			}
+			let result;
+			let operationError;
+			try {
+				result = await operation();
+			} catch (error) {
+				operationError = error;
+			}
+			let releaseError;
+			try {
+				await lockHandle.close();
+			} catch (error) {
+				releaseError = error;
+			}
+			try {
+				await unlink(lockPath);
+			} catch (error) {
+				releaseError ??= error;
+			}
+			if (operationError) throw operationError;
+			if (releaseError) {
+				throw new SetupEngineError(
+					'state_lock_release_failed',
+					'atomic setup state lock could not be released safely'
+				);
+			}
+			return result;
+		},
 		async save(state) {
 			const safe = cloneSafe(state);
 			await mkdir(dirname(path), { recursive: true, mode: 0o700 });

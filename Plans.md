@@ -347,13 +347,24 @@ Evidence:
 
 Priority: Required
 Depends on: QMJ-9
-Status: Not started
+Status: Implemented locally — the provider-neutral contract engine and Fake* regression seams are in place; real provider adapters, CLI automation, and QMJ-11B remain deferred
 
 - Split setup into `inspect -> plan -> apply(step) -> readback -> verify`.
 - Emit a canonical mutation plan with immutable account/team/zone/domain/resource IDs, exact before/after diff, cost class, rollback, plan hash, expiry, and one-use approval ID.
 - Use official Cloudflare and Resend MCP/API capabilities behind a narrow allowlisted setup adapter; never expose either full provider toolset. Keep adapters behind FakeCloudflare, FakeResend, FakeBrowser, and FakeDNS seams.
 - Stage resource creation, secret upload, remote migration, deploy, webhook, Email Routing, DNS/catch-all, external send, and cleanup as separate steps.
 - Export authoritative DNS and routing rules before any cutover. Never add Resend Receiving or Resend apex inbound MX.
+
+Local implementation boundary:
+
+- `scripts/setup-engine.mjs` provides the read-only inspect, canonical one-step
+  plan, approval, guarded apply, readback, verify, rollback, and atomic local
+  state contract exercised by FakeCloudflare, FakeResend, FakeBrowser, and
+  FakeDNS.
+- Real Cloudflare/Resend/DNS/browser provider adapters, CLI automation, remote
+  migration/deploy/webhook/send, and the QMJ-11B provider concurrency contract
+  (recreated DNS IDs and provider etag/If-Match TOCTOU) are not implemented or
+  exercised in QMJ-10.
 
 Binary DoD:
 

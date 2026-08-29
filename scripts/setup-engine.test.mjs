@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
@@ -64,6 +64,26 @@ class FakeCloudflare extends FakeBase {
 	constructor(state) {
 		super(state);
 		this.kind = 'cloudflare';
+	}
+}
+
+class BlockingFakeCloudflare extends FakeCloudflare {
+	constructor(state) {
+		super(state);
+		this.providerEntered = new Promise((resolve) => {
+			this.resolveProviderEntered = resolve;
+		});
+		this.releaseProvider = new Promise((resolve) => {
+			this.resolveReleaseProvider = resolve;
+		});
+	}
+
+	async applyStep({ plan }) {
+		this.applyCalls += 1;
+		this.resolveProviderEntered();
+		await this.releaseProvider;
+		this.state = clone(plan.after);
+		return { resource_id: plan.target.resource_id ?? 'created-resource', status: 'accepted' };
 	}
 }
 
@@ -238,7 +258,12 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 			'accessToken',
 			'messageBody',
 			'attachmentContent',
-			'custom_password'
+			'custom_password',
+			'tokens',
+			'cookies',
+			'passwords',
+			'api_keys',
+			'custom_tokens'
 		]) {
 			assert.throws(
 				() =>
@@ -282,11 +307,18 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 		}
 	});
 
-	test('same-name resources fail closed without an exact ownership manifest', async () => {
+	test('same-name resources fail closed even with an ownership manifest', async () => {
 		const target = cloudflareTarget({ resource_id: undefined });
 		const inspection = await inspectSetup({
 			adapter: new FakeCloudflare({
-				resources: [{ id: 'existing-worker', name: 'quickmail-test-worker' }]
+				resources: [
+					{
+						id: 'existing-worker',
+						name: 'quickmail-test-worker',
+						resource_type: 'cloudflare_worker',
+						manifest_fingerprint: 'manifest-v1'
+					}
+				]
 			}),
 			target,
 			now: fixedNow
@@ -301,14 +333,22 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 							capability_id: 'cloudflare.create_worker',
 							operation: 'create_worker'
 						},
-						desiredState: { resources: [], resource_name: 'quickmail-test-worker' }
+						desiredState: {
+							resources: [],
+							resource_name: 'quickmail-test-worker',
+							ownership_manifest: {
+								resource_id: 'existing-worker',
+								resource_type: 'cloudflare_worker',
+								manifest_fingerprint: 'manifest-v1'
+							}
+						}
 					})
 				),
 			(error) => error instanceof SetupEngineError && error.code === 'resource_collision'
 		);
 	});
 
-	test('duplicate webhook endpoint and event set fail closed without explicit adoption', async () => {
+	test('duplicate webhook endpoint and event set fail closed', async () => {
 		const target = resendTarget({ resource_type: 'resend_webhook' });
 		const inspection = await inspectSetup({
 			adapter: new FakeResend({
@@ -439,6 +479,56 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 		assert.equal(fake.applyCalls, 0);
 	});
 
+	test('invalid expiry or non-canonical plan fields make zero writes after hash recomputation', async () => {
+		const fake = new FakeCloudflare({ version: 1 });
+		const target = cloudflareTarget();
+		const inspection = await inspectSetup({ adapter: fake, target, now: fixedNow });
+		const plan = createMutationPlan(basePlanInput({ inspection, desiredState: { version: 2 } }));
+		const invalidExpiry = { ...plan, expires_at: 'not-a-date' };
+		invalidExpiry.plan_hash = fingerprint(
+			Object.fromEntries(Object.entries(invalidExpiry).filter(([key]) => key !== 'plan_hash'))
+		);
+		await assert.rejects(
+			() => applyMutationPlan({ plan: invalidExpiry, adapter: fake, now: fixedNow }),
+			(error) => error instanceof SetupEngineError && error.code === 'plan_expired'
+		);
+		assert.equal(fake.applyCalls, 0);
+
+		const invalidPlanId = { ...plan, plan_id: 42 };
+		invalidPlanId.plan_hash = fingerprint(
+			Object.fromEntries(Object.entries(invalidPlanId).filter(([key]) => key !== 'plan_hash'))
+		);
+		await assert.rejects(
+			() => applyMutationPlan({ plan: invalidPlanId, adapter: fake, now: fixedNow }),
+			(error) => error instanceof SetupEngineError && error.code === 'invalid_plan'
+		);
+		assert.equal(fake.applyCalls, 0);
+
+		const invalidRollback = {
+			...plan,
+			rollback: { ...plan.rollback, unexpected: 'field' }
+		};
+		invalidRollback.plan_hash = fingerprint(
+			Object.fromEntries(Object.entries(invalidRollback).filter(([key]) => key !== 'plan_hash'))
+		);
+		await assert.rejects(
+			() => applyMutationPlan({ plan: invalidRollback, adapter: fake, now: fixedNow }),
+			(error) => error instanceof SetupEngineError && error.code === 'invalid_rollback'
+		);
+		assert.equal(fake.applyCalls, 0);
+	});
+
+	test('inspection rejects unsupported fixed collection shapes instead of treating them as empty', async () => {
+		for (const key of ['resources', 'items', 'webhooks', 'domains', 'records', 'routing_rules']) {
+			const fake = new FakeCloudflare({ [key]: { id: 'not-a-list' } });
+			await assert.rejects(
+				() => inspectSetup({ adapter: fake, target: cloudflareTarget(), now: fixedNow }),
+				(error) => error instanceof SetupEngineError && error.code === 'provider_read_failed'
+			);
+			assert.equal(fake.applyCalls, 0);
+		}
+	});
+
 	test('approval is one-use and apply performs one provider write followed by readback', async () => {
 		const fake = new FakeResend({ version: 1 });
 		const target = resendTarget();
@@ -543,7 +633,10 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 		};
 		const before = {
 			authoritative: true,
-			records: [{ id: 'm365-mx', type: 'MX', name: '@', content: 'mail.protection.outlook.com' }],
+			records: [
+				{ id: 'm365-mx', type: 'MX', name: '@', content: 'mail.protection.outlook.com' },
+				{ id: 'gmail-mx', type: 'MX', name: '@', content: 'aspmx.l.google.com' }
+			],
 			routing_rules: []
 		};
 		const fake = new FakeDNS(before);
@@ -631,7 +724,10 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 	test('DNS rollback preserves concurrent/unowned records and is idempotent', async () => {
 		const before = {
 			authoritative: true,
-			records: [{ id: 'm365-mx', type: 'MX', name: '@', content: 'mail.protection.outlook.com' }],
+			records: [
+				{ id: 'm365-mx', type: 'MX', name: '@', content: 'mail.protection.outlook.com' },
+				{ id: 'gmail-mx', type: 'MX', name: '@', content: 'aspmx.l.google.com' }
+			],
 			routing_rules: []
 		};
 		const after = {
@@ -705,7 +801,7 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 		assert.equal(rollbackResult.status, 'rolled_back');
 		assert.deepEqual(
 			fake.state.records.map((record) => record.id),
-			['m365-mx', 'concurrent-unowned']
+			['m365-mx', 'gmail-mx', 'concurrent-unowned']
 		);
 		const second = await rollbackMutationPlan({
 			plan,
@@ -788,6 +884,37 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 		const inspection = await inspectSetup({ adapter: fake, target, now: fixedNow });
 		assert.equal(inspection.state.page, 'official-settings');
 		assert.equal(fake.applyCalls, 0);
+		const plan = createMutationPlan(
+			basePlanInput({
+				inspection,
+				target,
+				desiredState: { page: 'configured' },
+				rollback: {
+					mode: 'restore_snapshot',
+					owned_resource_ids: [],
+					description: 'manual review'
+				}
+			})
+		);
+		const ledger = new InMemoryApprovalLedger();
+		ledger.approve(plan, { now: fixedNow });
+		await assert.rejects(
+			() =>
+				applyMutationPlan({
+					plan,
+					adapter: fake,
+					approvalLedger: ledger,
+					approvalId: plan.approval_id,
+					now: fixedNow
+				}),
+			(error) => error instanceof SetupEngineError && error.code === 'browser_read_only'
+		);
+		await assert.rejects(
+			() => rollbackMutationPlan({ plan, adapter: fake, now: fixedNow }),
+			(error) => error instanceof SetupEngineError && error.code === 'browser_read_only'
+		);
+		assert.equal(fake.applyCalls, 0);
+		assert.equal(fake.rollbackCalls, 0);
 	});
 
 	test('engine registry resolves each narrow fake seam without a generic provider framework', async () => {
@@ -833,6 +960,32 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 		);
 	});
 
+	test('fake seams remain offline when global fetch is a tripwire', async () => {
+		const previousFetch = globalThis.fetch;
+		globalThis.fetch = () => {
+			throw new Error('network access is forbidden in QMJ-10 tests');
+		};
+		try {
+			const fake = new FakeCloudflare({ version: 1 });
+			const target = cloudflareTarget();
+			const inspection = await inspectSetup({ adapter: fake, target, now: fixedNow });
+			const plan = createMutationPlan(basePlanInput({ inspection, desiredState: { version: 2 } }));
+			const ledger = new InMemoryApprovalLedger();
+			ledger.approve(plan, { now: fixedNow });
+			const result = await applyMutationPlan({
+				plan,
+				adapter: fake,
+				approvalLedger: ledger,
+				approvalId: plan.approval_id,
+				now: fixedNow
+			});
+			assert.equal(result.status, 'applied');
+			assert.equal(fake.applyCalls, 1);
+		} finally {
+			globalThis.fetch = previousFetch;
+		}
+	});
+
 	test('atomic resumable state accepts only safe evidence and writes through same-directory rename', async () => {
 		const directory = await mkdtemp(join(tmpdir(), 'quickmail-ja-qmj10-'));
 		const file = join(directory, 'state.json');
@@ -850,6 +1003,19 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 			() => store.save({ api_key: 'must-not-persist' }),
 			(error) => error instanceof SetupEngineError && error.code === 'unsafe_plan_data'
 		);
+		await rm(directory, { recursive: true, force: true });
+	});
+
+	test('atomic state lock fails closed on an existing or stale lock', async () => {
+		const directory = await mkdtemp(join(tmpdir(), 'quickmail-ja-qmj10-lock-'));
+		const file = join(directory, 'apply-state.json');
+		const store = createAtomicSetupStateStore(file);
+		await writeFile(`${file}.lock`, 'stale lock marker', 'utf8');
+		await assert.rejects(
+			() => store.withLock(() => undefined),
+			(error) => error instanceof SetupEngineError && error.code === 'state_lock_unavailable'
+		);
+		assert.equal(await readFile(`${file}.lock`, 'utf8'), 'stale lock marker');
 		await rm(directory, { recursive: true, force: true });
 	});
 
@@ -902,6 +1068,48 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 		assert.equal(recovered.writes, 0);
 		assert.equal(fake.applyCalls, 1);
 		assert.equal((await store.load()).readback_verified, true);
+		await rm(directory, { recursive: true, force: true });
+	});
+
+	test('two approval ledgers sharing a state path permit only one concurrent provider write', async () => {
+		const directory = await mkdtemp(join(tmpdir(), 'quickmail-ja-qmj10-concurrent-'));
+		const file = join(directory, 'apply-state.json');
+		const firstLedger = new AtomicApprovalLedger({
+			stateStore: createAtomicSetupStateStore(file)
+		});
+		const secondLedger = new AtomicApprovalLedger({
+			stateStore: createAtomicSetupStateStore(file)
+		});
+		const fake = new BlockingFakeCloudflare({ version: 1 });
+		const target = cloudflareTarget();
+		const inspection = await inspectSetup({ adapter: fake, target, now: fixedNow });
+		const plan = createMutationPlan(basePlanInput({ inspection, desiredState: { version: 2 } }));
+		await firstLedger.approve(plan, { now: fixedNow });
+
+		const firstApply = applyMutationPlan({
+			plan,
+			adapter: fake,
+			approvalLedger: firstLedger,
+			approvalId: plan.approval_id,
+			now: fixedNow
+		});
+		await fake.providerEntered;
+		const secondApply = applyMutationPlan({
+			plan,
+			adapter: fake,
+			approvalLedger: secondLedger,
+			approvalId: plan.approval_id,
+			now: fixedNow
+		});
+		await assert.rejects(
+			secondApply,
+			(error) => error instanceof SetupEngineError && error.code === 'apply_recovery_required'
+		);
+		fake.resolveReleaseProvider();
+		const firstResult = await firstApply;
+		assert.equal(firstResult.status, 'applied');
+		assert.equal(fake.applyCalls, 1);
+		assert.equal((await createAtomicSetupStateStore(file).load()).readback_verified, true);
 		await rm(directory, { recursive: true, force: true });
 	});
 
