@@ -33,9 +33,12 @@ Market claims must follow the dated evidence in `docs/research/japan-market-comp
 
 ## Setup assistant contract
 
+- Setup is BYOK. Cloudflare, Resend, and a future Gmail connector's Google Cloud project and OAuth credentials are owned and supplied by the operator. QuickMail-ja does not ship a shared provider API key, OAuth Client ID, or OAuth Client Secret.
 - Interpret `Agent 1.0` as Agent Plugins Specification 1.0.0 plus the Agent Skills specification.
 - Keep one portable setup core: a root `plugin.json`, Agent Skills under `skills/`, and an optional `mcp.json`. Generate or maintain thin client adapters only where the host requires them.
 - Support Codex and ChatGPT only on surfaces where the official plugin/App capability is available. Treat Claude Code/Desktop as a separate native adapter and verify it independently; Agent Plugins 1.0 does not itself guarantee Claude installation.
+- Keep `skills/quickmail-ja-setup` as the single guidance source. Repo-scoped Codex and Claude Code files may only point to that source; they must not copy its instructions. A clone may enable repo discovery in supported coding clients, but it never auto-installs a Skill in ChatGPT or Claude Desktop. Those surfaces require their supported upload or plugin flow and an independent smoke result.
+- A portable guidance-only Skill may ship before QMJ-10. It may open allowlisted official pages when the host has browser capability and the user permits it, but it does not create, save, delete, deploy, change DNS, enter secrets, or send mail. Provider mutations remain blocked until the QMJ-10 approval engine exists.
 - Reuse official Cloudflare and Resend MCP/API capabilities through a narrow setup adapter. Do not expose either provider's full MCP toolset to the setup agent, and do not reimplement provider APIs without a documented missing capability.
 - The assistant flow is `inspect -> plan -> approve one exact step -> apply -> read back -> verify`. Read-only inspection must be usable without granting write access.
 - Bind every write approval to the selected Cloudflare account, zone, Resend team, domain, exact before/after diff, rollback, plan hash, expiry, and one use.
@@ -48,6 +51,17 @@ Market claims must follow the dated evidence in `docs/research/japan-market-comp
 
 The setup assistant is separate from the mailbox MCP. Installing it grants zero permission to read mailbox or provider email content, send mail, or administer QuickMail-ja users. Provider discovery and mutation tools are allowlisted from the capability registry; all unrelated provider tools are unavailable.
 
+### Sandbox HOTL validation contract
+
+- `HOTL` means the operator monitors an already-approved sandbox run while the assistant continues through local tests, FakeProvider exercises, read-only inspection, readback, verification, evidence capture, and wait/resume work. Monitoring does not waive the human-only steps or exact one-step approvals above.
+- Real-provider validation uses one fresh Cloudflare test account, one fresh Resend test team, one dedicated non-production DNS zone, isolated client profiles, and only tester-controlled sender and recipient addresses. A production account, customer zone, existing mailbox, deployment, backup, or customer message is outside the sandbox envelope.
+- The default pilot is free-tier only and may create at most one Worker, one D1 database, one R2 bucket, one Email Routing destination or catch-all rule, one Resend domain, and one webhook. Any payment request, plan upgrade, extra resource, or scope expansion stops before the action and requires a new decision.
+- Resource creation, secret staging, migration, deploy, webhook creation, Email Routing or catch-all enablement, each external test send, rollback, and cleanup remain separate one-use approvals. One exact, same-purpose DNS change-set may be one approval when it is bound to the account, zone, domain, complete before/after diff, and rollback; an apex MX cutover is always a separate approval. A test account does not make these actions read-only or harmless.
+- A real send is limited to the exact tester-controlled address and non-sensitive From, subject, and body shown before approval. The approval is one-use. Its canary operation has one fixed idempotency key, and a resume or replay of that same operation reuses the key so it cannot create a second delivery. An unknown delivery result is inspected and never automatically retried.
+- The assistant stops before mutation on account, team, zone, domain, origin, plan hash, current-state fingerprint, cost, permission, or ownership mismatch; provider read failure; same-name collision; unexpected DNS; secret exposure; a non-allowlisted recipient; or rollback drift.
+- Each step records only non-secret evidence: client/version/date, source revision and package checksum, immutable sandbox target references, capability ID, before-state fingerprint, exact diff, cost class, approval ID and expiry, provider result ID when safe, readback, and outcome. Secret values, message bodies, customer headers, QR codes, browser profiles, and screenshots containing credentials are excluded.
+- Rollback restores only records and rules whose immutable ownership and before-state snapshot match. It is idempotent and does not automatically delete a zone, D1 database, non-empty R2 bucket, Worker, or Resend domain. Destructive cleanup is a later exact-step approval.
+
 ## Support Knowledge contract
 
 - Competitor setup guides and FAQs are discovery inputs, not distributable content. QuickMail-ja stores original, human-reviewed resolution patterns and source metadata; it does not copy FAQ prose, raw HTML, screenshots, hidden text, scripts, or community instructions into the product or a runtime RAG index.
@@ -55,7 +69,7 @@ The setup assistant is separate from the mailbox MCP. Installing it grants zero 
 - Support Patterns are organized by user intent and setup stage rather than competitor. Every pattern records applicability, diagnostic questions, safe steps, human-only work, prohibited actions, Risk Gate, rollback, expected evidence, unsupported cases, source references, verification date, and confidence.
 - Answer precedence is: this product contract and QuickMail-ja documentation; current Cloudflare and Resend primary documentation; competitor primary documentation; official issues and releases. Community material may discover a candidate but cannot authorize a concrete provider change.
 - Cloudflare/Resend operational instructions expire after 30 days unless re-verified. Stale or unsupported patterns stop at current-state inspection and point to the primary source; they do not provide concrete mutation steps.
-- The Knowledge Pack contains zero customer names, domains, email content, provider IDs, DNS values, secrets, local paths, or copied third-party FAQ bodies. The current AI consultation UI consumes a bounded list of official sources and no more than two stable, high-frequency pitfalls per setup stage from the reviewed Pack. It does not embed a complete safe-step checklist, expected-evidence checklist, prohibitions, or rollback procedure in the handoff prompt. The not-yet-provided Setup Skill and Setup MCP must consume the same Pack when implemented.
+- The Knowledge Pack contains zero customer names, domains, email content, provider IDs, DNS values, secrets, local paths, or copied third-party FAQ bodies. The current AI consultation UI consumes a bounded list of official sources and no more than two stable, high-frequency pitfalls per setup stage from the reviewed Pack. It does not embed a complete safe-step checklist, expected-evidence checklist, prohibitions, or rollback procedure in the handoff prompt. The provided Setup Skill ships a generated, setup-only projection of the same Pack for standalone uploads and checks it for source drift. The not-yet-provided Setup MCP must consume the same Pack when implemented.
 
 ## AI consultation contract
 
@@ -101,7 +115,7 @@ The setup assistant is separate from the mailbox MCP. Installing it grants zero 
 
 - Preserve the original MIT license and attribution to DivinPrince/quickmail.
 - Base public history on upstream commit `77e8858acc5043fcc103f8560c60d0c5f958ccc0`; do not import any deployment-specific downstream history.
-- Do not include active custom routes, Cloudflare account IDs, D1 IDs, R2 production names, real domains, real email addresses, secrets, backups, `.wrangler`, `out`, `.claude`, or `.harness*` state.
+- Do not include active custom routes, Cloudflare account IDs, D1 IDs, R2 production names, real domains, real email addresses, secrets, backups, `.wrangler`, `out`, or `.harness*` state. Under `.claude`, the only distributable path is the enumerated regular-file adapter `.claude/skills/quickmail-ja-setup/SKILL.md`; `.claude/state` and every other operational or client-local file remain forbidden. The same exact-path rule applies to `.agents/skills/quickmail-ja-setup/SKILL.md`.
 - Until a QuickMail-ja GitHub URL exists, do not present an installer or Deploy button that silently installs the original upstream build.
 - Generic templates use placeholders and cannot address any existing production resource without explicit user setup.
 

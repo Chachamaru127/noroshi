@@ -4,6 +4,8 @@
 
 QuickMail-jaは、独自ドメインのメールを自分のCloudflare環境で管理する、日本語固定UIのセルフホスト型Webメールです。受信メール、送信履歴、添付ファイルを自分のCloudflareアカウントに保存します。
 
+**導入はBYOK（Bring Your Own Key / Account）です。** Cloudflare、Resend、将来提供するGmailコネクターのGoogle Cloudは、利用者自身のアカウントと認証情報を使います。QuickMail-ja共通のAPIキーやOAuth Clientは配布しません。アカウント、利用料金、保存データ、認証情報は利用者が管理します。
+
 QuickMail-jaの公開リポジトリのURLは未設定です。そのため、リモートインストーラーやクリック可能なDeployボタンは提供していません。現在は、このソース一式を入手した環境でセットアップしてください。
 
 ## Cloudflareへの展開
@@ -29,10 +31,29 @@ Cloudflare公式の[Deploy to Cloudflareボタン](https://developers.cloudflare
 | 導線                          | できること                                                                                | 現在の状態                                                       |
 | ----------------------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
 | AIに相談（提供中）            | 質問文をChatGPT、Claude、Geminiの新規チャットへ渡し、日本語の説明を受ける                 | QuickMail-ja、Cloudflare、Resendを読む・変更する権限はありません |
-| Setup Skill（準備中・未提供） | 導入順、確認項目、停止条件をAIへ教える再利用可能な手順書                                  | QMJ-11で実装予定。現在はインストールできません                   |
+| Setup Skill（ローカル提供中） | BYOKの担当範囲、公式画面、確認項目、人間へ引き渡す操作をAIへ教える再利用可能な手順書      | 案内専用。外部設定の作成・保存・変更は行いません                 |
 | Setup MCP（将来・未提供）     | 許可された確認・設定だけをツールとして実行し、1操作ごとに対象、差分、戻し方を確認する予定 | 公開前の安全強化とクライアント別検証が必要です                   |
 
-現在利用できるAI相談ドックは、**デプロイ後のResend設定と最初の管理者作成**だけを支援します。デプロイ前の導線、Email Routing支援、Setup Skill、MCPは未提供で、QMJ-8以降の公開前工程です。
+現在利用できるAI相談ドックは、**デプロイ後のResend設定と最初の管理者作成**を支援します。`skills/quickmail-ja-setup`には、Cloudflare、Resend、将来のGmail BYOK設定を公式画面に沿って案内するポータブルSkillがあります。外部設定を自動変更するSetup MCPは未提供です。
+
+### Setup Skillを使う
+
+正本は[`skills/quickmail-ja-setup`](./skills/quickmail-ja-setup/)の1か所です。`.agents/skills/quickmail-ja-setup`と`.claude/skills/quickmail-ja-setup`は正本を読むだけの薄いアダプターで、手順を複製しません。
+
+- Codex CLI／IDE向けの正しいリポジトリ配置として`.agents/skills`アダプターを同梱しています。ただし、新しいクライアントプロファイルでcloneから実際に発見されるかはQMJ-15で未検証です。現時点では自動発見を保証しません。
+- Claude Code向けの正しいリポジトリ配置として`.claude/skills`アダプターを同梱しています。こちらも新しいクライアントプロファイルでの発見確認はQMJ-15まで未完了です。
+- ChatGPTでは、cloneだけではインストールされません。利用可能なプラン・ワークスペースで「Plugins → Skills → Create → Upload」から、下記のZIPをアップロードします。
+- Claude Desktop／Webでも、cloneだけではインストールされません。「Customize → Skills → Create skill → Upload a skill」から同じZIPをアップロードします。コード実行や利用者作成Skillが組織設定で無効な場合は利用できません。
+
+リポジトリのルートで次を実行すると、macOSの補助ファイルやクライアント別アダプターを含まないアップロード用ZIPを`out/quickmail-ja-setup.zip`へ作成できます。
+
+```bash
+bun run package:setup-skill
+```
+
+このコマンドは、現在checkoutしているコミットのSkillをパッケージ化します。未コミットの変更は入りません。ChatGPTのPersonal SkillsはデスクトップとWeb/モバイルで個別に追加する必要があります。プラン、組織設定、地域、ブラウザ操作機能によって利用可否が異なります。公式の[ChatGPT Skills案内](https://help.openai.com/en/articles/20001066)と[Claude Skills案内](https://support.claude.com/en/articles/12512180-use-skills-in-claude)を導入時に確認してください。
+
+Skillはブラウザ操作機能そのものを追加しません。利用中のChatGPT/CodexまたはClaudeがブラウザ操作に対応し、利用者が許可した場合だけ、Cloudflare、Resend、Google Cloudの公式画面を開いて必要箇所まで案内します。ログイン、MFA、CAPTCHA、規約同意、支払い、秘密値入力、作成・保存・削除・DNS変更は利用者が行います。ブラウザ操作機能がない場合は、公式URLと手動のメニュー経路を案内します。
 
 ## AIに質問
 
@@ -305,17 +326,17 @@ bun run quickmail -- send --to recipient@example.net --subject "確認" --body "
 
 ## 開発と検証
 
-| コマンド                     | 内容                                                                                       |
-| ---------------------------- | ------------------------------------------------------------------------------------------ |
-| `bun run dev`                | Vite開発サーバー                                                                           |
-| `bun run preview`            | 本番ビルド + `wrangler dev`                                                                |
-| `bun test`                   | 単体・統合テスト                                                                           |
-| `bun run test:d1-forwarding` | D1自動転送の競合テスト                                                                     |
-| `bun run test:live-demo`     | 開発専用UI比較デモの構造・モバイル・アクセシビリティ・安全性確認                           |
-| `bun run check`              | Svelte/TypeScript確認                                                                      |
-| `bun run format:check`       | フォーマット確認                                                                           |
-| `bun run check:clean`        | 秘密値・実運用識別子・有効routeの混入確認                                                  |
-| `bun run build`              | Cloudflare Worker向け本番ビルド                                                            |
+| コマンド                     | 内容                                                             |
+| ---------------------------- | ---------------------------------------------------------------- |
+| `bun run dev`                | Vite開発サーバー                                                 |
+| `bun run preview`            | 本番ビルド + `wrangler dev`                                      |
+| `bun test`                   | 単体・統合テスト                                                 |
+| `bun run test:d1-forwarding` | D1自動転送の競合テスト                                           |
+| `bun run test:live-demo`     | 開発専用UI比較デモの構造・モバイル・アクセシビリティ・安全性確認 |
+| `bun run check`              | Svelte/TypeScript確認                                            |
+| `bun run format:check`       | フォーマット確認                                                 |
+| `bun run check:clean`        | 秘密値・実運用識別子・有効routeの混入確認                        |
+| `bun run build`              | Cloudflare Worker向け本番ビルド                                  |
 
 ## ライセンスと由来
 

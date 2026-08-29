@@ -1,6 +1,15 @@
 node_modules
 backup/
-.claude/
+.agents/*
+!.agents/skills/
+.agents/skills/*
+!.agents/skills/quickmail-ja-setup/
+!.agents/skills/quickmail-ja-setup/SKILL.md
+.claude/*
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/quickmail-ja-setup/
+!.claude/skills/quickmail-ja-setup/SKILL.md
 .harness/
 .harness-*/
 .harness-mem/

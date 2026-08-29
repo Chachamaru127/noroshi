@@ -139,7 +139,7 @@ After: the existing deployment remains the production downstream. QuickMail-ja c
 
 ## Next roadmap — Japanese setup distribution, Agent Plugin, and UI direction
 
-Status: QMJ-6, QMJ-6A, QMJ-6B, and QMJ-7 are complete locally. QMJ-8 onward are not implemented. Public release remains HOLD.
+Status: QMJ-6, QMJ-6A, QMJ-6B, and QMJ-7 are complete locally. QMJ-11A has a guidance-only packaging increment in progress. QMJ-8A, QMJ-8B, QMJ-9, QMJ-10, and QMJ-11B are not implemented. Public release remains HOLD.
 
 ### Product decision
 
@@ -181,7 +181,7 @@ Reject for first release:
 
 ### Pre-approval and Risk Gates for this roadmap
 
-Approval state: planning plus local implementation of QMJ-6A/QMJ-6B was requested and completed. QMJ-8 onward and every external mutation remain pending.
+Approval state: planning plus local implementation of QMJ-6A/QMJ-6B and the guidance-only QMJ-11A packaging increment was requested. QMJ-8A, QMJ-8B, QMJ-9, QMJ-10, QMJ-11B, and every external mutation remain pending.
 
 - Secret reads for local implementation and automated tests: none. Tests use canaries and FakeProvider only.
 - Locally safe for QMJ-6A/QMJ-6B: edit generic source/docs/tests, create public-only fixtures, run local checks/builds, and create local commits. No new dependency is required for this slice.
@@ -276,28 +276,41 @@ Evidence:
 - `README.md` contains an intentionally inactive Cloudflare Deploy banner and the post-deploy mail-readiness boundary.
 - `bun test src/lib/ai-support.test.ts src/lib/ai-support-a11y.test.ts scripts/deploy-banner.test.mjs`, `bun run check`, and `bun run check:clean` pass without provider calls.
 
-#### QMJ-8 — Upstream reconciliation and setup threat model
+#### QMJ-8A — Setup capability registry and threat model
 
 Priority: Required
 Depends on: QMJ-6A, QMJ-6B, and QMJ-7
 Status: Not started
 
-- Independently review the six commits currently on `upstream/main` but not local `main`, including manual forwarding, domain-scoped conversations, account roles, mobile sign-out, and compose changes.
-- Preserve QuickMail-ja forwarding, folder/rule, Outlook import, Japanese UI, and privacy contracts while reconciling relevant fixes.
 - Define a capability registry for every setup action: provider, read/write/destructive/send/billing class, required scope, data handled, cost class, confirmation class, and rollback.
 - Treat same-name D1/R2/Worker resources as collisions unless a matching ownership manifest is explicitly adopted.
+- Threat-model browser guidance, provider adapters, secret entry, account/team/zone selection, DNS changes, external sends, rollback, and crash/resume before provider writes are implemented.
+
+Binary DoD:
+
+- Every future setup action exists in one capability registry and the setup plugin exposes zero mailbox read/send/admin tools.
+- Independent security and skeptic reviewers have no unresolved P0/P1 finding.
+
+#### QMJ-8B — Six upstream feature reconciliation
+
+Priority: Required for production UI release; parallel to setup hardening
+Depends on: QMJ-7
+Status: Not started
+
+- Independently review the six commits currently on `upstream/main` but not local `main`, including manual forwarding, domain-scoped conversations, account roles, mobile sign-out, and compose changes.
+- Preserve QuickMail-ja forwarding, folder/rule, Outlook import, Japanese UI, and privacy contracts while reconciling relevant fixes.
+- Do not make QMJ-8B a prerequisite for the isolated setup engine or sandbox setup pilot unless an upstream change directly affects login, inbox, compose, or the tested mail flow.
 
 Binary DoD:
 
 - Each of the six upstream commits has a keep/adapt/reject decision and regression evidence.
 - All upstream-reconciled tests pass and the existing 254-test baseline has no deleted test without a recorded replacement.
-- Every future setup action exists in one capability registry and the setup plugin exposes zero mailbox read/send/admin tools.
-- Independent security and skeptic reviewers have no unresolved P0/P1 finding.
+- Independent regression and product reviewers have no unresolved P0/P1 finding.
 
 #### QMJ-9 — Runtime and setup hardening before provider writes
 
 Priority: Required
-Depends on: QMJ-8
+Depends on: QMJ-8A
 Status: Not started
 
 - Add login/setup rate limits, CSP/HSTS/frame/referrer/permissions headers, same-origin/CSRF negative coverage, upload limits before buffering, privacy/log retention, cost-alert guidance, and external-font removal.
@@ -334,31 +347,45 @@ Binary DoD:
 - Provider-list failure is an error, not an empty list; duplicate webhook/resource creation is prevented.
 - Rollback can be run twice and never automatically deletes D1, non-empty R2, a zone, or a Resend domain.
 
-#### QMJ-11 — Agent Plugins 1.0 package and host adapters
+#### QMJ-11A — Portable guidance Skill and repo adapters
 
 Priority: Required
-Depends on: QMJ-6A and QMJ-10
-Status: Not started
+Depends on: QMJ-6A
+Status: In progress — portable BYOK guidance Skill plus repo-scoped Codex and Claude Code adapters added; clean package smoke passes; browser-client upload/discovery smoke remains
 
-- Add the portable root `plugin.json`, `skills/quickmail-ja-setup/SKILL.md`, an operations Skill, and optional `mcp.json` from one capability registry.
+- Keep this increment guidance-only: explain BYOK, open allowlisted official setup screens when the host and user permit it, and hand login, MFA, terms, secrets, saves, DNS changes, deploys, and sends back to the user. Do not represent it as QMJ-10 provider automation.
 - Reuse the QMJ-6A Knowledge Pack as the Skill's reviewed setup reference instead of duplicating competitor instructions.
-- Keep the setup plugin separate from the mailbox MCP.
-- Add a Codex/ChatGPT adapter only for officially supported surfaces and a separately generated Claude Code/Desktop adapter.
+- Maintain one canonical Skill and only thin repo adapters for documented Codex and Claude Code discovery surfaces. ChatGPT and Claude Desktop/Web require their supported upload flow; clone alone is not installation.
 - Capability-adapt browser assistance: official allowlisted origins only; page text, email, DNS, provider errors, downloads, QR codes, and unexpected tabs/iframes are untrusted.
 - Stop for human takeover on login credentials, MFA, CAPTCHA, terms, payment, account switch, unexpected origin, or DOM/API mismatch.
 
 Binary DoD:
 
-- Agent Plugins 1.0 schema validation and Agent Skills validation pass.
-- Path traversal, symlink escape, secret-in-env, unsupported transport, unknown capability, and capability-drift fixtures fail closed.
-- Codex/ChatGPT documentation claims only surfaces with a recorded install/discovery smoke. Claude remains labeled unverified until its native smoke passes.
+- Agent Skills validation, committed-tree ZIP packaging, archive cleanliness, path traversal, symlink, and secret canaries pass.
+- Documentation claims only surfaces with a recorded install/discovery or upload smoke. Unverified clients remain labeled as such.
 - Browser-less execution reaches the same manual checklist without losing state.
+- The Skill creates, changes, deploys, deletes, and sends nothing; provider mutations remain QMJ-10/QMJ-11B work.
+
+#### QMJ-11B — Agent Plugin and provider-enabled host adapters
+
+Priority: Required for automated setup claims
+Depends on: QMJ-8A, QMJ-10, and QMJ-11A
+Status: Not started
+
+- Add the portable root `plugin.json`, an operations Skill, and optional `mcp.json` from the QMJ-8A capability registry.
+- Keep the setup plugin separate from the mailbox MCP.
+- Add provider-enabled Codex/ChatGPT and independently generated Claude adapters only for officially supported surfaces.
+
+Binary DoD:
+
+- Agent Plugins 1.0 schema validation passes.
+- Unsupported transport, unknown capability, capability drift, and provider-write fixtures fail closed.
 - Installing the setup plugin grants 0 mailbox/provider-email read, email send, or QuickMail admin capability, and exposes 0 provider tool outside the capability registry.
 
 #### QMJ-12 — Isolated UI comparison lab
 
 Priority: Required
-Depends on: QMJ-7; may run in parallel with QMJ-8 through QMJ-11
+Depends on: QMJ-7; may run in parallel with QMJ-8A, QMJ-8B, and QMJ-9 through QMJ-11B
 Status: Planned refinement — current interactive prototype is the baseline; token, structure, public-label, and evaluation gates below remain
 
 Spec delta:
@@ -371,13 +398,13 @@ Spec delta:
 
 Planning classification:
 
-| Class | Decision | Why | User-visible effect | Gate |
-|---|---|---|---|---|
-| Required | Shared visual theme plus statically registered UI profiles | Keeps common styling centralized while allowing structural layouts to be added without cloning the app | New comparison patterns have a defined, bounded extension point | QMJ-12A–12B |
-| Required | Structure/geometry, keyboard, axe, contrast, responsive, and network contracts | A CSS marker or screenshot alone cannot prove a usable mail client | Each profile is measurably distinct and operable | QMJ-12B–12C |
-| Recommended | Keep the existing static HTML/CSS/JS comparison prototype and defer Svelte production integration to QMJ-14; add only pinned QA tooling | A second demo implementation would create drift; Material Web is in maintenance mode and Bolt tokens are not release-ready | One comparison implementation and no extra runtime UI framework | Dependency review |
-| Optional | View official Figma kits as human reference only | They can speed visual study without introducing asset provenance risk | No kit asset is shipped | Manual reference |
-| Reject | Dynamic theme plugins, third-party profile loading, three production runtime themes, vendor palettes/fonts/logos/screenshots, pixel clones, or checked-in Figma exports | They solve no current user need and add maintenance, security, and trademark risk | Public UI remains QuickMail-ja and the extension contract stays small | Static and visual review |
+| Class       | Decision                                                                                                                                                                | Why                                                                                                                        | User-visible effect                                                   | Gate                     |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- | ------------------------ |
+| Required    | Shared visual theme plus statically registered UI profiles                                                                                                              | Keeps common styling centralized while allowing structural layouts to be added without cloning the app                     | New comparison patterns have a defined, bounded extension point       | QMJ-12A–12B              |
+| Required    | Structure/geometry, keyboard, axe, contrast, responsive, and network contracts                                                                                          | A CSS marker or screenshot alone cannot prove a usable mail client                                                         | Each profile is measurably distinct and operable                      | QMJ-12B–12C              |
+| Recommended | Keep the existing static HTML/CSS/JS comparison prototype and defer Svelte production integration to QMJ-14; add only pinned QA tooling                                 | A second demo implementation would create drift; Material Web is in maintenance mode and Bolt tokens are not release-ready | One comparison implementation and no extra runtime UI framework       | Dependency review        |
+| Optional    | View official Figma kits as human reference only                                                                                                                        | They can speed visual study without introducing asset provenance risk                                                      | No kit asset is shipped                                               | Manual reference         |
+| Reject      | Dynamic theme plugins, third-party profile loading, three production runtime themes, vendor palettes/fonts/logos/screenshots, pixel clones, or checked-in Figma exports | They solve no current user need and add maintenance, security, and trademark risk                                          | Public UI remains QuickMail-ja and the extension contract stays small | Static and visual review |
 
 - Capture the existing light/dark baseline at 1440x900, 1024x768, and 390x844 before visual changes.
 - Build the `calm`, `command`, and `classic` concepts from one synthetic Japanese fixture and one interaction contract. A publicly reachable preview labels them `Gmail風`, `Outlook風`, and `Thunderbird風` while stating that the comparison is unofficial and unaffiliated.
@@ -394,12 +421,12 @@ Current verification state (2026-08-27): automated QA and the non-human AI rubri
 
 Remaining before QMJ-12 completion:
 
-| Task | 内容 | DoD | Depends | Status |
-|---|---|---|---|---|
-| QMJ-12A | `[lane:fast] [stage:foundation] [tdd:skip:docs-only]` Add `sources.md`, shared `base.DESIGN.md`, and `calm/command/classic.DESIGN.md`; define the minimal static `UIProfile` contract and explicit non-goals. | Source roles and local values are separated; runtime registry fields are limited to ID, label, renderer, and optional evaluator description; profile files contain layout deltas; dynamic plugins, remote themes, and production multi-profile switching are excluded. | QMJ-7 | cc:COMPLETED |
-| QMJ-12B | `[lane:gate] [stage:tdd-implementation] [tdd:required]` Improve the existing static demo through one minimal `UIProfile` registry and three renderers; keep metrics/breakpoints in DESIGN.md, CSS/renderers, and RED contract tests rather than registry data. | Generic IDs/labels, profile isolation, all three fixed viewport structures, state preservation, row metrics, `noindex`, notice, same-origin passive network, and 0 new runtime design-system dependencies pass. | QMJ-12A | cc:COMPLETED |
-| QMJ-12C | `[lane:gate] [stage:verification] [tdd:required]` Add bounded accessibility, responsive, contrast, deterministic snapshot, and browser-functional coverage without duplicating the UI implementation. | The 48-run axe contract, WCAG ratios, VoiceOver smoke, 18 default snapshots, keyboard/focus flow, overflow, reduced motion, and Chromium/Firefox/WebKit functional checks meet the Binary DoD. | QMJ-12B | cc:IN_PROGRESS |
-| QMJ-12D | `[lane:gate] [stage:review] [tdd:skip:independent-review]` Run integrated scope, UI, security, accessibility, regression, and skeptic reviews; fix and re-review up to three iterations. | Independent reviewers return APPROVE with no unresolved P0/P1; full local checks pass; Plans/spec alignment is read back; no deploy occurs. | QMJ-12C | cc:COMPLETED |
+| Task    | 内容                                                                                                                                                                                                                                                           | DoD                                                                                                                                                                                                                                                                    | Depends | Status         |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | -------------- |
+| QMJ-12A | `[lane:fast] [stage:foundation] [tdd:skip:docs-only]` Add `sources.md`, shared `base.DESIGN.md`, and `calm/command/classic.DESIGN.md`; define the minimal static `UIProfile` contract and explicit non-goals.                                                  | Source roles and local values are separated; runtime registry fields are limited to ID, label, renderer, and optional evaluator description; profile files contain layout deltas; dynamic plugins, remote themes, and production multi-profile switching are excluded. | QMJ-7   | cc:COMPLETED   |
+| QMJ-12B | `[lane:gate] [stage:tdd-implementation] [tdd:required]` Improve the existing static demo through one minimal `UIProfile` registry and three renderers; keep metrics/breakpoints in DESIGN.md, CSS/renderers, and RED contract tests rather than registry data. | Generic IDs/labels, profile isolation, all three fixed viewport structures, state preservation, row metrics, `noindex`, notice, same-origin passive network, and 0 new runtime design-system dependencies pass.                                                        | QMJ-12A | cc:COMPLETED   |
+| QMJ-12C | `[lane:gate] [stage:verification] [tdd:required]` Add bounded accessibility, responsive, contrast, deterministic snapshot, and browser-functional coverage without duplicating the UI implementation.                                                          | The 48-run axe contract, WCAG ratios, VoiceOver smoke, 18 default snapshots, keyboard/focus flow, overflow, reduced motion, and Chromium/Firefox/WebKit functional checks meet the Binary DoD.                                                                         | QMJ-12B | cc:IN_PROGRESS |
+| QMJ-12D | `[lane:gate] [stage:review] [tdd:skip:independent-review]` Run integrated scope, UI, security, accessibility, regression, and skeptic reviews; fix and re-review up to three iterations.                                                                       | Independent reviewers return APPROVE with no unresolved P0/P1; full local checks pass; Plans/spec alignment is read back; no deploy occurs.                                                                                                                            | QMJ-12C | cc:COMPLETED   |
 
 Binary DoD:
 
@@ -434,7 +461,7 @@ Binary DoD:
 #### QMJ-14 — Selected UI integration and local cross-cutting QA
 
 Priority: Required
-Depends on: QMJ-6A, QMJ-6B, QMJ-11, and QMJ-13
+Depends on: QMJ-6A, QMJ-6B, QMJ-8B, QMJ-11A, and QMJ-13
 Status: Not started
 
 - Integrate only the selected layout into existing components and preserve Japanese routes, folders, forwarding, compose, mobile, and light/dark/system behavior.
@@ -450,21 +477,30 @@ Binary DoD:
 - Production bundle contains 0 unselected design-system dependency, 0 design-lab route, and 0 external Google Fonts request.
 - Independent product, accessibility, QA, skeptic, and security reviewers return APPROVE with no unresolved P0/P1.
 
-#### QMJ-15 — Claimed-client sandbox pilot
+#### QMJ-15 — Boundary-controlled HOTL sandbox pilot
 
 Priority: Recommended and externally gated
-Depends on: QMJ-14
+Depends on: QMJ-9, QMJ-10, and QMJ-11B; before real provider mail-flow, pass a focused local login/inbox/compose smoke against the existing UI (QMJ-14 is not a prerequisite)
 Status: Not started
 
-- Install the package in isolated Codex Desktop/ChatGPT, Claude Code, and Claude Desktop profiles only on surfaces intended for public claims.
-- Start with FakeProvider, then use a new sandbox account/domain or non-production subdomain if separately approved.
-- Exercise inspect, plan, reject, resume, apply, readback, verify, and rollback. Send no real mail unless separately approved to one controlled address.
+- Use one fresh Cloudflare test account, one fresh Resend test team, one dedicated non-production DNS zone, isolated client profiles, and tester-controlled sender/recipient addresses. Do not use an existing production zone or a subdomain that requires writes to one.
+- Treat local checks, FakeProvider, read-only inspection, readback, verification, evidence capture, waits, and crash/resume as HOTL-safe inside the fixed sandbox envelope. Keep signup, login, CAPTCHA, MFA, terms, payment, upgrades, account switching, and secret entry human-only.
+- Keep resource creation, secret staging, remote migration, deploy, webhook, Email Routing/catch-all, each exact same-purpose DNS change-set, every external send, rollback, and cleanup as separate exact one-use approval steps; an apex MX cutover is always its own step. Do not add a blanket sandbox `--yes` mode.
+- Run the pilot in seven bounded stages: identity/cost/isolation preflight; FakeProvider rehearsal; four-client install/discovery smoke; sandbox create/migrate/deploy; human-entered setup key, first-admin creation, login, and setup-key invalidation; one controlled inbound, one controlled outbound, and one reply receipt; rollback/readback and independent review.
+- Verify Codex on a documented repo-scoped surface and Claude Code from a clean clone. Verify ChatGPT and Claude Desktop only through their officially supported Skill/plugin upload or a named adapter specified and independently approved in QMJ-11B; otherwise label the automation unsupported. Do not claim that those clients discover a cloned folder automatically. Record a browserless manual fallback for every unsupported capability.
+- Default to free-tier limits and at most one Worker, D1, R2, Email Routing rule or catch-all, Resend domain, and webhook. Stop before any paid action or extra resource. Use non-sensitive unique canary tokens and never automatically retry an uncertain send result.
+- In FakeProvider/local tests only, inject provider read/list failure, ambiguous account/zone, same-name collision, stale fingerprint or plan hash, expired/reused approval, provider 429/5xx, partial deployment, duplicate/out-of-order webhook, idempotency replay, browser origin/DOM drift, and crash-before-readback. Each case must yield zero unowned write or duplicate send. Do not deliberately inject faults into the real sandbox; a naturally observed failure stops at readback and resumes only from verified state.
 
 Binary DoD:
 
-- Every claimed surface has dated install/discovery evidence and a documented unsupported fallback.
-- No production zone, MX, mailbox, existing deployment resource, or customer data is touched.
-- Sandbox rollback restores the exact prior state and leaves no unowned mutation.
+- Every claimed surface has dated clean-profile install/discovery and restart/resume evidence, or is labeled unsupported with a tested manual fallback.
+- FakeCloudflare, FakeResend, FakeDNS, and FakeBrowser complete `inspect -> plan -> reject/approve one step -> apply -> readback -> verify -> resume -> rollback` with 0 real network, provider, DNS, or send calls; every negative fixture fails closed.
+- Isolation readback proves that no production account, zone, MX, mailbox, existing deployment, provider credential, customer identifier, or customer data entered the run. Secret canaries occur 0 times in model I/O, MCP environment, files, `.dev.vars`, logs, screenshots, D1/R2, or distributable artifacts.
+- A human enters the setup key without exposing it to the assistant, creates the first administrator, logs in, and proves that the setup key is invalidated and cannot be reused.
+- The approved sandbox receives one controlled inbound message, sends one controlled outbound message from the authenticated QuickMail UI through Resend, and receives one reply. Cloudflare activity, QuickMail storage/UI, Resend delivery/Webhook status, and SPF/DKIM/DMARC evidence agree; replaying the same idempotency key produces no second delivery.
+- Usage remains inside the declared free/approved resource and message ceilings. Any charge-required path stops before purchase.
+- Rollback restores the exact prior DNS/routing state, succeeds a second time as a no-op, and leaves no unowned mutation. Cleanup and credential revocation have separate evidence.
+- Independent host-compatibility, QA/skeptic, security/abuse, and release reviewers return APPROVE with no unresolved P0/P1. Local green alone is not sandbox-pilot completion.
 
 #### QMJ-16 — Public release gate
 
@@ -484,8 +520,9 @@ Binary DoD:
 
 ### Review loops
 
-- After QMJ-8: architecture + security + skeptic review; fix all P0/P1 before QMJ-9.
-- After QMJ-11: Agent Plugins schema/host-compatibility + security/abuse review; fix all P0/P1 before any real provider pilot.
+- After QMJ-8A: setup architecture + security + skeptic review; fix all P0/P1 before QMJ-9.
+- After QMJ-8B: upstream reconciliation + regression review; fix all P0/P1 before QMJ-14 or public release.
+- After QMJ-11A: package/install boundary review. After QMJ-11B: Agent Plugins schema/host-compatibility + security/abuse review; fix all P0/P1 before any real provider pilot.
 - After QMJ-13: product + Japanese UX + accessibility review; record one UI decision before production integration.
 - After QMJ-14: independent integrated review across spec, security, accessibility, QA, and archive/privacy boundaries.
 - After QMJ-15: release review based on sandbox evidence. Passing local tests never implies public release or production completion.

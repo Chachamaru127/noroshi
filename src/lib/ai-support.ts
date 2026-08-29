@@ -124,6 +124,7 @@ function promptPrefix(stage: AiSupportStage, today: string): string {
 		'この文章はQuickMail-jaが画面に表示した内容です。AIの公式サポートではありません。',
 		`手順ID: ${stage}`,
 		`現在の手順: ${STAGE_COPY[stage]}`,
+		'BYOK前提: Cloudflare、Resend、将来のGmail連携で使うGoogle Cloudは、利用者自身のアカウントと認証情報を使います。QuickMail-ja共通のAPIキーやOAuth認証情報は使いません。',
 		'前提: 受信はCloudflare Email Routing、送信はResendです。Resend Receivingやapexの受信用MXは使いません。',
 		'回答前に、下記の公式ドキュメントを実際に開いて最新内容を確認してください。AIの記憶や検索結果の要約だけで回答しないでください。',
 		sourceStatus,
@@ -132,6 +133,7 @@ function promptPrefix(stage: AiSupportStage, today: string): string {
 		'よくあるつまずき（固定の操作手順ではありません）:',
 		...knowledge.stableTips.map((tip) => `- ${tip}`),
 		'利用者は非エンジニアです。現在の公式画面に合わせて、次に行う操作を短く順番に説明してください。公式資料と画面が一致しない場合は、その差を先に説明してください。',
+		'ブラウザ操作機能があり、利用者が許可した場合だけ公式ページを開いて必要画面まで案内してください。ログイン、アカウント切替、MFA、CAPTCHA、規約、支払い、秘密値入力、作成・保存・削除・DNS変更の直前で停止し、利用者へ操作を引き渡してください。ブラウザ操作機能がなければ公式URLと手動のメニュー経路を示してください。',
 		'APIキー、パスワード、メール本文などの秘密情報や個人情報は入力させないでください。',
 		'質問: '
 	].join('\n');

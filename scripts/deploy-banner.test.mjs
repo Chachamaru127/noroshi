@@ -40,7 +40,10 @@ describe('Cloudflare deployment handoff', () => {
 		expect(readme).toContain('Skill');
 		expect(readme).toContain('MCP');
 		expect(readme).toContain('デプロイ後のResend設定と最初の管理者作成');
-		expect(readme).toContain('デプロイ前の導線、Email Routing支援、Setup Skill、MCPは未提供');
+		expect(readme).toContain('Setup Skill（ローカル提供中）');
+		expect(readme).toContain('案内専用。外部設定の作成・保存・変更は行いません');
+		expect(readme).toContain('外部設定を自動変更するSetup MCPは未提供');
+		expect(readme).toContain('導入はBYOK');
 		expect(readme).toContain('APIキー、パスワード、メール本文、DNS値');
 		expect(readme).toContain('提携・公式サポート');
 	});

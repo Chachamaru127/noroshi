@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow,noarchive,nosnippet,noimageindex">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-mQW0NecVCb56YFjBSoSUmFqFLnRsVOiy1qfgsmjrkCc='; img-src data:; connect-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-OUvpDkpAIeNzcDPrgpiNQyOH3tj+SobtHGm3bmuACxo='; img-src data:; connect-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="color-scheme" content="light dark">
   <title>QuickMail-ja 操作可能デモ</title>
   <style>
@@ -618,6 +618,8 @@
         : "質問文をコピーし、新規チャットの入力欄へ受け渡します。内容を確認してから送信してください。";
       return "QuickMail-jaの導入を支援してください。\n" +
         "回答前にCloudflareとResendの最新の公式ドキュメントを確認し、画面名は日本語で説明してください。\n" +
+        "BYOK前提です。Cloudflare、Resend、将来のGmail連携で使うGoogle Cloudは利用者自身のアカウントと認証情報を使います。\n" +
+        "ブラウザ操作に対応し、利用者が許可した場合だけ公式画面を開いて案内してください。ログイン、MFA、規約同意、秘密値入力、保存・変更操作は利用者へ引き渡してください。\n" +
         "秘密情報やメール本文は求めないでください。\n\n" +
         "質問: " + String(question || "（質問を入力してください）").trim() + "\n\n" +
         "選択先: " + service + "\n" + handoff;
@@ -1436,7 +1438,7 @@
             '<form class="inline-form one" data-form="key"><input class="text-input" name="name" placeholder="キーの名前"><select class="select-input" name="scope"><option>読み取り</option><option>読み書き</option></select><button class="button-primary">新規作成</button></form>' +
             (s.demoKey ? '<div class="demo-notice" style="margin-top:.8rem">今回だけ表示: <strong>' + esc(s.demoKey) + '</strong><br>デモ文字列であり、APIでは使用できません。</div>' : '') +
           '</section>' +
-          '<section class="card wide"><h2>◇ 導入についてAIに質問</h2><p class="hint">クリックすると質問文のコピーを開始し、選んだAIの新規チャットを別画面で開くよう端末に要求します。自動送信はしません。ロゴはRemix Icon 4.9.1（Apache-2.0）由来です。</p><label class="sr-only" for="ai-question">AIへの質問</label><input id="ai-question" class="text-input" data-input="ai-question" value="' + esc(state.ai.question) + '" maxlength="160" placeholder="導入について聞きたいこと（160文字以内）" aria-label="AIへの質問">' +
+          '<section class="card wide"><h2>◇ 導入についてAIに質問</h2><p class="hint">クリックすると質問文のコピーを開始し、選んだAIの新規チャットを別画面で開くよう端末に要求します。自動送信はしません。ロゴはRemix Icon 4.9.1（Apache-2.0）由来です。</p><div class="ai-disclosure"><strong>自分のアカウントで設定します（BYOK）</strong><br>CloudflareとResendは利用者自身のアカウントを使います。Gmail連携対応版ではGoogle CloudのOAuth認証情報も利用者が用意します。ブラウザ操作対応のAIは、許可後に公式画面を開いて案内できます。ログイン、MFA、規約同意、秘密値入力、保存・変更操作は利用者自身が行います。</div><label class="sr-only" for="ai-question">AIへの質問</label><input id="ai-question" class="text-input" data-input="ai-question" value="' + esc(state.ai.question) + '" maxlength="160" placeholder="導入について聞きたいこと（160文字以内）" aria-label="AIへの質問">' +
             '<div class="ai-provider-grid" aria-label="質問先ごとの受け渡し方法">' +
               '<button class="ai-provider' + (state.ai.provider === 'ChatGPT' ? ' active' : '') + '" data-action="ai-handoff" data-provider="ChatGPT"><span class="ai-provider-head">' + aiLogo('ChatGPT') + '<strong>ChatGPTに聞く</strong></span><span>質問文をコピーし、qパラメータで新規チャットへ入力します。</span></button>' +
               '<button class="ai-provider' + (state.ai.provider === 'Claude' ? ' active' : '') + '" data-action="ai-handoff" data-provider="Claude"><span class="ai-provider-head">' + aiLogo('Claude') + '<strong>Claudeに聞く</strong></span><span>質問文をコピーし、qパラメータで新規チャットへ入力します。</span></button>' +

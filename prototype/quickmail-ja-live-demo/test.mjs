@@ -498,6 +498,8 @@ try {
   audit = await page.evaluate(() => window.__quickmailAudit);
   assert.equal(audit.navigations.length,3,"normal input must request exactly three provider launches");
   assert.equal(audit.copies.length,3,"normal input must copy once per provider");
+  assert.ok(audit.copies.every(prompt => prompt.includes("BYOK前提です")),"every provider prompt must explain BYOK");
+  assert.ok(audit.copies.every(prompt => prompt.includes("利用者が許可した場合だけ公式画面")),"every provider prompt must gate browser guidance on user permission");
 
   const expected = [
     {origin:"https://chatgpt.com",pathname:"/",query:true},

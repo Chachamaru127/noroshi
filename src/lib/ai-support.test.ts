@@ -98,6 +98,10 @@ describe('AI support prompt boundary', () => {
 		assert.match(prompt, /Cloudflare以外が権威DNSのままではこの受信構成を利用できません。/);
 		assert.match(prompt, /MXレコードはどこで確認しますか？/);
 		assert.match(prompt, /受信はCloudflare Email Routing、送信はResend/);
+		assert.match(prompt, /BYOK前提/);
+		assert.match(prompt, /利用者自身のアカウントと認証情報/);
+		assert.match(prompt, /ブラウザ操作機能があり、利用者が許可した場合だけ/);
+		assert.match(prompt, /MFA、CAPTCHA、規約、支払い、秘密値入力/);
 		assert.doesNotMatch(prompt, /変更前のDNSレコードとRouting Rulesを保存します。/);
 		assert.doesNotMatch(prompt, /確認できる状態:|ログイン、MFA、規約同意、課金/);
 		assert.doesNotMatch(prompt, /source_refs|diagnostic_questions|example\.com|@/);

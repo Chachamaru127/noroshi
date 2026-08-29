@@ -77,6 +77,8 @@ describe('AI support dock accessibility and privacy boundary', () => {
 
 	test('README has a standalone, bounded AI handoff section', () => {
 		assert.match(readme, /^## AIに質問$/m);
+		assert.match(readme, /導入はBYOK/);
+		assert.match(component, /自分のアカウントで設定します（BYOK）/);
 		assert.match(readme, /ChatGPT、Claude、Gemini/);
 		assert.match(readme, /回答するたびに公式ドキュメント/);
 		assert.match(readme, /端末やOSの関連付け/);

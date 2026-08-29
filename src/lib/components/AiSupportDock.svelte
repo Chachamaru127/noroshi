@@ -116,6 +116,16 @@
 			</p>
 		</div>
 	</div>
+	<div class="byok-note">
+		<p class="byok-title">自分のアカウントで設定します（BYOK）</p>
+		<p>
+			CloudflareとResendは利用者自身のアカウントを使います。Gmail連携対応版では、Google
+			CloudのOAuth認証情報も利用者が用意します。QuickMail-ja共通の認証情報は配布しません。
+		</p>
+		<p>
+			ブラウザ操作に対応したChatGPT/CodexまたはClaudeでは、許可後に公式画面を開いて案内できます。ログイン、MFA、規約同意、秘密値入力、保存操作は利用者自身が行います。
+		</p>
+	</div>
 
 	<label for="ai-support-question">聞きたいこと</label>
 	<input
@@ -200,6 +210,7 @@
 	}
 
 	.support-head p,
+	.byok-note p,
 	.warning,
 	.fallback-copy,
 	.disclosure,
@@ -210,6 +221,25 @@
 	}
 
 	.support-head p {
+		margin-top: 0.35rem;
+	}
+
+	.byok-note {
+		margin-top: 1rem;
+		padding: 0.875rem 1rem;
+		border-radius: 0.75rem;
+		background: var(--color-surface-muted);
+		box-shadow: inset 0 0 0 1px var(--color-line);
+	}
+
+	.byok-note .byok-title {
+		margin: 0;
+		font-size: 0.8125rem;
+		font-weight: 650;
+		color: var(--color-text);
+	}
+
+	.byok-note p + p {
 		margin-top: 0.35rem;
 	}
 

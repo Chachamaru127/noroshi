@@ -48,7 +48,6 @@ const SKIP_FILES = new Set(['scripts/check-template-clean.mjs']);
 const SKIP_EXTENSIONS = /\.(png|jpe?g|gif|ico|woff2?|ttf|eot|pdf|zip)$/i;
 const FALLBACK_SKIP_DIRECTORIES = new Set([
 	'.git',
-	'.claude',
 	'.wrangler',
 	'backup',
 	'node_modules',
@@ -108,15 +107,20 @@ export function checkTemplate(directory = root) {
 
 	if (tracked.length === 0) fail('No files were found to scan');
 
+	const trackedAdapterPaths = new Set([
+		'.agents/skills/quickmail-ja-setup/SKILL.md',
+		'.claude/skills/quickmail-ja-setup/SKILL.md'
+	]);
 	const localOnlyPaths = [
 		/^backup(?:\/|$)/,
 		/^out(?:\/|$)/,
 		/^\.wrangler(?:\/|$)/,
+		/^\.agents(?:\/|$)/,
 		/^\.claude(?:\/|$)/,
 		/^\.harness(?:[-/]|$)/
 	];
 	for (const file of tracked) {
-		if (localOnlyPaths.some((pattern) => pattern.test(file))) {
+		if (!trackedAdapterPaths.has(file) && localOnlyPaths.some((pattern) => pattern.test(file))) {
 			fail(`${file} is local or operational state and must not be tracked`);
 		}
 	}
@@ -177,7 +181,14 @@ export function checkTemplate(directory = root) {
 		}
 	}
 
-	for (const required of ['LICENSE.md', 'README.md', '.dev.vars.example']) {
+	for (const required of [
+		'LICENSE.md',
+		'README.md',
+		'.dev.vars.example',
+		'skills/quickmail-ja-setup/SKILL.md',
+		'.agents/skills/quickmail-ja-setup/SKILL.md',
+		'.claude/skills/quickmail-ja-setup/SKILL.md'
+	]) {
 		if (!tracked.includes(required)) fail(`${required} is missing from the repository`);
 	}
 
