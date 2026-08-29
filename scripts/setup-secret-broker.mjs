@@ -63,6 +63,7 @@ export function putOpaqueSecret({ name, secret, put }) {
 export function withLocalBootstrapEnvironment({
 	secret,
 	authRateLimitSecret,
+	mailDomain,
 	environment = process.env,
 	launch
 }) {
@@ -70,9 +71,14 @@ export function withLocalBootstrapEnvironment({
 		throw new TypeError('expected opaque local runtime secrets');
 	}
 	if (typeof launch !== 'function') throw new TypeError('local dev launcher is required');
+	if (typeof mailDomain !== 'string' || !mailDomain) {
+		throw new TypeError('validated local mail domain is required');
+	}
 	const {
 		QUICKMAIL_BOOTSTRAP_SECRET: _setupInput,
 		QUICKMAIL_AUTH_RATE_LIMIT_SECRET: _rateInput,
+		RESEND_API_KEY: _resendKey,
+		RESEND_WEBHOOK_SECRET: _resendWebhookSecret,
 		...safeEnvironment
 	} = environment;
 	return withOpaqueSecret(secret, (bootstrapValue) =>
@@ -80,7 +86,11 @@ export function withLocalBootstrapEnvironment({
 			launch({
 				...safeEnvironment,
 				BOOTSTRAP_SECRET: bootstrapValue,
-				AUTH_RATE_LIMIT_SECRET: authValue
+				AUTH_RATE_LIMIT_SECRET: authValue,
+				EMAIL_PROVIDER: 'resend',
+				INBOUND_EMAIL_PROVIDER: 'cloudflare',
+				CLOUDFLARE_MAIL_DOMAINS: mailDomain,
+				RESEND_SEND_DOMAINS: ''
 			})
 		)
 	);

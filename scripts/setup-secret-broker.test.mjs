@@ -18,10 +18,13 @@ test('injects bootstrap only into local child runtime memory', () => {
 	withLocalBootstrapEnvironment({
 		secret,
 		authRateLimitSecret: authSecret,
+		mailDomain: 'example.com',
 		environment: {
 			SAFE: 'yes',
 			QUICKMAIL_BOOTSTRAP_SECRET: 'operator-input',
-			QUICKMAIL_AUTH_RATE_LIMIT_SECRET: 'must-not-pass'
+			QUICKMAIL_AUTH_RATE_LIMIT_SECRET: 'must-not-pass',
+			RESEND_API_KEY: 'poisoned-runtime-key',
+			RESEND_WEBHOOK_SECRET: 'poisoned-webhook-key'
 		},
 		launch: (env) => {
 			received = env;
@@ -30,9 +33,15 @@ test('injects bootstrap only into local child runtime memory', () => {
 	assert.deepEqual(received, {
 		SAFE: 'yes',
 		BOOTSTRAP_SECRET: 'runtime-only-bootstrap-value',
-		AUTH_RATE_LIMIT_SECRET: 'independent-runtime-rate-limit-value'
+		AUTH_RATE_LIMIT_SECRET: 'independent-runtime-rate-limit-value',
+		EMAIL_PROVIDER: 'resend',
+		INBOUND_EMAIL_PROVIDER: 'cloudflare',
+		CLOUDFLARE_MAIL_DOMAINS: 'example.com',
+		RESEND_SEND_DOMAINS: ''
 	});
 	assert.notEqual(received.BOOTSTRAP_SECRET, received.AUTH_RATE_LIMIT_SECRET);
+	assert.equal('RESEND_API_KEY' in received, false);
+	assert.equal('RESEND_WEBHOOK_SECRET' in received, false);
 	assert.equal(JSON.stringify(secret), '"[REDACTED]"');
 });
 

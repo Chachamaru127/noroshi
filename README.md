@@ -183,10 +183,10 @@ cp .dev.vars.example .dev.vars
 bun run db:migrate:local
 read -rs QUICKMAIL_BOOTSTRAP_SECRET
 export QUICKMAIL_BOOTSTRAP_SECRET
-bun run setup -- --local-dev
+bun run setup -- --local-dev --domain example.com
 ```
 
-`.dev.vars`には非秘密設定だけを置きます。`read -rs`はローカル用セットアップキーを画面やシェル履歴へ表示せず、現在のシェルへ読み込みます。開発サーバーを停止した後は`unset QUICKMAIL_BOOTSTRAP_SECRET`を実行してください。`--local-dev`は秘密値を子の開発サーバープロセスだけへ渡し、ファイルへ保存しません。
+`.dev.vars`には非秘密設定だけを置きます。`example.com`はローカルで受信アドレスに使う所有ドメインへ置き換えてください。`read -rs`はローカル用セットアップキーを画面やシェル履歴へ表示せず、現在のシェルへ読み込みます。開発サーバーを停止した後は`unset QUICKMAIL_BOOTSTRAP_SECRET`を実行してください。`--local-dev`は明示して形式確認したドメインと秘密値を子の開発サーバープロセスだけへ渡し、ファイルへ保存しません。継承環境にResendキーがあっても子へ渡さず、送信は無効のままです。非対話環境では`--domain`を省略すると停止します。
 
 受信の動作確認には`bun run preview`またはデプロイ済みWorkerを使います。Viteの開発サーバーだけではCloudflare Email Routingからメールを受信できません。
 

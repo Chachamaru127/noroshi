@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
 import { _createSetupPostHandler } from '../../routes/api/setup/+server';
 import { resolveAuthRateLimitSecret, resolveBootstrapSecret } from './bootstrap-secret';
@@ -55,6 +56,16 @@ function setupEvent(options: { configuredSecret?: string; providedSecret?: strin
 }
 
 describe('first-run bootstrap secret gate', () => {
+	test('binds receive-only local state to explicit Japanese setup copy', () => {
+		const load = readFileSync(
+			new URL('../../routes/setup/+page.server.ts', import.meta.url),
+			'utf8'
+		);
+		const page = readFileSync(new URL('../../routes/setup/+page.svelte', import.meta.url), 'utf8');
+		assert.match(load, /available\.every\(\(domain\) => !domain\.can_send\)/u);
+		assert.match(page, /data\.receiveOnlyLocal/u);
+		assert.match(page, /ローカル確認用です。受信ドメインだけを使用します。送信はResend設定後/u);
+	});
 	test('uses only the exact dev private secret and ignores process-style env in production', () => {
 		const privateEnvironment = {
 			BOOTSTRAP_SECRET: 'exact-child-secret',
@@ -251,5 +262,56 @@ describe('first-run bootstrap secret gate', () => {
 		} as never);
 		assert.equal(response.status, 200);
 		assert.equal(finalizedDomain, 'example.com');
+	});
+
+	test('never returns or logs an unexpected setup error detail', async () => {
+		const canary = 'secret-canary-internal-provider-detail';
+		const logs: unknown[][] = [];
+		const originalError = console.error;
+		console.error = (...values: unknown[]) => logs.push(values);
+		try {
+			const handler = _createSetupPostHandler({
+				resolveAuthRateLimitSecret: () => childEnvironment.AUTH_RATE_LIMIT_SECRET,
+				resolveBootstrapSecret: () => childEnvironment.BOOTSTRAP_SECRET,
+				consumeAuthRateLimit: async () => ({
+					allowed: true,
+					attempts: 1,
+					retryAfterSeconds: 1,
+					keyHash: 'test'
+				}),
+				pruneAuthRateLimits: async () => undefined,
+				countUsers: async () => 0,
+				getEmailProvider: () =>
+					({ getDomain: async () => ({ id: 'example.com', name: 'example.com' }) }) as never,
+				claimSetupBootstrap: async () => 'claim-token',
+				releaseSetupBootstrap: async () => undefined,
+				renewSetupBootstrap: async () => true,
+				finalizeSetup: async () => {
+					throw new Error(canary);
+				}
+			});
+			const response = await handler({
+				request: new Request('http://localhost:5173/api/setup', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({
+						bootstrapSecret: childEnvironment.BOOTSTRAP_SECRET,
+						domainId: 'example.com',
+						localPart: 'info',
+						name: '管理者',
+						password: 'long-password'
+					})
+				}),
+				cookies: {},
+				platform: { env: { DB: {} }, ctx: { waitUntil: () => undefined } }
+			} as never);
+			assert.equal(response.status, 400);
+			const body = JSON.stringify(await response.json());
+			assert.match(body, /初期設定を完了できませんでした/u);
+			assert.doesNotMatch(body, new RegExp(canary, 'u'));
+			assert.doesNotMatch(JSON.stringify(logs), new RegExp(canary, 'u'));
+		} finally {
+			console.error = originalError;
+		}
 	});
 });

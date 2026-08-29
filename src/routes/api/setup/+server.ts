@@ -180,9 +180,7 @@ export function _createSetupPostHandler(
 			const message =
 				error instanceof ConfigError || error instanceof ProviderError
 					? error.message
-					: error instanceof Error
-						? error.message
-						: 'Setup failed';
+					: '初期設定を完了できませんでした。';
 
 			return json({ error: message }, { status: 400 });
 		}

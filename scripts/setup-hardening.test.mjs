@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
@@ -98,6 +100,58 @@ test('local dev passes bootstrap through process memory, never argv or a file', 
 	assert.match(source, /process\.env\.QUICKMAIL_BOOTSTRAP_SECRET/);
 	assert.match(source, /buildAuthRateLimitSecretPlan\(randomBytes\(32\)\)/);
 	assert.doesNotMatch(source, /\['run', 'dev',[^\]]*BOOTSTRAP_SECRET/);
+});
+
+test('clean-clone local-dev requires and injects an explicit validated inbound domain', () => {
+	const directory = mkdtempSync(join(tmpdir(), 'quickmail-ja-local-dev-'));
+	const fakeBun = join(directory, 'bun');
+	writeFileSync(
+		fakeBun,
+		`#!/bin/sh
+if [ "$1" = "--version" ]; then echo 1.3.14; exit 0; fi
+if [ "$1" = "run" ] && [ "$2" = "dev" ]; then
+  printf 'domain=%s provider=%s inbound=%s send=%s bootstrap=%s auth=%s resend=%s webhook=%s\n' "$CLOUDFLARE_MAIL_DOMAINS" "$EMAIL_PROVIDER" "$INBOUND_EMAIL_PROVIDER" "$RESEND_SEND_DOMAINS" "\${BOOTSTRAP_SECRET:+set}" "\${AUTH_RATE_LIMIT_SECRET:+set}" "\${RESEND_API_KEY:+set}" "\${RESEND_WEBHOOK_SECRET:+set}"
+  exit 0
+fi
+exit 2
+`
+	);
+	chmodSync(fakeBun, 0o755);
+	try {
+		const env = {
+			...process.env,
+			PATH: `${directory}:/usr/bin:/bin`,
+			QUICKMAIL_BOOTSTRAP_SECRET: 'process-only-bootstrap-value',
+			RESEND_API_KEY: 'poisoned-runtime-key',
+			RESEND_WEBHOOK_SECRET: 'poisoned-webhook-key'
+		};
+		const missing = spawnSync(
+			process.execPath,
+			[fileURLToPath(new URL('./setup.mjs', import.meta.url)), '--local-dev'],
+			{ env, encoding: 'utf8' }
+		);
+		assert.notEqual(missing.status, 0);
+		assert.match(`${missing.stdout}${missing.stderr}`, /--domain <name>が必要/u);
+
+		const result = spawnSync(
+			process.execPath,
+			[
+				fileURLToPath(new URL('./setup.mjs', import.meta.url)),
+				'--local-dev',
+				'--domain',
+				'EXAMPLE.COM.'
+			],
+			{ env, encoding: 'utf8' }
+		);
+		assert.equal(result.status, 0, result.stderr);
+		assert.match(
+			result.stdout,
+			/domain=example\.com provider=resend inbound=cloudflare send= bootstrap=set auth=set resend= webhook=/u
+		);
+		assert.doesNotMatch(`${result.stdout}${result.stderr}`, /process-only-bootstrap-value/u);
+	} finally {
+		rmSync(directory, { recursive: true, force: true });
+	}
 });
 
 test('stages an independent non-displayed auth rate-limit secret', () => {

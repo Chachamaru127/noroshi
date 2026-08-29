@@ -84,7 +84,7 @@ Cloudflareへログインし、D1/R2、設定ファイル、受信・送信経�
   --r2-name <name>     R2名（例: quickmail-ja-attachments）
   --yes                使用不可（外部変更の一括承認を拒否）
   --skip-deploy        最後のデプロイを行わない
-  --local-dev          process環境のQUICKMAIL_BOOTSTRAP_SECRETをローカルdevへ渡す
+  --local-dev          セットアップキーと明示ドメインをローカルdevへだけ渡す
   --help               このヘルプを表示
 `);
 }
@@ -641,18 +641,31 @@ function putSecret(name, secret) {
 	ok(`${name}をWorkerシークレットとして保存しました`);
 }
 
-function runLocalDev() {
+async function runLocalDev() {
 	const raw = process.env.QUICKMAIL_BOOTSTRAP_SECRET?.trim();
 	if (!raw) throw new Error('--local-devにはprocess環境のQUICKMAIL_BOOTSTRAP_SECRETが必要です。');
+	const domain = args.domain
+		? normalizeDomain(args.domain)
+		: stdinStream.isTTY
+			? normalizeDomain(await prompt('ローカル受信ドメイン（例: example.com）'))
+			: '';
+	if (!domain) throw new Error('非対話の--local-devには--domain <name>が必要です。');
+	if (!isDomain(domain)) throw new Error(`--domainの形式が正しくありません: "${domain}"`);
 	const secret = buildBootstrapSecretPlan(raw).secret;
 	const authRateLimitSecret = buildAuthRateLimitSecretPlan(randomBytes(32)).secret;
 	return withLocalBootstrapEnvironment({
 		secret,
 		authRateLimitSecret,
+		mailDomain: domain,
 		launch: (env) => run(bunBin(), ['run', 'dev'], {
 			inherit: true,
 			env,
-			omitEnv: ['QUICKMAIL_BOOTSTRAP_SECRET', 'QUICKMAIL_AUTH_RATE_LIMIT_SECRET']
+			omitEnv: [
+				'QUICKMAIL_BOOTSTRAP_SECRET',
+				'QUICKMAIL_AUTH_RATE_LIMIT_SECRET',
+				'RESEND_API_KEY',
+				'RESEND_WEBHOOK_SECRET'
+			]
 		})
 	});
 }
@@ -882,7 +895,9 @@ function printNextSteps(state) {
 }
 
 async function main() {
-	assertSafeSetupMode({ yes: args.yes, interactive: Boolean(stdinStream.isTTY) });
+	if (args.yes || !args.localDev) {
+		assertSafeSetupMode({ yes: args.yes, interactive: Boolean(stdinStream.isTTY) });
+	}
 	await ensureRuntime();
 	if (args.localDev) return runLocalDev();
 

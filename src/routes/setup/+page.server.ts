@@ -20,6 +20,7 @@ export const load: PageServerLoad = async ({ platform }) => {
 		const available = await listSetupAvailableDomains(platform, import.meta.env.DEV);
 		return {
 			available,
+			receiveOnlyLocal: available.length > 0 && available.every((domain) => !domain.can_send),
 			providerKind,
 			providerConfigured: true,
 			loadError: null
@@ -27,6 +28,7 @@ export const load: PageServerLoad = async ({ platform }) => {
 	} catch (error) {
 		return {
 			available: [] as AvailableDomain[],
+			receiveOnlyLocal: false,
 			providerKind,
 			providerConfigured:
 				!(error instanceof ConfigError) &&

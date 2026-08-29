@@ -7,6 +7,8 @@
 # vars for production; uncomment here only to override locally.
 # EMAIL_PROVIDER=resend
 # INBOUND_EMAIL_PROVIDER=cloudflare
+# `bun run setup -- --local-dev --domain example.com` injects this setting into
+# the child process. Do not leave the example domain unchanged.
 # CLOUDFLARE_MAIL_DOMAINS=example.com
 # RESEND_SEND_DOMAINS=example.com
 

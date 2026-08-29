@@ -116,8 +116,12 @@
 <WizardShell
 	title={step === 1 ? 'ドメインを選択' : 'アカウントを作成'}
 	subtitle={step === 1
-		? domainPickerSubtitle(data.providerKind)
-		: `${chosen?.name}で送受信します。`}
+		? data.receiveOnlyLocal
+			? 'ローカル確認用。受信ドメインのみ。送信はResend設定後に利用できます。'
+			: domainPickerSubtitle(data.providerKind)
+		: data.receiveOnlyLocal
+			? `${chosen?.name}で受信アカウントを作成します。送信はResend設定後です。`
+			: `${chosen?.name}で送受信します。`}
 	steps={['ドメイン', 'アカウント']}
 	current={step}
 	partner={step === 1}
@@ -153,6 +157,12 @@
 				</div>
 			</div>
 		{:else}
+			{#if data.receiveOnlyLocal}
+				<div class="surface-lg notice">
+					<Icon name="information-line" size={18} />
+					<p class="notice-body">ローカル確認用です。受信ドメインだけを使用します。送信はResend設定後に利用できます。</p>
+				</div>
+			{/if}
 			<DomainPicker domains={data.available} bind:selected multi={false} />
 
 			{#if error}<p class="error">{error}</p>{/if}
