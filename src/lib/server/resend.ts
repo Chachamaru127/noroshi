@@ -19,10 +19,14 @@ function normalizeResendApiBase(value?: string): string {
 	try {
 		const url = new URL(candidate);
 		if (!url.protocol || !url.hostname) throw new Error('invalid_resend_api_base');
-		return candidate.replace(/\/+$/, '');
+		return canonicalResendApiBase(url);
 	} catch {
 		throw new ResendError(500, 'invalid_api_base', 'Invalid Resend API base URL');
 	}
+}
+
+function canonicalResendApiBase(url: URL): string {
+	return `${url.origin}${url.pathname.replace(/\/+$/, '')}`;
 }
 
 /**
@@ -32,28 +36,48 @@ function normalizeResendApiBase(value?: string): string {
  */
 export function normalizeLocalResendApiBase(value?: string): string | undefined {
 	if (!value?.trim()) return undefined;
+	const candidate = value.trim();
+	let url: URL;
 	try {
-		const url = new URL(value);
-		const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, '');
-		const loopback = hostname === '127.0.0.1' || hostname === '::1';
-		if (
-			url.protocol !== 'http:' ||
-			!loopback ||
-			url.username ||
-			url.password ||
-			url.search ||
-			url.hash
-		) {
-			throw new Error('invalid_local_resend_api_base');
-		}
-		return normalizeResendApiBase(value);
+		url = new URL(candidate);
 	} catch {
+		throw new ResendError(500, 'invalid_local_api_url', 'FakeProvider API override must be a valid URL');
+	}
+
+	const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+	const loopback = hostname === '127.0.0.1' || hostname === '::1';
+	if (url.protocol !== 'http:') {
+		throw new ResendError(500, 'invalid_local_api_protocol', 'FakeProvider API override must use HTTP');
+	}
+	if (!loopback) {
 		throw new ResendError(
 			500,
-			'invalid_local_api_base',
-			'FakeProvider API override must use an http loopback IP URL without credentials, query, or fragment'
+			'invalid_local_api_host',
+			'FakeProvider API override must target the loopback IP 127.0.0.1 or ::1'
 		);
 	}
+	if (url.username || url.password) {
+		throw new ResendError(
+			500,
+			'invalid_local_api_credentials',
+			'FakeProvider API override cannot include credentials'
+		);
+	}
+	if (candidate.includes('?') || url.search) {
+		throw new ResendError(
+			500,
+			'invalid_local_api_query',
+			'FakeProvider API override cannot include a query'
+		);
+	}
+	if (candidate.includes('#') || url.hash) {
+		throw new ResendError(
+			500,
+			'invalid_local_api_fragment',
+			'FakeProvider API override cannot include a fragment'
+		);
+	}
+	return canonicalResendApiBase(url);
 }
 
 export class ResendError extends Error {

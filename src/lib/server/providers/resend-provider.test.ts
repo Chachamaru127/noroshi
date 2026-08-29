@@ -72,7 +72,7 @@ describe('Resend provider with Cloudflare inbound', () => {
 			're_test',
 			undefined,
 			'quickmail.example',
-			'http://127.0.0.1:8788/'
+			'http://127.0.0.1:8788/api/'
 		);
 		const result = await provider.send({
 			from: {
@@ -87,23 +87,27 @@ describe('Resend provider with Cloudflare inbound', () => {
 			idempotencyKey: 'local-smoke-key'
 		});
 
-		assert.equal(requestUrl, 'http://127.0.0.1:8788/emails');
+		assert.equal(requestUrl, 'http://127.0.0.1:8788/api/emails');
 		assert.equal(result.providerId, 'fake-provider-id');
 	});
 
 	test('validates FakeProvider origins as loopback HTTP IP URLs', () => {
 		const cases = [
 			{ value: 'http://127.0.0.1:8788', expected: 'http://127.0.0.1:8788' },
+			{ value: 'http://127.0.0.1:8788/', expected: 'http://127.0.0.1:8788' },
 			{ value: 'http://[::1]:8788', expected: 'http://[::1]:8788' },
-			{ value: 'http://127.0.0.1:8788/api', expected: 'http://127.0.0.1:8788/api' },
+			{ value: 'http://127.0.0.1:8788/api/', expected: 'http://127.0.0.1:8788/api' },
 			{ value: '', expected: undefined },
 			{ value: '   ', expected: undefined },
-			{ value: 'https://127.0.0.1:8788', error: /loopback IP/i },
+			{ value: 'https://127.0.0.1:8788', error: /HTTP/i },
 			{ value: 'http://user:pass@127.0.0.1:8788', error: /credentials/i },
+			{ value: 'http://localhost:8788', error: /loopback IP/i },
 			{ value: 'http://127.0.0.1.evil:8788', error: /loopback IP/i },
-			{ value: 'http://[::1].evil:8788', error: /loopback IP/i },
+			{ value: 'http://[::1].evil:8788', error: /valid URL/i },
 			{ value: 'http://127.0.0.1:8788?target=evil', error: /query/i },
-			{ value: 'http://127.0.0.1:8788/#target', error: /fragment/i }
+			{ value: 'http://127.0.0.1:8788/?', error: /query/i },
+			{ value: 'http://127.0.0.1:8788/#target', error: /fragment/i },
+			{ value: 'http://127.0.0.1:8788/#', error: /fragment/i }
 		] as const;
 
 		for (const entry of cases) {
@@ -113,6 +117,13 @@ describe('Resend provider with Cloudflare inbound', () => {
 				assert.equal(normalizeLocalResendApiBase(entry.value), entry.expected);
 			}
 		}
+	});
+
+	test('rejects a non-loopback FakeProvider origin through the provider factory', () => {
+		assert.throws(
+			() => createResendProvider('re_test', undefined, 'quickmail.example', 'http://collector.example'),
+			/loopback IP/i
+		);
 	});
 
 	test('rejects a sender outside RESEND_SEND_DOMAINS before a provider call', async () => {
