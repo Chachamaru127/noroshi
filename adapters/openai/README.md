@@ -1,6 +1,8 @@
 # Codex / ChatGPT adapter note
 
-CodexとChatGPTに対しては、Agent Plugins 1.0のportable root packageを使う。`plugin.json`、`skills/`、`mcp.json`を別の独自manifestへ変換しない。Agent Plugin ZIPにはQMJ-10 operations Skillと、参照資料を含むcanonical BYOK setup Skillを同梱する。Codexは公式にAgent Pluginsのroot manifestを扱える版だけを対象にし、ChatGPTは公式に表示されるPlugins/Skillsのアップロードまたは管理画面の導線だけを使う。
+このリポジトリのルートは、Agent Plugins 1.0のportable packageである。`plugin.json`、`skills/`、`mcp.json`を別の独自manifestへ変換しない。Agent Plugin ZIPにはQMJ-10 operations Skillと、参照資料を含むcanonical BYOK setup Skillを同梱する。
+
+ただし、OpenAI Codex CLIのローカルmarketplaceは別のネイティブ配布面である。現行の公式ドキュメントは、プラグイン側に `.codex-plugin/plugin.json` と、必要に応じてルートの `.mcp.json` を置き、marketplace側に `.agents/plugins/marketplace.json` を置く形式を定義している。したがって、このリポジトリのルートにあるAgent Plugins 1.0形式だけで、Codex CLIのmarketplaceへ自動発見されるとは扱わない。Codex用のネイティブadapterが別途必要である。
 
 このファイルはプロバイダー接続アダプターではない。Cloudflare、Resend、DNS、メールボックス、QuickMail管理のツールや認証情報を追加しない。cloneだけでインストールされる、またはすべてのChatGPT画面で利用できるとは主張しない。
 
@@ -8,12 +10,19 @@ CodexとChatGPTに対しては、Agent Plugins 1.0のportable root packageを使
 
 ## 状態
 
-QMJ-11BではCodex/ChatGPTのクリーンプロファイルによるインストール・発見を実施していない。したがって、両方とも自動インストール・発見は未検証である。MCPが利用できない場合は、portable Skillを公式のアップロード導線で登録し、ブラウザレスの手動チェックリストを使う。
+Codex CLI 0.149.1の一時クリーンプロファイルで、次を実測した（2026-08-29）。
+
+- `codex plugin marketplace add <repo-root>` は、`marketplace root does not contain a supported manifest` で終了した。現リポジトリにはCodex CLIがmarketplaceとして読むカタログがないためである。
+- 公式形式の一時fixture（`.codex-plugin/plugin.json`、ルート`.mcp.json`、`.agents/plugins/marketplace.json`）では、marketplace追加、`quickmail-ja-setup`のavailable表示、`codex plugin add`、installed/enabled表示まで成功した。インストール先は公式のcache配下であった。
+- 同fixtureのMCPプロセスは、ローカルのstdio initialize応答まで確認した。provider、DNS、メール、秘密値、外部送信は扱っていない。
+
+これは現在のリポジトリをCodex CLIへ導入できた証明ではない。QMJ-11BのCodex CLI discovery gateは「root packageの直接導入: FAIL」「公式native adapter fixture: PASS」「リポジトリにnative adapterを同梱: 未完了」である。ChatGPTデスクトップのlocal marketplaceは、公式のPlugins Directoryでmarketplaceを選択し、再起動後にインストールする別のUI確認が必要である。MCPが利用できない場合は、portable Skillを公式のアップロード導線で登録し、ブラウザレスの手動チェックリストを使う。
 
 ## 一次資料
 
 - Agent Plugins Specification: <https://agent-plugins.org/specification>
 - OpenAI Codex plugins: <https://developers.openai.com/codex/plugins>
+- OpenAI plugin packaging and local marketplaces: <https://developers.openai.com/plugins/build/plugins>
 - OpenAI plugins repository: <https://github.com/openai/plugins>
 
 ## 実装ソースの確認記録
