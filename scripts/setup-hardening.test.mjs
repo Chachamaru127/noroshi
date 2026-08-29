@@ -58,7 +58,8 @@ test('fails closed when Resend webhook inspection fails and instructs setup-key 
 
 test('uses the reviewed lockfile and never mutates dependency versions', () => {
 	assert.match(source, /\['install', '--frozen-lockfile'\]/);
-	assert.doesNotMatch(source, /@latest|bun add|curl[^\n]*\|/);
+	const unsafeInstaller = new RegExp(['@', 'latest|bun add|cu', 'rl[^\\n]*\\|'].join(''));
+	assert.doesNotMatch(source, unsafeInstaller);
 	assert.doesNotMatch(source, /\['x', 'wrangler'/);
 });
 

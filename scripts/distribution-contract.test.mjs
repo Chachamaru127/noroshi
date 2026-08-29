@@ -247,6 +247,34 @@ test('setup never downloads or executes a Bun installer', () => {
 	}
 });
 
+test('QMJ-9 distribution keeps setup secrets out of files and stays on workers.dev', () => {
+	const readme = read('README.md');
+	const devVars = read('.dev.vars.example');
+	const wrangler = read('wrangler.jsonc');
+	const pkg = JSON.parse(read('package.json'));
+	assert.match(readme, /1\.3\.14（検証済みの固定バージョン）/u);
+	assert.match(readme, /bun install --frozen-lockfile/u);
+	assert.match(readme, /AUTH_RATE_LIMIT_SECRET/u);
+	assert.match(readme, /workers\.dev/u);
+	assert.match(readme, /ログ保持/u);
+	assert.match(readme, /料金アラート|コストアラート/u);
+	assert.doesNotMatch(readme, /bun run setup -- --yes/u);
+	assert.doesNotMatch(
+		devVars,
+		/^(?:BOOTSTRAP_SECRET|AUTH_RATE_LIMIT_SECRET|RESEND_API_KEY|RESEND_WEBHOOK_SECRET)=/mu
+	);
+	assert.match(wrangler, /AUTH_RATE_LIMIT_SECRET/u);
+	assert.doesNotMatch(wrangler, /"routes"|custom_domain/u);
+	assert.match(
+		pkg.cloudflare.bindings.RESEND_API_KEY.description,
+		/domain-restricted sending key/iu
+	);
+	assert.match(
+		pkg.cloudflare.bindings.RESEND_API_KEY.description,
+		/never deploy a full-access setup key/iu
+	);
+});
+
 test('release archive keeps and runs the clean-template guard', () => {
 	const attributes = read('.gitattributes');
 	const pkg = JSON.parse(read('package.json'));

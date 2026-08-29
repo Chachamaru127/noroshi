@@ -14,15 +14,8 @@
 	// or uncomment this and paste the ID from the Cloudflare dashboard sidebar.
 	// "account_id": "",
 
-	// Deploys to <name>.<your-subdomain>.workers.dev out of the box. To serve it
-	// from your own domain instead, uncomment this and make sure the zone is on
-	// the same Cloudflare account.
-	// "routes": [
-	// 	{
-	// 		"pattern": "mail.example.com",
-	// 		"custom_domain": true
-	// 	}
-	// ],
+	// QMJ-9 deploys only to <name>.<your-subdomain>.workers.dev.
+	// Custom-domain routing is intentionally deferred to QMJ-10.
 
 	"assets": {
 		"directory": ".svelte-kit/cloudflare",
@@ -34,9 +27,11 @@
 	// Set CLOUDFLARE_MAIL_DOMAINS before deploy so the Worker accepts the domain.
 	// Setup and Resend secrets:
 	//   wrangler secret put BOOTSTRAP_SECRET
+	//   wrangler secret put AUTH_RATE_LIMIT_SECRET
 	//   wrangler secret put RESEND_API_KEY
 	//   wrangler secret put RESEND_WEBHOOK_SECRET
-	// Locally, put values in .dev.vars (copy .dev.vars.example).
+	// Never put these values in .dev.vars. Local setup passes them only to the
+	// child development process via `bun run setup -- --local-dev`.
 
 	"vars": {
 		"EMAIL_PROVIDER": "resend",

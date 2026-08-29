@@ -1,10 +1,7 @@
-# Copy this file to .dev.vars and fill in real values.
-# .dev.vars is gitignored — never commit it.
-#
-# In production these live as Worker secrets / vars instead.
-
-# Required to create the first administrator. Use a unique random value.
-BOOTSTRAP_SECRET=REPLACE_WITH_A_LONG_RANDOM_SETUP_KEY
+# Copy this file to .dev.vars for non-secret local settings only.
+# Never put credentials, setup keys, API keys, or webhook secrets in this file.
+# `bun run setup -- --local-dev` receives the setup key from the current process
+# and passes secrets only to its child development server.
 
 # The first release supports Resend outbound only. Set this in wrangler.jsonc
 # vars for production; uncomment here only to override locally.
@@ -12,14 +9,9 @@ BOOTSTRAP_SECRET=REPLACE_WITH_A_LONG_RANDOM_SETUP_KEY
 # INBOUND_EMAIL_PROVIDER=cloudflare
 # CLOUDFLARE_MAIL_DOMAINS=example.com
 
-# --- Resend (EMAIL_PROVIDER=resend) ---
-# From https://resend.com/api-keys — the current setup flow needs full access
-# for sending, domain inspection, and webhook creation. Keep Receiving disabled.
-RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
-# Shown once when you create the webhook at https://resend.com/webhooks
-# (see the README). Starts with whsec_.
-RESEND_WEBHOOK_SECRET=whsec_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# Production secrets are entered through Cloudflare's native secret prompt:
+# BOOTSTRAP_SECRET, AUTH_RATE_LIMIT_SECRET, RESEND_API_KEY, RESEND_WEBHOOK_SECRET.
+# The Worker receives only a domain-restricted Resend sending key.
 
 # --- Desktop notifications (optional) ---
 # Generate once with: bunx web-push generate-vapid-keys

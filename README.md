@@ -111,46 +111,42 @@ AIには、回答するたびに公式ドキュメントを実際に開き、確
 1. DNSをCloudflareで管理できる独自ドメイン
 2. Cloudflareアカウント
 3. Resendアカウント
-4. [Bun](https://bun.sh)
+4. [Bun](https://bun.sh) 1.3.14（検証済みの固定バージョン）
 
 最短手順は次のとおりです。
 
 ```bash
-bun install
+bun install --frozen-lockfile
 bun run setup
 ```
 
-Bunが未導入なら、次の補助スクリプトを使えます。
+Bunを導入済みなら、次の補助スクリプトでバージョンを確認して開始できます。
 
 ```bash
 bash scripts/setup.sh
 ```
 
-`scripts/setup.sh`は、Bunがない場合に対話画面で確認してからbun.shの公式インストーラーを実行します。明示的に承認しなければ何も導入せず終了します。非対話環境では自動承認せず停止するため、先にBunを手動導入してください。QuickMail-jaがサポートするパッケージ管理・実行環境はBunだけです。
+`scripts/setup.sh`はBunをダウンロードしません。Bunがない、または1.3.14以外の場合は停止します。[Bun公式手順](https://bun.sh/docs/installation)で利用者が導入し、再実行してください。依存関係は`bun install --frozen-lockfile`で固定します。
 
 ウィザードは次を行います。
 
 1. Cloudflareへログイン
 2. メールドメインを指定。受信はCloudflare Email Routing、送信はResendに固定
 3. D1 `quickmail-ja`とR2 `quickmail-ja-attachments`を作成
-4. `wrangler.jsonc`とローカル用`.dev.vars`を更新
-5. セットアップキーを生成または入力
-6. `BOOTSTRAP_SECRET`をWorkerシークレットへ保存
+4. `wrangler.jsonc`とローカル用`.dev.vars`の非秘密設定だけを更新
+5. 利用者がパスワード管理ツールで作成したセットアップキーを非表示入力
+6. `BOOTSTRAP_SECRET`と自動生成した`AUTH_RATE_LIMIT_SECRET`をCloudflareのWorkerシークレットへ直接保存
 7. Cloudflare Email RoutingとResend送信を設定
 8. D1マイグレーションを適用し、確認後にデプロイ
 
-セットアップキーは、最初の管理者を作るときに使います。ウィザードで1回だけ表示されます。安全な場所に保存し、`/setup`で管理者を作成した後は破棄してください。ローカル開発では同じ値をgitignoredの`.dev.vars`へ保存します。値をコミットしないでください。
+セットアップキーは最初の管理者を作るときに使います。利用者がパスワード管理ツールで作成・保管し、ウィザードの非表示プロンプトへ入力してください。ウィザードは値を表示せず、ファイルにも保存しません。`/setup`で管理者を作成した後は破棄してください。`AUTH_RATE_LIMIT_SECRET`は認証の試行回数を安全に識別するための秘密値で、ウィザードが生成してWorkerシークレットへ直接保存します。
 
-対話なしで既定値を使う場合は、ドメインを明示します。
-
-```bash
-bun run setup -- --yes --domain example.com
-```
+外部変更をまとめて承認する`--yes`はありません。アカウント、作成、シークレット登録、デプロイはそれぞれ内容を表示して確認します。QMJ-9では公開先を`workers.dev`だけに限定し、カスタムドメイン接続はQMJ-10へ延期しています。
 
 ### 手動でCloudflareリソースを作る場合
 
 ```bash
-bun install
+bun install --frozen-lockfile
 bunx wrangler login
 bunx wrangler d1 create quickmail-ja
 bunx wrangler r2 bucket create quickmail-ja-attachments
@@ -166,11 +162,13 @@ D1作成時に表示された`database_id`を`wrangler.jsonc`の`REPLACE_WITH_YO
 }
 ```
 
-続いて、セットアップキーとResendのシークレットを入力します。
+続いてCloudflareのネイティブな非表示プロンプトからシークレットを入力します。値をチャット、コマンド引数、ファイル、ログへ書かないでください。Workerへ渡すResendキーは対象ドメインに限定した送信専用キーです。ドメイン確認やWebhook作成に使った一時的なフルアクセスキーはWorkerへ配備せず、設定後に失効させます。
 
 ```bash
 bunx wrangler secret put BOOTSTRAP_SECRET
+bunx wrangler secret put AUTH_RATE_LIMIT_SECRET
 bunx wrangler secret put RESEND_API_KEY
+bunx wrangler secret put RESEND_WEBHOOK_SECRET
 bun run db:migrate:remote
 bun run deploy
 ```
@@ -182,8 +180,10 @@ bun run deploy
 ```bash
 cp .dev.vars.example .dev.vars
 bun run db:migrate:local
-bun run dev
+bun run setup -- --local-dev
 ```
+
+`.dev.vars`には非秘密設定だけを置きます。ローカル用セットアップキーは、パスワード管理ツール等から現在のプロセスの`QUICKMAIL_BOOTSTRAP_SECRET`へ一時的に渡してください。`--local-dev`は秘密値を子の開発サーバープロセスだけへ渡し、表示も保存もしません。
 
 受信の動作確認には`bun run preview`またはデプロイ済みWorkerを使います。Viteの開発サーバーだけではCloudflare Email Routingからメールを受信できません。
 
@@ -221,6 +221,12 @@ QuickMail-ja自体はMITライセンスで無料です。実費は利用者自�
 - ドメインの取得・更新費用はレジストラに発生します。
 
 無料枠や料金は変更されるため、公開前に[Cloudflare料金](https://www.cloudflare.com/plans/developer-platform/)と[Resend料金](https://resend.com/pricing)を確認してください。QuickMail-jaは利用量の上限設定や請求代行を行いません。
+
+公開前にCloudflareのWorkers、D1、R2について利用量通知または料金アラートを設定し、Resendでも契約プランで利用できる送信量・費用通知を設定してください。無料枠は常に課金を止める上限とは限りません。設定名と提供条件は変わるため、各社の公式ドキュメントと現在のダッシュボードを確認してください。
+
+## プライバシーとログ保持
+
+メール本文、宛先、差出人、添付、シークレット、ブラウザプロファイルをアプリの診断ログへ出力しないでください。Cloudflare Workersのログ保持期間とアクセス権を組織の方針に合わせ、Resendの配信ログ保持期間も契約プランの公式仕様で確認してください。運用開始前に、誰がログを閲覧できるか、いつ削除するか、障害調査で何を記録するかを決めます。
 
 ## 制限事項
 
