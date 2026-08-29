@@ -18,6 +18,14 @@ export const PLUGIN_PACKAGE_FILES = Object.freeze([
 	'plugin.json',
 	'mcp.json',
 	'skills/quickmail-ja-operations/SKILL.md',
+	// Keep the canonical BYOK guidance Skill and its reviewed references
+	// inside the Agent Plugin so the plugin is useful without the repository.
+	'skills/quickmail-ja-setup/SKILL.md',
+	'skills/quickmail-ja-setup/agents/openai.yaml',
+	'skills/quickmail-ja-setup/references/browser-and-byok.md',
+	'skills/quickmail-ja-setup/references/cloudflare-resend.md',
+	'skills/quickmail-ja-setup/references/gmail-byok.md',
+	'skills/quickmail-ja-setup/references/setup-patterns.json',
 	'scripts/setup-engine.mjs',
 	'scripts/setup-plugin-mcp.mjs',
 	'setup/capabilities.json',
@@ -162,6 +170,24 @@ export function validateAgentPlugin({ root = REPOSITORY_ROOT } = {}) {
 	const skill = readFileSync(join(root, 'skills/quickmail-ja-operations/SKILL.md'), 'utf8');
 	if (!/^---\nname: quickmail-ja-operations\n/mu.test(skill)) {
 		throw new Error('operations Skill frontmatter is missing');
+	}
+	const setupSkill = readFileSync(join(root, 'skills/quickmail-ja-setup/SKILL.md'), 'utf8');
+	if (!/^---\nname: quickmail-ja-setup\n/mu.test(setupSkill)) {
+		throw new Error('BYOK setup Skill frontmatter is missing');
+	}
+	for (const relativePath of [
+		'skills/quickmail-ja-setup/agents/openai.yaml',
+		'skills/quickmail-ja-setup/references/browser-and-byok.md',
+		'skills/quickmail-ja-setup/references/cloudflare-resend.md',
+		'skills/quickmail-ja-setup/references/gmail-byok.md',
+		'skills/quickmail-ja-setup/references/setup-patterns.json'
+	]) {
+		if (!existsSync(join(root, relativePath))) {
+			throw new Error(`BYOK setup Skill file is missing: ${relativePath}`);
+		}
+	}
+	if (PLUGIN_PACKAGE_FILES.includes('scripts/setup.mjs')) {
+		throw new Error('interactive scripts/setup.mjs must stay outside the Agent Plugin');
 	}
 	const mcpScript = readFileSync(join(root, 'scripts/setup-plugin-mcp.mjs'), 'utf8');
 	for (const forbidden of [

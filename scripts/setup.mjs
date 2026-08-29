@@ -2,6 +2,10 @@
 /**
  * Interactive first-run setup for QuickMail-ja.
  *
+ * This is the repository's separate interactive CLI, outside the QMJ-10
+ * provider-neutral setup-engine contract. It is intentionally not bundled in
+ * the Agent Plugin and is never invoked by the setup MCP.
+ *
  * Cloudflareへログインし、D1/R2、設定、メールドメインを準備します。
  *
  * Usage:

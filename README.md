@@ -34,7 +34,7 @@ Cloudflare公式の[Deploy to Cloudflareボタン](https://developers.cloudflare
 | Setup Skill（ローカル提供中） | BYOKの担当範囲、公式画面、確認項目、人間へ引き渡す操作をAIへ教える再利用可能な手順書      | 案内専用。外部設定の作成・保存・変更は行いません                 |
 | Setup MCP（将来・未提供）     | 許可された確認・設定だけをツールとして実行し、1操作ごとに対象、差分、戻し方を確認する予定 | 公開前の安全強化とクライアント別検証が必要です                   |
 
-現在利用できるAI相談ドックは、**デプロイ後のResend設定と最初の管理者作成**を支援します。`skills/quickmail-ja-setup`には、Cloudflare、Resend、将来のGmail BYOK設定を公式画面に沿って案内するポータブルSkillがあります。外部設定を自動変更するSetup MCPは未提供です。
+現在利用できるAI相談ドックは、**デプロイ後のResend設定と最初の管理者作成**を支援します。`skills/quickmail-ja-setup`には、Cloudflare、Resend、将来のGmail BYOK設定を公式画面に沿って案内するポータブルSkillがあります。Agent Plugin ZIPにもこのSkillとレビュー済み参照資料を同梱します。外部設定を自動変更するSetup MCPは未提供です。
 
 ### Setup Skillを使う
 
@@ -54,6 +54,14 @@ bun run package:setup-skill
 このコマンドは、現在checkoutしているコミットのSkillをパッケージ化します。未コミットの変更は入りません。ChatGPTのPersonal SkillsはデスクトップとWeb/モバイルで個別に追加する必要があります。プラン、組織設定、地域、ブラウザ操作機能によって利用可否が異なります。公式の[ChatGPT Skills案内](https://help.openai.com/en/articles/20001066)と[Claude Skills案内](https://support.claude.com/en/articles/12512180-use-skills-in-claude)を導入時に確認してください。
 
 Skillはブラウザ操作機能そのものを追加しません。利用中のChatGPT/CodexまたはClaudeがブラウザ操作に対応し、利用者が許可した場合だけ、Cloudflare、Resend、Google Cloudの公式画面を開いて必要箇所まで案内します。ログイン、MFA、CAPTCHA、規約同意、支払い、秘密値入力、作成・保存・削除・DNS変更は利用者が行います。ブラウザ操作機能がない場合は、公式URLと手動のメニュー経路を案内します。
+
+Agent Pluginとして operations Skill と BYOK guidance Skill をまとめて導入する場合は、次を実行します。
+
+```bash
+bun run package:agent-plugin
+```
+
+このZIPに `scripts/setup.mjs` は含まれません。`bun run setup` はリポジトリに残る別の対話型CLIであり、QMJ-10のprovider-neutral setup-engineやSetup MCPから自動実行されません。`setup_apply` は引き続きprovider adapter unavailableで停止します。
 
 ## AIに質問
 

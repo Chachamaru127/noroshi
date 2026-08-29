@@ -135,7 +135,26 @@ test('repository plugin passes the bounded manifest, generated projection, and M
 	assert.match(read('skills/quickmail-ja-setup/SKILL.md'), /^---\nname: quickmail-ja-setup\n/u);
 	assert.deepEqual(
 		PLUGIN_PACKAGE_FILES.filter((path) => path.startsWith('skills/')),
-		['skills/quickmail-ja-operations/SKILL.md']
+		[
+			'skills/quickmail-ja-operations/SKILL.md',
+			'skills/quickmail-ja-setup/SKILL.md',
+			'skills/quickmail-ja-setup/agents/openai.yaml',
+			'skills/quickmail-ja-setup/references/browser-and-byok.md',
+			'skills/quickmail-ja-setup/references/cloudflare-resend.md',
+			'skills/quickmail-ja-setup/references/gmail-byok.md',
+			'skills/quickmail-ja-setup/references/setup-patterns.json'
+		]
+	);
+	assert.doesNotMatch(
+		JSON.stringify(PLUGIN_PACKAGE_FILES),
+		/scripts\/setup\.mjs/u,
+		'interactive repository setup CLI must not be in the Agent Plugin'
+	);
+	assert.match(read('skills/quickmail-ja-setup/SKILL.md'), /BYOK/u);
+	assert.match(read('skills/quickmail-ja-setup/SKILL.md'), /公式ドキュメントを実際に開き/u);
+	assert.match(
+		read('skills/quickmail-ja-setup/SKILL.md'),
+		/ログイン、アカウント切替、MFA、CAPTCHA、規約同意、支払い/u
 	);
 });
 
@@ -358,7 +377,16 @@ test('committed Agent Plugin archive passes exact-entry, traversal, symlink, and
 			'quickmail-ja-setup-plugin/setup/plugin-capabilities.json',
 			'quickmail-ja-setup-plugin/skills/',
 			'quickmail-ja-setup-plugin/skills/quickmail-ja-operations/',
-			'quickmail-ja-setup-plugin/skills/quickmail-ja-operations/SKILL.md'
+			'quickmail-ja-setup-plugin/skills/quickmail-ja-operations/SKILL.md',
+			'quickmail-ja-setup-plugin/skills/quickmail-ja-setup/',
+			'quickmail-ja-setup-plugin/skills/quickmail-ja-setup/SKILL.md',
+			'quickmail-ja-setup-plugin/skills/quickmail-ja-setup/agents/',
+			'quickmail-ja-setup-plugin/skills/quickmail-ja-setup/agents/openai.yaml',
+			'quickmail-ja-setup-plugin/skills/quickmail-ja-setup/references/',
+			'quickmail-ja-setup-plugin/skills/quickmail-ja-setup/references/browser-and-byok.md',
+			'quickmail-ja-setup-plugin/skills/quickmail-ja-setup/references/cloudflare-resend.md',
+			'quickmail-ja-setup-plugin/skills/quickmail-ja-setup/references/gmail-byok.md',
+			'quickmail-ja-setup-plugin/skills/quickmail-ja-setup/references/setup-patterns.json'
 		];
 		const listing = spawnSync('unzip', ['-Z1', output], { encoding: 'utf8' });
 		assert.equal(listing.status, 0, listing.stderr);

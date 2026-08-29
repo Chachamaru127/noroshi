@@ -12,7 +12,7 @@
 
 - `plugin.json`: 公式マニフェスト。カスタム拡張には capability registry の参照と、メールボックス権限が全て `false` であることだけを記録する。
 - `skills/quickmail-ja-operations/SKILL.md`: QMJ-10 の `inspect → plan → approve → apply → readback → verify` を日本語で案内する正本 operations Skill。
-- `skills/quickmail-ja-setup/SKILL.md`: QMJ-11A の BYOK・公式画面・手動 fallback を案内する正本 guidance Skill。portable package の利用者向け構成にはこの2つを含めるが、このリリースの Agent Plugin ZIP は operations Skill だけを狭く含める。
+- `skills/quickmail-ja-setup/SKILL.md`: QMJ-11A の BYOK・公式画面・手動 fallback を案内する正本 guidance Skill。参照資料とともに Agent Plugin ZIP に同梱するため、プラグインだけを導入しても導入案内を利用できる。
 - `mcp.json`: 任意コンポーネントとして、ローカルの狭い QMJ-10 操作だけを stdio で公開する。メールボックス MCP とは物理的に別である。
 - `setup/plugin-capabilities.json`: `setup/capabilities.json` と QMJ-10 の固定 step contract から生成した射影。公開 capability と provider operation は空である。
 - `adapters/claude/`: Agent Plugins 1.0 と別形式の Claude ネイティブアダプター。portable package の自動発見を意味しない。
@@ -23,6 +23,8 @@ MCP のツール一覧は次の6つに固定する。
 `setup_inspect`、`setup_plan`、`setup_approve`、`setup_apply`、`setup_readback`、`setup_verify`
 
 `setup_inspect` と読み返しは、利用者が提示した非秘密の状態だけをローカルで扱う。`setup_apply` は provider adapter unavailable で失敗し、provider、DNS、ネットワーク、メール、秘密値への呼び出しを行わない。未知のツール名、未知の capability、未対応 transport、計画の指紋不一致、読み取り失敗は fail-closed で停止する。
+
+リポジトリの `scripts/setup.mjs` は、QMJ-10 の provider-neutral setup-engine contract 外にある別の対話型 CLI である。Agent Plugin の allowlist と Setup MCP からは切り離しており、プラグインの自動実行経路から呼び出さない。必要な公式画面、ログイン、秘密値入力、保存、外部変更は、BYOK guidance Skill の human-only 境界に従う。
 
 ## 公式仕様と確認日
 
@@ -46,7 +48,7 @@ MCP のツール一覧は次の6つに固定する。
 
 ### Codex / ChatGPT
 
-ルートの `plugin.json`、`skills/`、`mcp.json` が portable source である。OpenAI の公式サポート面は記録したが、QMJ-11B では利用者アカウントのログインや、クリーンプロファイルでの install / discovery smoke を実施していない。そのため、clone、upload、discovery、自動インストール、MCP 利用可能プランを対応済みとは主張しない。
+ルートの `plugin.json`、`skills/`、`mcp.json` が portable source である。OpenAI の公式サポート面は記録したが、QMJ-11B では利用者アカウントのログインや、クリーンプロファイルでの install / discovery smoke を実施していない。そのため、clone、upload、discovery、自動インストール、MCP 利用可能プランを対応済みとは主張しない。Agent Plugin ZIP の導入後に利用できるのは、同梱した非接続の operations Skill と BYOK guidance Skill である。
 
 ### Claude Code / Desktop / Web
 
@@ -66,7 +68,7 @@ bun test scripts/agent-plugin.test.mjs
 bun scripts/agent-plugin.mjs package
 ```
 
-`package` は Git の committed tree から、allowlist にある通常ファイルだけを ZIP 化する。symlink、gitlink、特殊モード、絶対パス、`..` を含むパス、allowlist 外のファイルは拒否する。アーカイブにメール本文、添付、認証情報、provider client、mailbox MCP は入らない。
+`package` は Git の committed tree から、allowlist にある通常ファイルだけを ZIP 化する。operations Skill、BYOK guidance Skill、およびそのレビュー済み参照資料を含める。symlink、gitlink、特殊モード、絶対パス、`..` を含むパス、allowlist 外のファイルは拒否する。リポジトリの対話型 `scripts/setup.mjs` は含めず、アーカイブにメール本文、添付、認証情報、provider client、mailbox MCP は入らない。
 
 ## まだ提供しないもの
 

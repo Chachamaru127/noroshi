@@ -139,7 +139,7 @@ After: the existing deployment remains the production downstream. QuickMail-ja c
 
 ## Next roadmap — Japanese setup distribution, Agent Plugin, and UI direction
 
-Status: QMJ-6, QMJ-6A, QMJ-6B, QMJ-7, QMJ-8A, and QMJ-9 are complete locally. QMJ-8B runs in parallel and remains a release dependency. QMJ-10 provider-neutral local engine and QMJ-11B local portable Agent Plugin package are implemented; real provider adapters and clean-profile host discovery remain unverified. Public release remains HOLD.
+Status: QMJ-6, QMJ-6A, QMJ-6B, QMJ-7, QMJ-8A, and QMJ-9 are complete locally. QMJ-8B runs in parallel and remains a release dependency. QMJ-10 provider-neutral local engine and QMJ-11B local portable Agent Plugin package (operations plus canonical BYOK guidance Skill) are implemented; real provider adapters and clean-profile host discovery remain unverified. Public release remains HOLD.
 
 ### Product decision
 
@@ -378,7 +378,7 @@ Binary DoD:
 
 Priority: Required
 Depends on: QMJ-6A
-Status: In progress — portable BYOK guidance Skill plus repo-scoped Codex and Claude Code adapters added; clean package smoke passes; browser-client upload/discovery smoke remains
+Status: Implemented locally — portable BYOK guidance Skill, committed-tree package, and repo-scoped Codex and Claude Code adapters pass local checks; browser-client upload/discovery smoke remains unverified
 
 - Keep this increment guidance-only: explain BYOK, open allowlisted official setup screens when the host and user permit it, and hand login, MFA, terms, secrets, saves, DNS changes, deploys, and sends back to the user. Do not represent it as QMJ-10 provider automation.
 - Reuse the QMJ-6A Knowledge Pack as the Skill's reviewed setup reference instead of duplicating competitor instructions.
@@ -397,16 +397,17 @@ Binary DoD:
 
 Priority: Required for automated setup claims
 Depends on: QMJ-8A, QMJ-10, and QMJ-11A
-Status: Local portable package implemented — provider adapters and clean-host discovery remain unverified
+Status: Local portable package implemented — operations and canonical BYOK guidance Skills are bundled; provider adapters and clean-host discovery remain unverified
 
-- Add the portable root `plugin.json`, an operations Skill, and optional `mcp.json` from the QMJ-8A capability registry.
+- Add the portable root `plugin.json`, the operations and canonical BYOK guidance Skills, and optional `mcp.json` from the QMJ-8A capability registry.
 - Keep the setup plugin separate from the mailbox MCP.
 - Add provider-enabled Codex/ChatGPT and independently generated Claude adapters only for officially supported surfaces.
 
 Local implementation boundary:
 
-- Root `plugin.json`, narrow stdio `mcp.json`, QMJ-10 operations Skill, generated capability projection, and Claude native Skill adapter are implemented and schema-checked.
+- Root `plugin.json`, narrow stdio `mcp.json`, QMJ-10 operations Skill, canonical BYOK guidance Skill with reviewed references, generated capability projection, and Claude native Skill adapter are implemented and schema-checked.
 - The MCP exposes only `setup_inspect`, `setup_plan`, `setup_approve`, `setup_apply`, `setup_readback`, and `setup_verify`. `setup_apply` is fail-closed because no provider adapter is enabled.
+- The separate interactive `scripts/setup.mjs` CLI is outside the QMJ-10 provider-neutral contract, excluded from the Agent Plugin allowlist, and never invoked by the Setup MCP.
 - Cloudflare/Resend provider adapters, mailbox MCP access, provider email read/send, account login, secrets, DNS, migrations, deployment, and clean-profile host discovery are not implemented or exercised here.
 
 Binary DoD:

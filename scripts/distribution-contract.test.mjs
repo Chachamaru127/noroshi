@@ -201,6 +201,9 @@ test('ignore rules admit only the two setup adapters, never Claude state', () =>
 
 test('setup copy requires Cloudflare DNS for inbound and stays Japanese-first', () => {
 	const setup = read('scripts/setup.mjs');
+	assert.match(setup, /QMJ-10[\s\S]*provider-neutral setup-engine contract/);
+	assert.match(setup, /not bundled in[\s\S]*Agent Plugin/);
+	assert.match(setup, /never invoked by the setup MCP/);
 	assert.match(setup, /受信にはCloudflareで管理するDNSゾーンが必要です/);
 	assert.match(setup, /Resend（送信）/);
 	assert.match(setup, /セットアップキー/);
