@@ -144,6 +144,7 @@ type ForwardingAddressRow = {
 	domain_id: string;
 	domain_name: string;
 	address: string;
+	can_send: number;
 	label: string | null;
 	is_default: number;
 	signature: string | null;
@@ -205,6 +206,7 @@ function mapAddress(row: ForwardingAddressRow): MailAddress {
 		domain_id: row.domain_id,
 		domain_name: row.domain_name,
 		address: row.address,
+		can_send: row.can_send === 1,
 		label: row.label,
 		is_default: row.is_default === 1,
 		signature: row.signature,
@@ -314,6 +316,8 @@ export async function createOrResetForwardingDestination(
 }> {
 	const sourceAddress = await getAddressForUser(db, userId, input.sourceAddressId);
 	if (!sourceAddress) throw new ForwardingValidationError('Source address not found');
+	if (sourceAddress.can_send === false)
+		throw new ForwardingValidationError('Source address is receive-only');
 
 	const normalized = normalizeForwardingDestination(input.destination);
 	await ensureExternalDestination(db, userId, sourceAddress, normalized);
@@ -499,6 +503,9 @@ export async function setForwardingRuleEnabled(
 		if (!sourceAddress) {
 			throw new ForwardingStateError('Source address not found');
 		}
+		if (sourceAddress.can_send === false) {
+			throw new ForwardingStateError('Source address is receive-only');
+		}
 		const currentDestination = normalizeForwardingDestination(destination.destination_address);
 		await ensureExternalDestination(db, userId, sourceAddress, currentDestination);
 		const result = await db
@@ -547,6 +554,7 @@ export async function listForwardingForUser(
 	const { results } = await db
 		.prepare(
 			`SELECT a.id, a.user_id, a.domain_id, d.name AS domain_name, a.address,
+			        d.sending_enabled AS can_send,
 			        a.label, a.is_default, a.signature, a.created_at,
 			        fd.id AS destination_id, fd.user_id AS destination_user_id,
 			        fd.source_address_id AS destination_source_address_id,

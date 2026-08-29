@@ -76,7 +76,10 @@ class MemoryD1 {
 	private async first<T>(sql: string, args: unknown[]): Promise<T | null> {
 		if (sql.includes('FROM addresses a JOIN domains d')) {
 			const address = this.addresses.get(String(args[0]));
-			return address && address.user_id === String(args[1]) ? (address as T) : null;
+			const domain = address ? this.domains.get(address.domain_id) : null;
+			return address && address.user_id === String(args[1])
+				? ({ ...address, can_send: domain?.sending_enabled ?? 0 } as T)
+				: null;
 		}
 		if (sql.includes('SELECT id FROM addresses WHERE user_id')) {
 			const match = [...this.addresses.values()].find(
@@ -171,6 +174,7 @@ class MemoryD1 {
 			return [...this.addresses.values()]
 				.filter((row) => row.user_id === args[0])
 				.map((address) => {
+					const domain = this.domains.get(address.domain_id);
 					const destination = [...this.destinations.values()].find(
 						(value) => value.user_id === address.user_id && value.source_address_id === address.id
 					);
@@ -179,6 +183,7 @@ class MemoryD1 {
 					);
 					return {
 						...address,
+						can_send: domain?.sending_enabled ?? 0,
 						destination_id: destination?.id ?? null,
 						destination_user_id: destination?.user_id ?? null,
 						destination_source_address_id: destination?.source_address_id ?? null,
@@ -385,6 +390,18 @@ function seedDb() {
 }
 
 describe('automatic forwarding data contract', () => {
+	test('rejects a receive-only source before creating an automatic forwarding destination', async () => {
+		const db = seedDb();
+		db.domains.get('domain-1')!.sending_enabled = 0;
+		await assert.rejects(
+			() =>
+				createOrResetForwardingDestination(db.db(), 'user-1', {
+					sourceAddressId: 'address-1',
+					destination: 'outside@external.example'
+				}),
+			/receive-only/i
+		);
+	});
 	test('normalizes a strict external email address', () => {
 		assert.equal(
 			normalizeForwardingDestination('  Destination@Example.com  '),
@@ -575,7 +592,9 @@ describe('automatic forwarding data contract', () => {
 					})
 				}),
 				locals: { user: { id: 'user-1', name: 'Owner' } },
-				platform: { env: { DB: db.db(), RESEND_API_KEY: 're_test' } },
+				platform: {
+					env: { DB: db.db(), RESEND_API_KEY: 're_test', RESEND_SEND_DOMAINS: 'quickmail.example' }
+				},
 				url: new URL('https://quickmail.example/api/forwarding/destinations')
 			} as Parameters<typeof createForwardingDestinationRoute>[0]);
 			assert.equal(postResponse.status, 201);
@@ -589,7 +608,9 @@ describe('automatic forwarding data contract', () => {
 					body: JSON.stringify({ destination: 'second@outside.example' })
 				}),
 				locals: { user: { id: 'user-1', name: 'Owner' } },
-				platform: { env: { DB: db.db(), RESEND_API_KEY: 're_test' } },
+				platform: {
+					env: { DB: db.db(), RESEND_API_KEY: 're_test', RESEND_SEND_DOMAINS: 'quickmail.example' }
+				},
 				url: new URL(`https://quickmail.example/api/forwarding/rules/${ruleId}`)
 			} as Parameters<typeof patchForwardingRule>[0]);
 			assert.equal(patchResponse.status, 200);

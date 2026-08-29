@@ -27,4 +27,12 @@ describe('generated SvelteKit worker type boundary', () => {
 		assert.match(pkg.scripts.format, /src\/\*\*\/\*\.\{ts,js,svelte\}/);
 		assert.match(pkg.scripts['format:check'], /src\/\*\*\/\*\.\{ts,js,svelte\}/);
 	});
+
+	test('forwards the Resend send allowlist to immediate and scheduled forwarding', () => {
+		assert.equal(
+			(source('src/worker.ts').match(/RESEND_SEND_DOMAINS: env\.RESEND_SEND_DOMAINS/gu) ?? [])
+				.length,
+			2
+		);
+	});
 });

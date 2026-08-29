@@ -1,7 +1,13 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
 import { MAX_SMALL_JSON_BYTES, readJsonBody } from '$lib/server/request-security';
 import { getEmailProvider, ProviderError } from '$lib/server/context';
-import { disconnectDomain, getDomain, setCatchallUser, upsertDomain } from '$lib/server/domains';
+import {
+	disconnectDomain,
+	findMatchingProviderDomain,
+	getDomain,
+	setCatchallUser,
+	upsertDomain
+} from '$lib/server/domains';
 
 /** PATCH — set the catch-all owner or re-sync status from the active provider. */
 export const PATCH: RequestHandler = async ({ params, request, locals, platform }) => {
@@ -23,7 +29,10 @@ export const PATCH: RequestHandler = async ({ params, request, locals, platform 
 	if (body.refresh) {
 		try {
 			const provider = getEmailProvider(platform);
-			const remote = await provider.getDomain(domain.id);
+			const remote = findMatchingProviderDomain(domain, await provider.listDomains());
+			if (!remote) {
+				throw new ProviderError(404, 'domain_not_configured', 'Domain is not configured');
+			}
 			return json({ domain: await upsertDomain(db, remote) });
 		} catch (error) {
 			return json(

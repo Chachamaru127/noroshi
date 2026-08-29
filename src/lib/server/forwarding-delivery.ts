@@ -24,6 +24,7 @@ export type ForwardingDeliveryEnv = {
 	ATTACHMENTS: R2Bucket;
 	EMAIL_PROVIDER?: string;
 	RESEND_API_KEY?: string;
+	RESEND_SEND_DOMAINS?: string;
 	FORWARDING_KILL_SWITCH?: string;
 	FORWARDING_LEASE_MS?: string;
 	waitUntil?: (promise: Promise<void>) => void;
@@ -383,7 +384,7 @@ export async function enqueueAndScheduleForwarding(
 	try {
 		const work = deliverForwardingAttempt(
 			env,
-			createResendProvider(env.RESEND_API_KEY),
+			createResendProvider(env.RESEND_API_KEY, undefined, env.RESEND_SEND_DOMAINS),
 			attempt.id,
 			input.now ?? new Date()
 		);
@@ -409,7 +410,7 @@ export async function runScheduledForwarding(
 		return { processed: 0, skipped: true };
 	}
 	await reconcileSavedForwardingEmails(env.DB, now);
-	const provider = createResendProvider(env.RESEND_API_KEY);
+	const provider = createResendProvider(env.RESEND_API_KEY, undefined, env.RESEND_SEND_DOMAINS);
 	const due = await listDueForwardingAttempts(env.DB, now);
 	let processed = 0;
 	for (const attempt of due) {

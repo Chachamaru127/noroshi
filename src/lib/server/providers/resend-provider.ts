@@ -18,7 +18,8 @@ export function createResendProvider(
 	const client = createResendClient(apiKey);
 	const usesCloudflareInbound = cloudflareInboundDomains !== undefined;
 	const inboundDomains = new Set(parseMailDomains(cloudflareInboundDomains));
-	const sendDomains = new Set(parseMailDomains(resendSendDomains));
+	const configuredSendDomains = parseMailDomains(resendSendDomains);
+	const sendDomains = new Set(configuredSendDomains.length === 1 ? configuredSendDomains : []);
 	const configuredDomains = [...inboundDomains].map((name) => ({
 		id: name,
 		name,
@@ -37,6 +38,10 @@ export function createResendProvider(
 	return {
 		kind: 'resend',
 		async send(input: OutboundMailInput): Promise<OutboundMailResult> {
+			const senderDomain = parseMailDomains(input.from.domain_name)[0];
+			if (!senderDomain || !sendDomains.has(senderDomain)) {
+				throw new ProviderError(503, 'send_domain_not_configured', 'Resend sending is not configured for this domain');
+			}
 			try {
 				const result = await client.send(
 					{

@@ -30,6 +30,7 @@ export type InboundEnv = PushNotificationEnv & {
 	ATTACHMENTS: R2Bucket;
 	EMAIL_PROVIDER?: string;
 	RESEND_API_KEY?: string;
+	RESEND_SEND_DOMAINS?: string;
 	FORWARDING_KILL_SWITCH?: string;
 	FORWARDING_LEASE_MS?: string;
 };
@@ -40,6 +41,7 @@ export function createResendWebhookInboundEnv(platform: App.Platform): InboundEn
 		ATTACHMENTS: platform.env.ATTACHMENTS,
 		EMAIL_PROVIDER: platform.env.EMAIL_PROVIDER,
 		RESEND_API_KEY: platform.env.RESEND_API_KEY,
+		RESEND_SEND_DOMAINS: platform.env.RESEND_SEND_DOMAINS,
 		FORWARDING_KILL_SWITCH: platform.env.FORWARDING_KILL_SWITCH,
 		FORWARDING_LEASE_MS: platform.env.FORWARDING_LEASE_MS,
 		VAPID_PUBLIC_KEY: platform.env.VAPID_PUBLIC_KEY,

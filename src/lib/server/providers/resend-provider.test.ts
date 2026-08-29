@@ -39,7 +39,7 @@ describe('Resend provider with Cloudflare inbound', () => {
 				headers: { 'content-type': 'application/json' }
 			});
 		}) as typeof fetch;
-		const provider = createResendProvider('re_test');
+		const provider = createResendProvider('re_test', undefined, 'quickmail.example');
 		await provider.send({
 			from: {
 				id: 'address', user_id: 'user', domain_id: 'domain', domain_name: 'quickmail.example',
@@ -55,6 +55,36 @@ describe('Resend provider with Cloudflare inbound', () => {
 		});
 		assert.equal(body.reply_to, 'sender@example.net');
 		assert.equal(idempotencyKey, 'quickmail-forward:rule:email');
+	});
+
+	test('rejects a sender outside RESEND_SEND_DOMAINS before a provider call', async () => {
+		let fetchCalls = 0;
+		globalThis.fetch = (async () => {
+			fetchCalls += 1;
+			return new Response(JSON.stringify({ id: 'must-not-send' }));
+		}) as typeof fetch;
+		const provider = createResendProvider('re_test', 'example.com', 'allowed.example');
+		await assert.rejects(
+			provider.send({ from: { domain_name: 'blocked.example' } } as never),
+			/error|configured/i
+		);
+		assert.equal(fetchCalls, 0);
+	});
+
+	test('rejects every send when zero or multiple Resend send domains are configured', async () => {
+		let fetchCalls = 0;
+		globalThis.fetch = (async () => {
+			fetchCalls += 1;
+			return new Response('{}');
+		}) as typeof fetch;
+		for (const configured of ['', 'one.example,two.example']) {
+			const provider = createResendProvider('re_test', undefined, configured);
+			await assert.rejects(
+				provider.send({ from: { domain_name: 'one.example' } } as never),
+				/configured/i
+			);
+		}
+		assert.equal(fetchCalls, 0);
 	});
 
 	test('reports a send-only Resend domain as receivable when Email Routing owns inbound', async () => {

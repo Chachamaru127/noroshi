@@ -133,6 +133,9 @@ export const POST: RequestHandler = async ({ params, request, locals, platform }
 	const fromAddress = body.fromAddressId
 		? undefined
 		: await resolveReplyFromAddress(db, locals.user, original);
+	if (!body.fromAddressId && !fromAddress) {
+		return json({ error: 'This address is receive-only. Replies are disabled.' }, { status: 400 });
+	}
 
 	try {
 		const provider = getEmailProvider(platform);

@@ -61,6 +61,8 @@ export type MailAddress = {
 	domain_id: string;
 	domain_name: string;
 	address: string;
+	/** Whether this domain is authorized for outbound mail in the active provider. */
+	can_send?: boolean;
 	/** From display name on outbound mail. Falls back to the account name. */
 	label: string | null;
 	is_default: boolean;

@@ -82,7 +82,9 @@
 	let signatureSaved = $state(false);
 
 	let forwarding = $state<ForwardingItem[]>(untrack(() => data.forwarding as ForwardingItem[]));
-	let forwardingSourceId = $state(untrack(() => data.addresses[0]?.id ?? ''));
+	let forwardingSourceId = $state(
+		untrack(() => data.addresses.find((address) => address.can_send !== false)?.id ?? '')
+	);
 	let forwardingDestination = $state(
 		untrack(() => data.forwarding[0]?.destination?.destination_address ?? '')
 	);
@@ -798,7 +800,7 @@
 					onchange={(event) => selectForwardingSource(event.currentTarget.value)}
 				>
 					{#each forwarding as item (item.source_address.id)}
-						<option value={item.source_address.id}>{item.source_address.address}</option>
+						<option value={item.source_address.id} disabled={item.source_address.can_send === false}>{item.source_address.address}{item.source_address.can_send === false ? '（受信専用）' : ''}</option>
 					{/each}
 				</select>
 			</div>

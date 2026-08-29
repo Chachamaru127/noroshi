@@ -11,6 +11,8 @@ import {
 	parseProviderCollection,
 	assertResourceNameAvailable,
 	configureSetupTemplate,
+	markVerifiedResendSendDomain,
+	persistVerifiedResendSendDomain,
 	generateBootstrapSecret,
 	providerIdentityFingerprint,
 	removeAddresses,
@@ -32,6 +34,38 @@ const base = `{
 const resendKey = (label) => ['re', label, 'abcdefghijklmnopqrstuvwxyz'].join('_');
 
 describe('setup provider config transforms', () => {
+	test('records a verified Resend send domain without changing other resources', () => {
+		const source =
+			'{\n\t"vars": {\n\t\t"RESEND_SEND_DOMAINS": ""\n\t},\n\t"database_id": "keep-me"\n}\n';
+		const configured = markVerifiedResendSendDomain(source, 'EXAMPLE.COM');
+		assert.match(configured, /"RESEND_SEND_DOMAINS": "example\.com"/u);
+		assert.match(configured, /"database_id": "keep-me"/u);
+	});
+	test('persists verified-domain metadata only after attestation to the production config', () => {
+		let source = '{"vars":{"RESEND_SEND_DOMAINS":""}}';
+		assert.equal(
+			persistVerifiedResendSendDomain({
+				domainOk: true,
+				domain: 'EXAMPLE.COM',
+				read: () => source,
+				write: (next) => {
+					source = next;
+				}
+			}),
+			true
+		);
+		assert.match(source, /"RESEND_SEND_DOMAINS":"example\.com"/u);
+		assert.throws(() =>
+			persistVerifiedResendSendDomain({
+				domainOk: true,
+				domain: 'example.com',
+				read: () => source,
+				write: () => {
+					throw new Error('disk unavailable');
+				}
+			})
+		);
+	});
 	test('points setup completion only at the deployed URL', () => {
 		const setup = readFileSync(new URL('./setup.mjs', import.meta.url), 'utf8');
 		assert.match(

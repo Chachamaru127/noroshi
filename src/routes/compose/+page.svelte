@@ -15,7 +15,9 @@
 
 	const addresses = $derived(data.addresses);
 	const defaultAddressId = $derived(
-		addresses.find((address) => address.is_default)?.id ?? addresses[0]?.id ?? ''
+		addresses.find((address) => address.is_default && address.can_send !== false)?.id ??
+			addresses.find((address) => address.can_send !== false)?.id ??
+			''
 	);
 
 	// Falls back to the default identity until the composer picks another.
@@ -172,7 +174,7 @@
 			<h1 class="page-title">{title}</h1>
 			{#if savedAt}<span class="saved">保存済み {savedAt}</span>{/if}
 		</div>
-		<button type="submit" class="btn-primary" disabled={sending}>
+		<button type="submit" class="btn-primary" disabled={sending || !fromAddressId}>
 			{sending ? '送信中…' : '送信'}
 		</button>
 	</header>
@@ -208,11 +210,18 @@
 					<Icon name="delete-bin-line" size={15} />
 				</button>
 			{/if}
-			<button type="submit" class="btn-primary" disabled={sending}>
+			<button type="submit" class="btn-primary" disabled={sending || !fromAddressId}>
 				<Icon name="send-plane-2-fill" size={16} />
 				{sending ? '送信中…' : '送信'}
 			</button>
 		</div>
+		{#if !fromAddressId}
+			<p class="field-help">
+				送信可能な差出人がありません。現在のアドレスは受信専用です。<a href="/settings"
+					>設定を確認</a
+				>
+			</p>
+		{/if}
 	</header>
 
 	<div class="surface compose-fields">
@@ -227,8 +236,8 @@
 					aria-label="差出人を選択"
 				>
 					{#each addresses as address (address.id)}
-						<option value={address.id}>
-							{address.label ? `${address.label} · ${address.address}` : address.address}
+						<option value={address.id} disabled={address.can_send === false}>
+							{address.label ? `${address.label} · ${address.address}` : address.address}{address.can_send === false ? '（受信専用）' : ''}
 						</option>
 					{/each}
 				</select>
@@ -236,7 +245,9 @@
 				<span class="field-static">
 					{addresses[0]?.label
 						? `${addresses[0].label} · ${addresses[0].address}`
-						: (addresses[0]?.address ?? '—')}
+						: (addresses[0]?.address ?? '—')}{addresses[0]?.can_send === false
+						? '（受信専用）'
+						: ''}
 				</span>
 			{/if}
 		</div>

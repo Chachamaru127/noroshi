@@ -54,7 +54,8 @@ test('deploys only the domain-restricted sending credential', () => {
 });
 
 test('records Resend send-domain metadata only after verified setup attestation', () => {
-	assert.match(source, /if \(resend\.domainOk\) \{[\s\S]*RESEND_SEND_DOMAINS/u);
+	assert.match(source, /persistVerifiedResendSendDomain\(\{[\s\S]*domainOk: resend\.domainOk/u);
+	assert.match(source, /CLOUDFLARE_MAIL_DOMAINS: domain,[\s\S]*RESEND_SEND_DOMAINS: ''/u);
 	assert.doesNotMatch(
 		source,
 		/CLOUDFLARE_MAIL_DOMAINS:\s*domain,[\s\S]{0,100}RESEND_SEND_DOMAINS:\s*domain/u

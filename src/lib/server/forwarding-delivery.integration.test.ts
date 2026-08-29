@@ -147,6 +147,7 @@ describe('automatic forwarding MVP D1 integration', () => {
 				ATTACHMENTS: bucket(null),
 				EMAIL_PROVIDER: 'resend',
 				RESEND_API_KEY: 'test-key',
+				RESEND_SEND_DOMAINS: 'quickmail.example',
 				FORWARDING_KILL_SWITCH: '0',
 				FORWARDING_LEASE_MS: '30000'
 			},

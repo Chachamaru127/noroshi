@@ -26,7 +26,8 @@ import {
 	parseProviderCollection,
 	assertResourceNameAvailable,
 	providerIdentityFingerprint,
-	selectExactProviderIdentity
+	selectExactProviderIdentity,
+	persistVerifiedResendSendDomain
 } from './setup-config.mjs';
 import {
 	createOpaqueSecret,
@@ -966,7 +967,8 @@ async function main() {
 	const devVars = {
 		EMAIL_PROVIDER: 'resend',
 		INBOUND_EMAIL_PROVIDER: 'cloudflare',
-		CLOUDFLARE_MAIL_DOMAINS: domain
+		CLOUDFLARE_MAIL_DOMAINS: domain,
+		RESEND_SEND_DOMAINS: ''
 	};
 	upsertEnvFile(devVarsFile, devVars, { fromExample: true });
 	ok('.dev.varsを更新しました');
@@ -982,9 +984,14 @@ async function main() {
 	let resend = { setupCredential: null, webhookConfigured: false, domainOk: false };
 	await setupCloudflare(domain);
 	resend = await setupResend(domain);
-	if (resend.domainOk) {
-		writeWrangler(setFirstString(readWrangler(), 'RESEND_SEND_DOMAINS', domain));
-		upsertEnvFile(devVarsFile, { RESEND_SEND_DOMAINS: domain });
+	if (
+		persistVerifiedResendSendDomain({
+			domainOk: resend.domainOk,
+			domain,
+			read: readWrangler,
+			write: writeWrangler
+		})
+	) {
 		ok('Resend送信を検証済みドメインとして記録しました');
 	}
 

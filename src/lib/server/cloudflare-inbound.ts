@@ -27,6 +27,7 @@ export type CloudflareInboundEnv = PushNotificationEnv & {
 	ATTACHMENTS: R2Bucket;
 	EMAIL_PROVIDER?: string;
 	RESEND_API_KEY?: string;
+	RESEND_SEND_DOMAINS?: string;
 	FORWARDING_KILL_SWITCH?: string;
 	FORWARDING_LEASE_MS?: string;
 };

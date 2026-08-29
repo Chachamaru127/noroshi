@@ -6,6 +6,23 @@ export function setFirstString(source, key, value) {
 	return source.replace(new RegExp(`("${key}"\\s*:\\s*")[^"]*(")`), `$1${value}$2`);
 }
 
+export function markVerifiedResendSendDomain(source, domain) {
+	const normalized = String(domain).trim().toLowerCase();
+	if (!/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/u.test(normalized)) {
+		throw new Error('verified Resend domain is invalid');
+	}
+	if (!/"RESEND_SEND_DOMAINS"\s*:\s*"[^"]*"/u.test(source)) {
+		throw new Error('RESEND_SEND_DOMAINS is missing from the setup template');
+	}
+	return setFirstString(source, 'RESEND_SEND_DOMAINS', normalized);
+}
+
+export function persistVerifiedResendSendDomain({ domainOk, domain, read, write }) {
+	if (!domainOk) return false;
+	write(markVerifiedResendSendDomain(read(), domain));
+	return true;
+}
+
 export function setRoutes(source, hostname) {
 	const active = /\n\t"routes": \[[\s\S]*?\n\t\],?\n/;
 	if (!hostname) return source.replace(active, '\n');

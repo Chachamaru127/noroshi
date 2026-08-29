@@ -21,6 +21,7 @@ type AddressRow = {
 	domain_id: string;
 	domain_name: string;
 	address: string;
+	can_send: number;
 	label: string | null;
 	is_default: number;
 	signature: string | null;
@@ -48,6 +49,7 @@ function mapAddress(row: AddressRow): MailAddress {
 		domain_id: row.domain_id,
 		domain_name: row.domain_name,
 		address: row.address,
+		can_send: row.can_send === 1,
 		label: row.label,
 		is_default: row.is_default === 1,
 		signature: row.signature,
@@ -84,11 +86,23 @@ export async function getDomainByName(db: D1Database, name: string): Promise<Dom
 	return row ? mapDomain(row) : null;
 }
 
+export function findMatchingProviderDomain(
+	connected: Pick<Domain, 'id' | 'name'>,
+	remote: ProviderDomain[]
+): ProviderDomain | undefined {
+	return remote.find(
+		(domain) =>
+			domain.id === connected.id || domain.name.toLowerCase() === connected.name.toLowerCase()
+	);
+}
+
 /**
  * Connect (or refresh) a provider domain. Keyed on the provider domain id so
  * re-running is safe and picks up newly verified DNS.
  */
 export async function upsertDomain(db: D1Database, domain: ProviderDomain): Promise<Domain> {
+	const existingByName = await getDomainByName(db, domain.name.toLowerCase());
+	const stableId = existingByName?.id ?? domain.id;
 	await db
 		.prepare(
 			`INSERT INTO domains (id, name, status, region, sending_enabled, receiving_enabled, synced_at)
@@ -102,7 +116,7 @@ export async function upsertDomain(db: D1Database, domain: ProviderDomain): Prom
 				synced_at = excluded.synced_at`
 		)
 		.bind(
-			domain.id,
+			stableId,
 			domain.name.toLowerCase(),
 			domain.status,
 			domain.region ?? null,
@@ -111,7 +125,7 @@ export async function upsertDomain(db: D1Database, domain: ProviderDomain): Prom
 		)
 		.run();
 
-	const saved = await getDomain(db, domain.id);
+	const saved = await getDomain(db, stableId);
 	if (!saved) throw new Error('Failed to connect domain');
 	return saved;
 }
@@ -137,10 +151,8 @@ export async function syncDomains(db: D1Database, provider: EmailProvider): Prom
 	if (connected.length === 0) return [];
 
 	const remote = await provider.listDomains();
-	const byId = new Map(remote.map((domain) => [domain.id, domain]));
-
 	for (const domain of connected) {
-		const match = byId.get(domain.id);
+		const match = findMatchingProviderDomain(domain, remote);
 		if (match) {
 			await upsertDomain(db, match);
 		} else {
@@ -163,6 +175,7 @@ export async function syncDomains(db: D1Database, provider: EmailProvider): Prom
 /* -------------------------------------------------------------------------- */
 
 const ADDRESS_SELECT = `SELECT a.id, a.user_id, a.domain_id, d.name AS domain_name, a.address,
+	d.sending_enabled AS can_send,
 	a.label, a.is_default, a.signature, a.created_at
 	FROM addresses a JOIN domains d ON d.id = a.domain_id`;
 

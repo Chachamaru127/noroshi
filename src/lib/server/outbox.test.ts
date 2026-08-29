@@ -18,6 +18,7 @@ type AddressRow = {
 	domain_id: string;
 	domain_name: string;
 	address: string;
+	can_send?: number;
 	label: string | null;
 	is_default: number;
 	signature: string | null;
@@ -72,6 +73,7 @@ const defaultAddress: AddressRow = {
 	domain_id: 'dom-1',
 	domain_name: 'example.com',
 	address: 'ada@example.com',
+	can_send: 1,
 	label: 'Office',
 	is_default: 1,
 	signature: null,
@@ -85,6 +87,20 @@ const inbound = {
 };
 
 describe('resolveReplyFromAddress', () => {
+	test('does not reply from an exact receive-only mailbox or silently rewrite it', async () => {
+		const receiveOnly = {
+			...defaultAddress,
+			id: 'receive-only',
+			address: 'hello@example.com',
+			can_send: 0
+		};
+		const identity = await resolveReplyFromAddress(
+			mockDb({ addresses: [defaultAddress, receiveOnly], domains: [] }),
+			user,
+			inbound
+		);
+		assert.equal(identity, null);
+	});
 	test('uses the saved mailbox and its From name', async () => {
 		const hello: AddressRow = {
 			...defaultAddress,

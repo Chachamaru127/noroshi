@@ -134,6 +134,15 @@ describe('QuickMail-ja Japanese UI contract', () => {
 		assert.match(thread, /deliveryFailureMessage\(message\.status\)/);
 	});
 
+	test('labels receive-only compose and reply states instead of offering a send action', () => {
+		const compose = source('src/routes/compose/+page.svelte');
+		assert.match(compose, /disabled=\{sending \|\| !fromAddressId\}/);
+		assert.match(compose, /受信専用です。<a href="\/settings"/);
+		const detail = source('src/routes/mail/[id]/+page.svelte');
+		assert.match(detail, /disabled=\{!data\.replyFrom\}/);
+		assert.match(detail, /返信できません（受信専用）/);
+	});
+
 	test('keeps visible fallback copy Japanese across mail surfaces', () => {
 		const mailbox = source('src/lib/components/MailboxView.svelte');
 		assert.match(mailbox, /participant\.self \? '自分'/);

@@ -194,10 +194,12 @@
 			<button
 				type="button"
 				class="btn-primary reply-launch"
+				disabled={!data.replyFrom}
+				title={!data.replyFrom ? 'このアドレスは受信専用です' : undefined}
 				onclick={() => (replyOpen = !replyOpen)}
 			>
 				<Icon name="reply-line" size={16} />
-				{replyOpen ? '閉じる' : '返信'}
+				{data.replyFrom ? (replyOpen ? '閉じる' : '返信') : '受信専用'}
 			</button>
 		</div>
 	</header>
@@ -253,7 +255,7 @@
 					<button type="button" class="btn-ghost" onclick={() => (replyOpen = false)}>
 						キャンセル
 					</button>
-					<button type="submit" class="btn-primary" disabled={sending}>
+					<button type="submit" class="btn-primary" disabled={sending || !data.replyFrom}>
 						<Icon name="send-plane-2-fill" size={16} />
 						{sending ? '送信中…' : '送信'}
 					</button>
@@ -265,9 +267,15 @@
 			{/if}
 		</form>
 	{:else}
-		<button type="button" class="reply-prompt" onclick={() => (replyOpen = true)}>
+		<button
+			type="button"
+			class="reply-prompt"
+			disabled={!data.replyFrom}
+			title={!data.replyFrom ? 'このアドレスは受信専用です' : undefined}
+			onclick={() => (replyOpen = true)}
+		>
 			<Icon name="reply-line" size={15} />
-			返信
+			{data.replyFrom ? '返信' : '返信できません（受信専用）'}
 		</button>
 	{/if}
 </div>

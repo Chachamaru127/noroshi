@@ -50,6 +50,9 @@ export async function resolveFromAddress(
 	if (!address) {
 		throw new Error('No sending address configured. Add one in Settings first.');
 	}
+	if (address.can_send === false) {
+		throw new Error('This address is receive-only. Choose a sending address.');
+	}
 
 	return address;
 }
@@ -73,12 +76,12 @@ export async function resolveReplyFromAddress(
 
 	const owned = await listAddressesForUser(db, user.id);
 	const exact = owned.find((address) => address.address.toLowerCase() === mailbox);
-	if (exact) return exact;
+	if (exact) return exact.can_send === false ? null : exact;
 
 	const domainName = mailbox.split('@')[1];
 	const domain = domainName ? await getDomainByName(db, domainName) : null;
 	const canSendOnDomain =
-		domain &&
+		domain?.sending_enabled &&
 		(domain.catchall_user_id === user.id ||
 			owned.some((address) => address.domain_id === domain.id));
 
@@ -96,7 +99,11 @@ export async function resolveReplyFromAddress(
 		};
 	}
 
-	return getDefaultAddress(db, user.id);
+	return (
+		owned.find((address) => address.is_default && address.can_send !== false) ??
+		owned.find((address) => address.can_send !== false) ??
+		null
+	);
 }
 
 /** Send through the configured provider, then record it in the Sent folder. */
@@ -108,6 +115,7 @@ export async function sendAndStore(
 ): Promise<{ emailId: string; providerId: string; from: MailAddress }> {
 	// resolveFromAddress scopes the lookup to this user, so ownership is implied.
 	const from = input.fromAddress ?? (await resolveFromAddress(env.DB, user, input.fromAddressId));
+	if (from.can_send === false) throw new Error('This address is receive-only. Choose a sending address.');
 
 	const bodyHtml = input.html?.trim() || null;
 	const bodyText = input.text?.trim() || (bodyHtml ? stripHtml(bodyHtml) : '');

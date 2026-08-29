@@ -139,7 +139,7 @@ After: the existing deployment remains the production downstream. QuickMail-ja c
 
 ## Next roadmap — Japanese setup distribution, Agent Plugin, and UI direction
 
-Status: QMJ-6, QMJ-6A, QMJ-6B, and QMJ-7 are complete locally. QMJ-11A has a guidance-only packaging increment in progress. QMJ-8A, QMJ-8B, QMJ-9, QMJ-10, and QMJ-11B are not implemented. Public release remains HOLD.
+Status: QMJ-6, QMJ-6A, QMJ-6B, QMJ-7, QMJ-8A, and QMJ-9 are complete locally. QMJ-8B runs in parallel and remains a release dependency. QMJ-10 and QMJ-11B are not implemented. Public release remains HOLD.
 
 ### Product decision
 
@@ -330,12 +330,15 @@ Binary DoD:
 Evidence:
 
 - Integrated setup hardening `25da541` as `0dadf4d`, runtime request hardening through `cf546f1`, release supply-chain evidence `a2f7b8d` as `42c64eb`, distribution contract `de09c65`, and final review corrections `6f8f0dc`.
-- `bun test`: 377 passed, 0 failed. `bun run test:d1-forwarding`: passed.
+- `bun test`: 392 passed, 0 failed. `bun run test:d1-forwarding`: passed.
 - `bun run check`: 0 errors, 0 warnings. `bun run format:check`, `bun run check:clean`, `bun run build`, and `git diff --check`: passed.
 - Bun 1.3.14 is enforced before normal and local-dev setup; install remains frozen. Runtime secrets use native Worker secret prompts or the bounded local child-process path and are absent from `.dev.vars`.
 - Resend send-domain metadata starts empty and is written only after exact verified-domain selection and domain-scoped sending-key attestation. Cloudflare inbound metadata alone cannot mark a domain sendable.
 - Local development can discover the configured Cloudflare inbound domain and create the first administrator without a Resend credential or provider call; compose/send remains fail-closed until Resend is configured. Production provider behavior is unchanged.
 - The clean-clone local path requires an explicit, syntax-validated `--domain` outside a TTY, strips inherited Resend credentials at both environment boundaries, and labels both wizard steps receive-only. Unexpected setup errors return a fixed message without leaking internal details.
+- Existing deployments use an explicit pre-deploy upgrade gate: one named send domain, an existing runtime Resend key, an operator attestation that the key is restricted to that domain, and an opaque `AUTH_RATE_LIMIT_SECRET` readback are all required. Multiple inbound domains remain supported; multiple outbound keys/domains are deferred beyond QMJ-9. Missing evidence stops before deployment.
+- Resend sends fail before a provider call unless the normalized From domain is allowlisted. The allowlist reaches webhook, Cloudflare Email Routing, and scheduled forwarding paths; rerunning setup clears stale local send authorization before a new attestation.
+- Legacy Resend UUID domain rows reconcile and refresh by normalized domain name while retaining the stored ID and its foreign-key identity.
 - Independent security and product re-reviews returned APPROVE with no unresolved P0/P1. No provider, network, deploy, DNS, billing, or external-send call was made.
 
 #### QMJ-10 — Provider-neutral inspect/plan/apply engine
