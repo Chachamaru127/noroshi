@@ -1,0 +1,7 @@
+{
+	"quickmail-ja-setup-engine": {
+		"command": "node",
+		"args": ["scripts/setup-plugin-mcp.mjs"],
+		"cwd": "."
+	}
+}

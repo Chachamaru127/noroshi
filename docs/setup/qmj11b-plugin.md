@@ -8,7 +8,7 @@
 
 ## パッケージ構成
 
-このリリースのルートは Agent Plugins 1.0 のportable配布形である。これはOpenAI Codex CLIのネイティブなローカルmarketplace形式とは別の配布面である。Codex CLIの現行公式形式では、プラグイン側に `.codex-plugin/plugin.json` と、必要に応じてルートの `.mcp.json` を置き、marketplace側に `.agents/plugins/marketplace.json` を置く。rootの `plugin.json` と `mcp.json` だけでは、Codex CLIのローカルmarketplaceとして発見されない。
+このリリースのルートは Agent Plugins 1.0 のportable配布形である。これはOpenAI Codex CLIのネイティブなローカルmarketplace形式とは別の配布面である。Codex CLIの現行公式形式では、プラグイン側に `.codex-plugin/plugin.json` と、必要に応じてルートの `.mcp.json` を置き、marketplace側に `.agents/plugins/marketplace.json` を置く。rootの `plugin.json` と `mcp.json` だけでは、Codex CLIのローカルmarketplaceとして発見されない。このリポジトリでは、native adapterを `.agents/plugins/quickmail-ja-setup/` に同梱し、portable packageと並存させている。
 
 - `plugin.json`: Agent Plugins 1.0の公式マニフェスト。カスタム拡張には capability registry の参照と、メールボックス権限が全て `false` であることだけを記録する。
 - `skills/quickmail-ja-operations/SKILL.md`: QMJ-10 の `inspect → plan → approve → apply → readback → verify` を日本語で案内する正本 operations Skill。
@@ -16,7 +16,9 @@
 - `mcp.json`: Agent Plugins 1.0形式の任意コンポーネントとして、ローカルの狭い QMJ-10 操作だけを stdio で公開する。メールボックス MCP とは物理的に別である。OpenAI Codex CLIへnative installする場合は、別形式のルート `.mcp.json` adapterが必要になる。
 - `setup/plugin-capabilities.json`: `setup/capabilities.json` と QMJ-10 の固定 step contract から生成した射影。公開 capability と provider operation は空である。
 - `adapters/claude/`: Agent Plugins 1.0 と別形式の Claude ネイティブアダプター。portable package の自動発見を意味しない。
-- `adapters/openai/`: Codex / ChatGPT の公式サポート面と、未検証状態を記録する案内。
+- `.agents/plugins/marketplace.json`: Codex CLI / ChatGPTデスクトップが読むrepo marketplace catalog。Agent Plugin ZIPへは含めない。
+- `.agents/plugins/quickmail-ja-setup/`: Codex native manifest、MCP、operations Skill、BYOK setup Skillと参照資料を含むself-contained adapter。canonical portable sourceから生成・一致検証する。
+- `adapters/openai/`: Codex / ChatGPT の公式サポート面と検証範囲を記録する案内。
 
 MCP のツール一覧は次の6つに固定する。
 
@@ -39,8 +41,8 @@ MCP のツール一覧は次の6つに固定する。
 - [Agent Plugins plugin schema 1.0.0](https://agent-plugins.org/schemas/1.0.0/plugin.schema.json) — ルート manifest の必須キー、名前制約、追加キー拒否を確認。
 - [Agent Plugins MCP schema 1.0.0](https://agent-plugins.org/schemas/1.0.0/mcp.schema.json) — MCP server の transport とパス制約を確認。
 - 公式ライセンスの [Agent Plugins LICENSE.md](https://github.com/agentplugins/agent-plugins-spec/blob/main/LICENSE.md) — schemas は Apache-2.0 と記載されている。取得した原文のハッシュと provenance は `docs/setup/vendor/agent-plugins/1.0.0/NOTICE.md` に固定した。
-- [OpenAI Codex plugins](https://developers.openai.com/codex/plugins) — 2026-08-29 に確認。Codex CLIは設定済みmarketplaceからplugin browserで導入し、導入後は新しいsessionを開始する。任意のcloneだけで自動インストールできるとは確認していない。
-- [OpenAI plugin packaging and local marketplaces](https://developers.openai.com/plugins/build/plugins) — 2026-08-29 に確認。Codex native pluginの `.codex-plugin/plugin.json`、ルート `.mcp.json`、repo marketplaceの `.agents/plugins/marketplace.json`、CLIの `codex plugin marketplace add` / `codex plugin add` を確認した。
+- [OpenAI Codex plugins](https://developers.openai.com/codex/plugins) — 2026-08-30 に確認。Codex CLIは設定済みmarketplaceからplugin browserで導入し、導入後は新しいsessionを開始する。
+- [OpenAI plugin packaging and local marketplaces](https://developers.openai.com/plugins/build/plugins) — 2026-08-30 に確認。Codex native pluginの `.codex-plugin/plugin.json`、ルート `.mcp.json`、repo marketplaceの `.agents/plugins/marketplace.json`、CLIの `codex plugin marketplace add` / `codex plugin add` を確認した。
 - [OpenAI plugins repository](https://github.com/openai/plugins) と [portable Agent Plugins support](https://github.com/openai/codex/commit/2b5bdcf67547860f2e5c5a605009a70026796b2b) — Codex source commit `2b5bdcf67547860f2e5c5a605009a70026796b2b`（2026-08-02）を、2026-08-29 に確認。Codex 側のAgent Plugins 1.0.0 portable root処理の実装資料として参照した。これは Codex の source commit であり、commit metadata にアプリの release version はないため、version を断定しない。現在のOpenAI公式のnative plugin形式（`.codex-plugin/plugin.json`）と、Agent Plugins 1.0.0のportable root形式を混同しない。
 - [Anthropic Claude plugins](https://code.claude.com/docs/en/plugins)、[Claude plugin help](https://support.claude.com/en/articles/13837440-use-plugins-in-claude)、[Claude Skills help](https://support.claude.com/en/articles/12512180-use-skills-in-claude) — 2026-08-29 に確認。Claude は `.claude-plugin/plugin.json` と Skill upload / local plugin の別形式であるため、Agent Plugins 1.0 の自動互換とは表現しない。
 - [Agent Skills specification](https://agentskills.io/specification) — 2026-08-29 に確認。Skill の frontmatter をファイル先頭に置く契約を確認。
@@ -49,9 +51,9 @@ MCP のツール一覧は次の6つに固定する。
 
 ### Codex / ChatGPT
 
-ルートの `plugin.json`、`skills/`、`mcp.json` が Agent Plugins 1.0のportable sourceである。Codex CLI 0.149.1の一時クリーンプロファイルで、ルートを直接 `codex plugin marketplace add <repo-root>` すると `marketplace root does not contain a supported manifest` で停止した。公式native形式の一時fixture（`.codex-plugin/plugin.json`、ルート `.mcp.json`、`.agents/plugins/marketplace.json`）ではmarketplace追加、available表示、`codex plugin add`、installed/enabled表示、MCP stdio initializeまで成功した。したがって、現在のroot packageをCodex CLIが直接発見することは未対応であり、Codex native adapterの同梱が残る。
+ルートの `plugin.json`、`skills/`、`mcp.json` が Agent Plugins 1.0のportable sourceである。Codex native sourceは `.agents/plugins/marketplace.json` と `.agents/plugins/quickmail-ja-setup/` に分離している。Codex CLI 0.149.1の一時クリーンプロファイルで、`codex plugin marketplace add <repo-root>`、`codex plugin list --available`、`codex plugin add quickmail-ja-setup@quickmail-ja`、installed/enabled表示、cache上のBYOK setup Skill確認、MCP stdio initialize、tools/list、`setup_apply` blockedまで成功した。
 
-Codex CLIの確認はアカウントログインなしで行った。provider、DNS、メール、秘密値、外部送信は扱っていない。ChatGPTデスクトップは、公式のPlugins Directoryでlocal/repo marketplaceを選択してインストールし、再起動後の新規チャットで確認する別gateである。Agent Plugin ZIPの導入後に利用できる範囲は、同梱した非接続のoperations SkillとBYOK guidance Skillである。
+Codex CLIの確認はアカウントログインなしで行った。一時 `HOME` / `CODEX_HOME`を使ったため、既存global configは変更されていない。provider、DNS、メール、秘密値、外部送信は扱っていない。ChatGPTデスクトップは、公式のPlugins Directoryでlocal/repo marketplaceを選択してインストールし、再起動後の新規チャットで確認する別gateである。Agent Plugin ZIPの導入後に利用できる範囲は、同梱した非接続のoperations SkillとBYOK guidance Skillである。
 
 ### Claude Code / Desktop / Web
 
@@ -67,6 +69,8 @@ Codex CLIの確認はアカウントログインなしで行った。provider、
 bun scripts/agent-plugin.mjs check
 bun scripts/agent-plugin.mjs write
 node scripts/generate-claude-adapter.mjs --check
+bun run check:codex-native-adapter
+bun test scripts/codex-native-adapter.test.mjs
 bun test scripts/agent-plugin.test.mjs
 bun scripts/agent-plugin.mjs package
 ```

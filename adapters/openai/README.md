@@ -2,7 +2,7 @@
 
 このリポジトリのルートは、Agent Plugins 1.0のportable packageである。`plugin.json`、`skills/`、`mcp.json`を別の独自manifestへ変換しない。Agent Plugin ZIPにはQMJ-10 operations Skillと、参照資料を含むcanonical BYOK setup Skillを同梱する。
 
-ただし、OpenAI Codex CLIのローカルmarketplaceは別のネイティブ配布面である。現行の公式ドキュメントは、プラグイン側に `.codex-plugin/plugin.json` と、必要に応じてルートの `.mcp.json` を置き、marketplace側に `.agents/plugins/marketplace.json` を置く形式を定義している。したがって、このリポジトリのルートにあるAgent Plugins 1.0形式だけで、Codex CLIのmarketplaceへ自動発見されるとは扱わない。Codex用のネイティブadapterが別途必要である。
+ただし、OpenAI Codex CLIのローカルmarketplaceは別のネイティブ配布面である。現行の公式ドキュメントは、プラグイン側に `.codex-plugin/plugin.json` と、必要に応じてルートの `.mcp.json` を置き、marketplace側に `.agents/plugins/marketplace.json` を置く形式を定義している。リポジトリにはこの形式のadapterを `.agents/plugins/quickmail-ja-setup/` として同梱し、portable packageとは別の配布経路にしている。
 
 このファイルはプロバイダー接続アダプターではない。Cloudflare、Resend、DNS、メールボックス、QuickMail管理のツールや認証情報を追加しない。cloneだけでインストールされる、またはすべてのChatGPT画面で利用できるとは主張しない。
 
@@ -10,13 +10,16 @@
 
 ## 状態
 
-Codex CLI 0.149.1の一時クリーンプロファイルで、次を実測した（2026-08-29）。
+Codex CLI 0.149.1の一時クリーンプロファイルで、次を実測した（2026-08-30）。
 
-- `codex plugin marketplace add <repo-root>` は、`marketplace root does not contain a supported manifest` で終了した。現リポジトリにはCodex CLIがmarketplaceとして読むカタログがないためである。
-- 公式形式の一時fixture（`.codex-plugin/plugin.json`、ルート`.mcp.json`、`.agents/plugins/marketplace.json`）では、marketplace追加、`quickmail-ja-setup`のavailable表示、`codex plugin add`、installed/enabled表示まで成功した。インストール先は公式のcache配下であった。
-- 同fixtureのMCPプロセスは、ローカルのstdio initialize応答まで確認した。provider、DNS、メール、秘密値、外部送信は扱っていない。
+- `codex plugin marketplace add <repo-root>` でこのリポジトリの `.agents/plugins/marketplace.json` を登録できた。
+- `codex plugin list --available` で `quickmail-ja-setup@quickmail-ja` とBYOK setup Skillを含むnative pluginを発見し、`codex plugin add` 後にinstalled/enabled表示まで成功した。インストール先は公式のcache配下であった。
+- インストール済みcacheの同じMCPコマンドでstdio initializeとtools/listを確認し、`setup_apply` は `provider_adapter_unavailable` で停止した。provider、DNS、メール、秘密値、外部送信は扱っていない。
+- 一時 `HOME` / `CODEX_HOME`だけを使い、既存のglobal configはハッシュが変わらないことを確認した。
 
-これは現在のリポジトリをCodex CLIへ導入できた証明ではない。QMJ-11BのCodex CLI discovery gateは「root packageの直接導入: FAIL」「公式native adapter fixture: PASS」「リポジトリにnative adapterを同梱: 未完了」である。ChatGPTデスクトップのlocal marketplaceは、公式のPlugins Directoryでmarketplaceを選択し、再起動後にインストールする別のUI確認が必要である。MCPが利用できない場合は、portable Skillを公式のアップロード導線で登録し、ブラウザレスの手動チェックリストを使う。
+QMJ-11BのCodex CLI discovery gateは「portable rootをmarketplaceとして直接扱う: 不可」「リポジトリnative adapter: PASS」「一時クリーンプロファイルのinstall/enabled/MCP smoke: PASS」である。Codex CLIでは、marketplace登録後に新しいsessionを開始する。ChatGPTデスクトップのlocal marketplaceは、公式のPlugins Directoryでmarketplaceを選択し、再起動後にインストールする別のUI確認が必要である。MCPが利用できない場合は、portable Skillを公式のアップロード導線で登録し、ブラウザレスの手動チェックリストを使う。
+
+native adapterのSkillとSetup MCPランタイムは、canonical portable sourceから `bun run generate:codex-native-adapter` で同期し、`bun run check:codex-native-adapter` で一致を検証する。同期スクリプトはローカルファイルを生成するだけで、インストール、更新daemon、認証、外部通信を行わない。`.agents/plugins/` のnative marketplace metadataはAgent Plugin ZIPのallowlistに含めない。
 
 ## 一次資料
 

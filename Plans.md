@@ -139,7 +139,7 @@ After: the existing deployment remains the production downstream. QuickMail-ja c
 
 ## Next roadmap — Japanese setup distribution, Agent Plugin, and UI direction
 
-Status: QMJ-6, QMJ-6A, QMJ-6B, QMJ-7, QMJ-8A, and QMJ-9 are complete locally. QMJ-8B runs in parallel and remains a release dependency. QMJ-10 provider-neutral local engine and QMJ-11B local portable Agent Plugin package (operations plus canonical BYOK guidance Skill) are implemented; real provider adapters and clean-profile host discovery remain unverified. Public release remains HOLD.
+Status: QMJ-6, QMJ-6A, QMJ-6B, QMJ-7, QMJ-8A, and QMJ-9 are complete locally. QMJ-8B runs in parallel and remains a release dependency. QMJ-10 provider-neutral local engine and QMJ-11B Agent Plugin packages (portable root plus Codex native repo marketplace adapter, operations, and canonical BYOK guidance Skill) are implemented; real provider adapters and ChatGPT desktop UI discovery remain unverified. Public release remains HOLD.
 
 ### Product decision
 
@@ -181,7 +181,7 @@ Reject for first release:
 
 ### Pre-approval and Risk Gates for this roadmap
 
-Approval state: planning plus local implementation of QMJ-6A/QMJ-6B and the guidance-only QMJ-11A packaging increment was requested. QMJ-10 local engine and QMJ-11B local portable package are implemented, while real provider adapters, clean-profile host discovery/smokes, and every external mutation remain pending. Public release remains HOLD.
+Approval state: planning plus local implementation of QMJ-6A/QMJ-6B and the guidance-only QMJ-11A packaging increment was requested. QMJ-10 local engine and QMJ-11B portable/native packages are implemented, while real provider adapters, ChatGPT desktop UI discovery, and every external mutation remain pending. Public release remains HOLD.
 
 - Secret reads for local implementation and automated tests: none. Tests use canaries and FakeProvider only.
 - Locally safe for QMJ-6A/QMJ-6B: edit generic source/docs/tests, create public-only fixtures, run local checks/builds, and create local commits. No new dependency is required for this slice.
@@ -397,7 +397,7 @@ Binary DoD:
 
 Priority: Required for automated setup claims
 Depends on: QMJ-8A, QMJ-10, and QMJ-11A
-Status: Local portable package implemented — operations and canonical BYOK guidance Skills are bundled; provider adapters and clean-host discovery remain unverified
+Status: Local portable and Codex native packages implemented — operations and canonical BYOK guidance Skills are bundled; provider adapters and ChatGPT desktop UI discovery remain unverified
 
 - Add the portable root `plugin.json`, the operations and canonical BYOK guidance Skills, and optional `mcp.json` from the QMJ-8A capability registry.
 - Keep the setup plugin separate from the mailbox MCP.
@@ -405,16 +405,19 @@ Status: Local portable package implemented — operations and canonical BYOK gui
 
 Local implementation boundary:
 
-- Root `plugin.json`, narrow stdio `mcp.json`, QMJ-10 operations Skill, canonical BYOK guidance Skill with reviewed references, generated capability projection, and Claude native Skill adapter are implemented and schema-checked.
+- Root `plugin.json`, narrow stdio `mcp.json`, QMJ-10 operations Skill, canonical BYOK guidance Skill with reviewed references, generated capability projection, Claude native Skill adapter, Codex native `.agents/plugins/marketplace.json`, and Codex native `.codex-plugin/plugin.json` adapter are implemented and checked.
+- Codex native adapter files are generated from the canonical portable Skill and setup runtime; `.agents/plugins` is intentionally outside the Agent Plugin ZIP allowlist.
 - The MCP exposes only `setup_inspect`, `setup_plan`, `setup_approve`, `setup_apply`, `setup_readback`, and `setup_verify`. `setup_apply` is fail-closed because no provider adapter is enabled.
 - The separate interactive `scripts/setup.mjs` CLI is outside the QMJ-10 provider-neutral contract, excluded from the Agent Plugin allowlist, and never invoked by the Setup MCP.
-- Cloudflare/Resend provider adapters, mailbox MCP access, provider email read/send, account login, secrets, DNS, migrations, deployment, and clean-profile host discovery are not implemented or exercised here.
+- Codex CLI clean-profile marketplace add, available discovery, install, enabled state, cached BYOK setup Skill, and MCP initialize are exercised without login or external calls. ChatGPT desktop local marketplace UI discovery is not exercised.
+- Cloudflare/Resend provider adapters, mailbox MCP access, provider email read/send, account login, secrets, DNS, migrations, deployment, and external provider activity are not implemented or exercised here.
 
 Binary DoD:
 
 - Agent Plugins 1.0 schema validation passes.
 - Unsupported transport, unknown capability, capability drift, and provider-write fixtures fail closed.
 - Installing the setup plugin grants 0 mailbox/provider-email read, email send, or QuickMail admin capability, and exposes 0 provider tool outside the capability registry.
+- Codex native discovery is reproducible from a temporary profile with `codex plugin marketplace add`, `codex plugin list --available`, `codex plugin add`, `codex plugin list`, and installed-cache MCP stdio initialize; the existing global config remains unchanged.
 
 #### QMJ-12 — Isolated UI comparison lab
 

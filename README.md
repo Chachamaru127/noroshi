@@ -40,7 +40,8 @@ Cloudflare公式の[Deploy to Cloudflareボタン](https://developers.cloudflare
 
 正本は[`skills/quickmail-ja-setup`](./skills/quickmail-ja-setup/)の1か所です。`.agents/skills/quickmail-ja-setup`と`.claude/skills/quickmail-ja-setup`は正本を読むだけの薄いアダプターで、手順を複製しません。
 
-- Codex CLI／IDE向けの正しいリポジトリ配置として`.agents/skills`アダプターを同梱しています。ただし、新しいクライアントプロファイルでcloneから実際に発見されるかはQMJ-15で未検証です。現時点では自動発見を保証しません。
+- Codex CLI向けには、公式native形式のrepo marketplace（`.agents/plugins/marketplace.json`）と、`.codex-plugin/plugin.json`を持つadapterを同梱しています。新しいクライアントプロファイルでmarketplace追加、発見、インストール、有効化、MCP initializeまで確認済みです。portable Agent Plugins 1.0形式とは別の配布経路です。
+- `.agents/skills`はCodexのrepo-scoped Skill fallbackとして残しています。IDE拡張はプラグイン非対応のため、Skillの手動導入または通常のリポジトリ運用を使います。
 - Claude Code向けの正しいリポジトリ配置として`.claude/skills`アダプターを同梱しています。こちらも新しいクライアントプロファイルでの発見確認はQMJ-15まで未完了です。
 - ChatGPTでは、cloneだけではインストールされません。利用可能なプラン・ワークスペースで「Plugins → Skills → Create → Upload」から、下記のZIPをアップロードします。
 - Claude Desktop／Webでも、cloneだけではインストールされません。「Customize → Skills → Create skill → Upload a skill」から同じZIPをアップロードします。コード実行や利用者作成Skillが組織設定で無効な場合は利用できません。
@@ -62,6 +63,17 @@ bun run package:agent-plugin
 ```
 
 このZIPに `scripts/setup.mjs` は含まれません。`bun run setup` はリポジトリに残る別の対話型CLIであり、QMJ-10のprovider-neutral setup-engineやSetup MCPから自動実行されません。`setup_apply` は引き続きprovider adapter unavailableで停止します。
+
+Codex CLIでrepo marketplaceを使う場合は、リポジトリのルートで次を実行します。marketplace登録・インストール先は利用者のCodex設定へ保存されるため、対象アカウントで実行してください。
+
+```bash
+codex plugin marketplace add .
+codex plugin list --available
+codex plugin add quickmail-ja-setup@quickmail-ja
+codex plugin list
+```
+
+インストール後は新しいCodex sessionを開始します。native adapterにもBYOK setup Skillと、provider・メールボックス権限を持たないSetup MCPが含まれます。`setup_apply`はprovider adapter unavailableで停止します。Codex CLIのクリーンプロファイルでこの導線を確認済みです。ChatGPTデスクトップはPlugins Directoryからrepo marketplaceを選択してインストールする別の導線で、UI確認は未実施です。
 
 ## AIに質問
 

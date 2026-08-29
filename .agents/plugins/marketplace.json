@@ -1,0 +1,20 @@
+{
+	"name": "quickmail-ja",
+	"interface": {
+		"displayName": "QuickMail-ja"
+	},
+	"plugins": [
+		{
+			"name": "quickmail-ja-setup",
+			"source": {
+				"source": "local",
+				"path": "./.agents/plugins/quickmail-ja-setup"
+			},
+			"policy": {
+				"installation": "AVAILABLE",
+				"authentication": "ON_INSTALL"
+			},
+			"category": "Productivity"
+		}
+	]
+}

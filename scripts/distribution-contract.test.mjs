@@ -66,6 +66,9 @@ test('setup Skill has one canonical source and bounded repo adapters', () => {
 	const canonical = read('skills/quickmail-ja-setup/SKILL.md');
 	const codex = read('.agents/skills/quickmail-ja-setup/SKILL.md');
 	const claude = read('.claude/skills/quickmail-ja-setup/SKILL.md');
+	const codexNative = JSON.parse(
+		read('.agents/plugins/quickmail-ja-setup/.codex-plugin/plugin.json')
+	);
 	assert.match(canonical, /^name: quickmail-ja-setup$/m);
 	for (const adapter of [codex, claude]) {
 		assert.match(adapter, /\.\.\/\.\.\/\.\.\/skills\/quickmail-ja-setup\/SKILL\.md/);
@@ -73,10 +76,12 @@ test('setup Skill has one canonical source and bounded repo adapters', () => {
 	}
 	assert.match(readme, /ChatGPTでは、cloneだけではインストールされません/);
 	assert.match(readme, /Claude Desktop／Webでも、cloneだけではインストールされません/);
-	assert.match(readme, /Codex CLI／IDE/);
+	assert.match(readme, /Codex CLI向けには、公式native形式/);
 	assert.match(readme, /Claude Code/);
-	assert.match(readme, /実際に発見されるかはQMJ-15で未検証/);
-	assert.match(readme, /発見確認はQMJ-15まで未完了/);
+	assert.doesNotMatch(readme, /実際に発見されるかはQMJ-15で未検証/);
+	assert.equal(codexNative.name, 'quickmail-ja-setup');
+	assert.equal(codexNative.skills, './skills/');
+	assert.equal(codexNative.mcpServers, './.mcp.json');
 	assert.doesNotMatch(readme, /Setup Skill（準備中・未提供）/);
 });
 

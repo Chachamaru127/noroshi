@@ -5,6 +5,7 @@ backup/
 .agents/skills/*
 !.agents/skills/quickmail-ja-setup/
 !.agents/skills/quickmail-ja-setup/SKILL.md
+!.agents/plugins/
 .claude/*
 !.claude/skills/
 .claude/skills/*
