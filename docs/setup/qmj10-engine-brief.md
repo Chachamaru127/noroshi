@@ -89,8 +89,11 @@ no-op. If the state differs from both the approved `before` and `after`, it
 stops with zero writes. A rollback write requires a separately approved,
 one-use rollback approval. DNS rollback requires an authoritative snapshot and
 an explicit owned-record list; an adapter must preserve concurrent/unowned
-records. Zones, D1 databases, non-empty R2 buckets, and Resend domains are
-manual-review-only and are never automatically deleted.
+records. The rollback approval is held in `AtomicApprovalLedger` memory only;
+after a restart it is gone, so a fresh human approval is required and the
+engine fails closed with zero writes. Zones, D1 databases, non-empty R2
+buckets, and Resend domains are manual-review-only and are never automatically
+deleted.
 
 ## File ownership
 

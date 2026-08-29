@@ -275,7 +275,8 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 			'apikey',
 			'apikeys',
 			'credentials',
-			'custom_credentials'
+			'custom_credentials',
+			'customApikeys'
 		]) {
 			assert.throws(
 				() =>

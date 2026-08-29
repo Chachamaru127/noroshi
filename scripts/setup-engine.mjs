@@ -93,6 +93,7 @@ const FORBIDDEN_DATA_KEY_SUFFIXES = [
 	'_secrets',
 	'_api_key',
 	'_apikey',
+	'_apikeys',
 	'_password',
 	'_passwd',
 	'_token',
