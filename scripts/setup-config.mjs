@@ -2,6 +2,21 @@ import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 import { createOpaqueSecret, isOpaqueSecret, opaqueSecretsEqual } from './setup-secret-broker.mjs';
 
+export const KNOWN_RUNTIME_SECRET_NAMES = Object.freeze([
+	'BOOTSTRAP_SECRET',
+	'AUTH_RATE_LIMIT_SECRET',
+	'RESEND_API_KEY',
+	'RESEND_WEBHOOK_SECRET'
+]);
+
+export function removeKnownSecretAssignments(source) {
+	const names = KNOWN_RUNTIME_SECRET_NAMES.join('|');
+	return String(source)
+		.split(/\r?\n/u)
+		.filter((line) => !new RegExp(`^\\s*#?\\s*(?:${names})\\s*=`, 'u').test(line))
+		.join('\n');
+}
+
 export function setFirstString(source, key, value) {
 	return source.replace(new RegExp(`("${key}"\\s*:\\s*")[^"]*(")`), `$1${value}$2`);
 }

@@ -7,9 +7,33 @@ export async function finalizeSetup(
 	leaseToken: string,
 	input: { domain: ProviderDomain; localPart: string; name: string; password: string }
 ): Promise<{ userId: string; address: string }> {
+	const domainName = input.domain.name.trim().toLowerCase();
+	const [userCount, domainCount, existingByName, existingById] = await Promise.all([
+		db.prepare('SELECT COUNT(*) AS count FROM users').first<{ count: number }>(),
+		db.prepare('SELECT COUNT(*) AS count FROM domains').first<{ count: number }>(),
+		db
+			.prepare('SELECT id,name FROM domains WHERE name = ? COLLATE NOCASE')
+			.bind(domainName)
+			.first<{ id: string; name: string }>(),
+		db
+			.prepare('SELECT id,name FROM domains WHERE id = ?')
+			.bind(input.domain.id)
+			.first<{ id: string; name: string }>()
+	]);
+	if ((userCount?.count ?? 0) !== 0) throw new Error('Setup already completed');
+	if ((domainCount?.count ?? 0) > 1 || ((domainCount?.count ?? 0) === 1 && !existingByName)) {
+		throw new Error('Existing setup domain does not match');
+	}
+	if (existingById && existingById.name.toLowerCase() !== domainName) {
+		throw new Error('Provider domain id collision');
+	}
+	if (existingByName && existingById && existingByName.id !== existingById.id) {
+		throw new Error('Ambiguous setup domain');
+	}
+	const domainId = existingByName?.id ?? input.domain.id;
 	const localPart = input.localPart.trim().toLowerCase().replace(/@.*$/, '');
 	if (!/^[a-z0-9._%+-]+$/i.test(localPart)) throw new Error('Invalid address');
-	const address = `${localPart}@${input.domain.name.toLowerCase()}`;
+	const address = `${localPart}@${domainName}`;
 	const userId = crypto.randomUUID();
 	const addressId = crypto.randomUUID();
 	const passwordHash = await hashPassword(input.password);
@@ -19,10 +43,17 @@ export async function finalizeSetup(
 		db
 			.prepare(
 				`INSERT INTO domains (id,name,status,region,sending_enabled,receiving_enabled,synced_at)
-				 SELECT ?,CASE WHEN ${lease} THEN ? ELSE NULL END,?,?,?,?,datetime('now')`
+				 SELECT ?,CASE WHEN ${lease} THEN ? ELSE NULL END,?,?,?,?,datetime('now')
+				 ON CONFLICT(name) DO UPDATE SET
+				  name=excluded.name,
+				  status=excluded.status,
+				  region=excluded.region,
+				  sending_enabled=excluded.sending_enabled,
+				  receiving_enabled=excluded.receiving_enabled,
+				  synced_at=excluded.synced_at`
 			)
 			.bind(
-				input.domain.id,
+				domainId,
 				leaseToken,
 				input.domain.name.toLowerCase(),
 				input.domain.status,
@@ -39,13 +70,13 @@ export async function finalizeSetup(
 			.bind(userId, leaseToken, address, input.name.trim(), passwordHash),
 		db
 			.prepare(`UPDATE domains SET catchall_user_id = ? WHERE id = ? AND ${lease}`)
-			.bind(userId, input.domain.id, leaseToken),
+			.bind(userId, domainId, leaseToken),
 		db
 			.prepare(
 				`INSERT INTO addresses (id,user_id,domain_id,address,is_default)
 				 SELECT ?,?,?,CASE WHEN ${lease} THEN ? ELSE NULL END,1`
 			)
-			.bind(addressId, userId, input.domain.id, leaseToken, address)
+			.bind(addressId, userId, domainId, leaseToken, address)
 	]);
 	if (results.some((result) => (result.meta.changes ?? 0) !== 1)) {
 		throw new Error('Setup lease expired');

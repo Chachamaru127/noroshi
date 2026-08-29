@@ -27,7 +27,8 @@ import {
 	assertResourceNameAvailable,
 	providerIdentityFingerprint,
 	selectExactProviderIdentity,
-	persistVerifiedResendSendDomain
+	persistVerifiedResendSendDomain,
+	removeKnownSecretAssignments
 } from './setup-config.mjs';
 import {
 	createOpaqueSecret,
@@ -970,6 +971,10 @@ async function main() {
 		CLOUDFLARE_MAIL_DOMAINS: domain,
 		RESEND_SEND_DOMAINS: ''
 	};
+	if (existsSync(devVarsFile)) {
+		const sanitized = removeKnownSecretAssignments(readFileSync(devVarsFile, 'utf8'));
+		writeFileSync(devVarsFile, sanitized.endsWith('\n') ? sanitized : `${sanitized}\n`);
+	}
 	upsertEnvFile(devVarsFile, devVars, { fromExample: true });
 	ok('.dev.varsを更新しました');
 

@@ -155,6 +155,120 @@ describe('D1 auth throttling', () => {
 			);
 		}
 	});
+
+	test('reuses one exact partial domain row after a fenced failure and preserves its id', async () => {
+		const sqlite = new SqliteD1();
+		sqlite.db
+			.query(
+				`INSERT INTO domains (id,name,status,sending_enabled,receiving_enabled)
+				 VALUES ('stored-domain-id','Example.COM','pending',0,1)`
+			)
+			.run();
+		const now = new Date();
+		const stale = await claimSetupBootstrap(d1(sqlite), new Date(now.getTime() - 11 * 60 * 1000));
+		assert.ok(stale);
+		const current = await claimSetupBootstrap(d1(sqlite), now);
+		assert.ok(current);
+		const input = {
+			domain: {
+				id: 'provider-domain-id',
+				name: 'example.com',
+				status: 'verified',
+				sendingEnabled: true,
+				receivingEnabled: true
+			},
+			localPart: 'info',
+			name: 'Owner',
+			password: 'long-password'
+		};
+		await assert.rejects(() => finalizeSetup(d1(sqlite), stale!, input));
+		await finalizeSetup(d1(sqlite), current!, input);
+		assert.deepEqual(sqlite.db.query('SELECT id,name FROM domains').all(), [
+			{ id: 'stored-domain-id', name: 'example.com' }
+		]);
+		assert.equal(
+			(sqlite.db.query('SELECT COUNT(*) AS count FROM users').get() as { count: number }).count,
+			1
+		);
+		assert.equal(
+			(sqlite.db.query('SELECT domain_id FROM addresses').get() as { domain_id: string }).domain_id,
+			'stored-domain-id'
+		);
+	});
+
+	test('rejects a partial domain for another name before creating a user', async () => {
+		const sqlite = new SqliteD1();
+		sqlite.db
+			.query(
+				`INSERT INTO domains (id,name,status,sending_enabled,receiving_enabled)
+				 VALUES ('domain-1','other.example','pending',0,1)`
+			)
+			.run();
+		const token = await claimSetupBootstrap(d1(sqlite));
+		assert.ok(token);
+		await assert.rejects(
+			() =>
+				finalizeSetup(d1(sqlite), token!, {
+					domain: {
+						id: 'domain-2',
+						name: 'example.com',
+						status: 'verified',
+						sendingEnabled: true,
+						receivingEnabled: true
+					},
+					localPart: 'info',
+					name: 'Owner',
+					password: 'long-password'
+				}),
+			/does not match/
+		);
+		assert.equal(
+			(sqlite.db.query('SELECT COUNT(*) AS count FROM users').get() as { count: number }).count,
+			0
+		);
+	});
+
+	test('rejects ambiguous partial domains and an already-created user', async () => {
+		const ambiguous = new SqliteD1();
+		ambiguous.db.exec(`
+			INSERT INTO domains (id,name,status,sending_enabled,receiving_enabled) VALUES
+			 ('domain-1','example.com','pending',0,1),
+			 ('domain-2','other.example','pending',0,1);
+		`);
+		const ambiguousToken = await claimSetupBootstrap(d1(ambiguous));
+		assert.ok(ambiguousToken);
+		const input = {
+			domain: {
+				id: 'domain-1',
+				name: 'example.com',
+				status: 'verified',
+				sendingEnabled: true,
+				receivingEnabled: true
+			},
+			localPart: 'info',
+			name: 'Owner',
+			password: 'long-password'
+		};
+		await assert.rejects(() => finalizeSetup(d1(ambiguous), ambiguousToken!, input));
+
+		const completed = new SqliteD1();
+		completed.db.exec(`
+			INSERT INTO domains (id,name,status,sending_enabled,receiving_enabled)
+			VALUES ('domain-1','example.com','verified',1,1);
+			INSERT INTO users (id,email,name,password_hash,is_admin)
+			VALUES ('user-1','owner@example.com','Owner','hash',1);
+		`);
+		const completedToken = await claimSetupBootstrap(d1(completed));
+		assert.ok(completedToken);
+		await assert.rejects(
+			() => finalizeSetup(d1(completed), completedToken!, input),
+			/already completed/
+		);
+		assert.equal(
+			(completed.db.query('SELECT COUNT(*) AS count FROM users').get() as { count: number }).count,
+			1
+		);
+	});
 	test('atomically bounds concurrent attempts without storing email or IP', async () => {
 		const sqlite = new SqliteD1();
 		const now = new Date('2026-08-29T00:00:00.000Z');

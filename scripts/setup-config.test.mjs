@@ -13,6 +13,7 @@ import {
 	configureSetupTemplate,
 	markVerifiedResendSendDomain,
 	persistVerifiedResendSendDomain,
+	removeKnownSecretAssignments,
 	generateBootstrapSecret,
 	providerIdentityFingerprint,
 	removeAddresses,
@@ -261,6 +262,30 @@ describe('setup provider config transforms', () => {
 			AUTH_RATE_LIMIT_SECRET: 'independent-random'
 		});
 		assert.notEqual(env.BOOTSTRAP_SECRET, env.AUTH_RATE_LIMIT_SECRET);
+	});
+
+	test('removes every known legacy secret assignment before rewriting local settings', () => {
+		const poisoned = `EMAIL_PROVIDER=legacy
+BOOTSTRAP_SECRET=bootstrap-canary
+# AUTH_RATE_LIMIT_SECRET=auth-canary
+ RESEND_API_KEY = resend-canary
+RESEND_WEBHOOK_SECRET=webhook-canary
+VAPID_PRIVATE_KEY=vapid-preserved
+CLOUDFLARE_MAIL_DOMAINS=old.example
+`;
+		const cleaned = removeKnownSecretAssignments(poisoned);
+		assert.equal(cleaned.includes('canary'), false);
+		for (const key of [
+			'BOOTSTRAP_SECRET',
+			'AUTH_RATE_LIMIT_SECRET',
+			'RESEND_API_KEY',
+			'RESEND_WEBHOOK_SECRET'
+		]) {
+			assert.doesNotMatch(cleaned, new RegExp(`^\\s*#?\\s*${key}\\s*=`, 'mu'));
+		}
+		assert.match(cleaned, /EMAIL_PROVIDER=legacy/u);
+		assert.match(cleaned, /CLOUDFLARE_MAIL_DOMAINS=old\.example/u);
+		assert.match(cleaned, /VAPID_PRIVATE_KEY=vapid-preserved/u);
 	});
 
 	test('rejects unattended broad yes mode before any setup work', () => {
