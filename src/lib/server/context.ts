@@ -50,14 +50,15 @@ export function getEmailProvider(platform: PlatformLike): EmailProvider {
 			const apiKey = platform?.env.RESEND_API_KEY;
 			if (!apiKey) {
 				throw new ConfigError(
-					'RESEND_API_KEY is not set. Add it with `wrangler secret put RESEND_API_KEY` (or to .dev.vars locally).'
+					'RESEND_API_KEY is not set. Add it with the native `wrangler secret put RESEND_API_KEY` prompt.'
 				);
 			}
 			return createResendProvider(
 				apiKey,
 				getInboundEmailProviderKind(platform) === 'cloudflare'
 					? platform?.env.CLOUDFLARE_MAIL_DOMAINS
-					: undefined
+					: undefined,
+				platform?.env.RESEND_SEND_DOMAINS
 			);
 		}
 		case 'cloudflare': {
@@ -113,7 +114,7 @@ export function getResendClient(platform: PlatformLike): ResendClient {
 	const apiKey = platform?.env.RESEND_API_KEY;
 	if (!apiKey) {
 		throw new ConfigError(
-			'RESEND_API_KEY is not set. Add it with `wrangler secret put RESEND_API_KEY` (or to .dev.vars locally).'
+			'RESEND_API_KEY is not set. Add it with the native `wrangler secret put RESEND_API_KEY` prompt.'
 		);
 	}
 	return getResendReceivingClient(apiKey);

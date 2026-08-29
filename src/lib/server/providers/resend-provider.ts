@@ -10,10 +10,23 @@ import type { EmailProvider, ProviderDomain } from '../email-provider';
 import { parseMailDomains, ProviderError } from '../email-provider';
 import type { OutboundMailInput, OutboundMailResult } from '../send-mail';
 
-export function createResendProvider(apiKey: string, cloudflareInboundDomains?: string): EmailProvider {
+export function createResendProvider(
+	apiKey: string,
+	cloudflareInboundDomains?: string,
+	resendSendDomains?: string
+): EmailProvider {
 	const client = createResendClient(apiKey);
 	const usesCloudflareInbound = cloudflareInboundDomains !== undefined;
 	const inboundDomains = new Set(parseMailDomains(cloudflareInboundDomains));
+	const sendDomains = new Set(parseMailDomains(resendSendDomains));
+	const configuredDomains = [...inboundDomains].map((name) => ({
+		id: name,
+		name,
+		status: sendDomains.has(name) ? 'verified' : 'inbound_configured',
+		region: null,
+		sendingEnabled: sendDomains.has(name),
+		receivingEnabled: true
+	}));
 	const withInboundCapability = (domain: ProviderDomain): ProviderDomain => ({
 		...domain,
 		receivingEnabled: usesCloudflareInbound
@@ -57,6 +70,7 @@ export function createResendProvider(apiKey: string, cloudflareInboundDomains?: 
 			}
 		},
 		async listDomains(): Promise<ProviderDomain[]> {
+			if (usesCloudflareInbound) return configuredDomains;
 			try {
 				const remote = await client.listDomains();
 				return remote.map((domain) => withInboundCapability(toProviderDomain(domain)));
@@ -65,6 +79,11 @@ export function createResendProvider(apiKey: string, cloudflareInboundDomains?: 
 			}
 		},
 		async getDomain(id: string): Promise<ProviderDomain> {
+			if (usesCloudflareInbound) {
+				const configured = configuredDomains.find((domain) => domain.id === id);
+				if (configured) return configured;
+				throw new ProviderError(404, 'domain_not_configured', `${id} is not configured`);
+			}
 			try {
 				return withInboundCapability(toProviderDomain(await client.getDomain(id)));
 			} catch (error) {

@@ -51,6 +51,14 @@ test('deploys only the domain-restricted sending credential', () => {
 	);
 });
 
+test('records Resend send-domain metadata only after verified setup attestation', () => {
+	assert.match(source, /if \(resend\.domainOk\) \{[\s\S]*RESEND_SEND_DOMAINS/u);
+	assert.doesNotMatch(
+		source,
+		/CLOUDFLARE_MAIL_DOMAINS:\s*domain,[\s\S]{0,100}RESEND_SEND_DOMAINS:\s*domain/u
+	);
+});
+
 test('fails closed when Resend webhook inspection fails and instructs setup-key revocation', () => {
 	assert.match(source, /Webhook一覧を確認できませんでした。重複作成を避けるため停止/);
 	assert.match(source, /一時セットアップ用キーを失効/);
@@ -61,6 +69,14 @@ test('uses the reviewed lockfile and never mutates dependency versions', () => {
 	const unsafeInstaller = new RegExp(['@', 'latest|bun add|cu', 'rl[^\\n]*\\|'].join(''));
 	assert.doesNotMatch(source, unsafeInstaller);
 	assert.doesNotMatch(source, /\['x', 'wrangler'/);
+});
+
+test('rejects every Bun runtime except the reviewed 1.3.14 release', () => {
+	assert.match(source, /version !== '1\.3\.14'/u);
+	assert.match(source, /Bun 1\.3\.14が必要です/u);
+	const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+	assert.equal(pkg.packageManager, 'bun@1.3.14');
+	assert.match(source, /await ensureRuntime\(\);\n\s*if \(args\.localDev\)/u);
 });
 
 test('never adopts same-name D1 or R2 resources without an ownership manifest', () => {

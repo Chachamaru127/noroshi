@@ -37,7 +37,9 @@
 		"EMAIL_PROVIDER": "resend",
 		"INBOUND_EMAIL_PROVIDER": "cloudflare",
 		// Comma-separated domains onboarded in Email Service / Email Routing.
-		"CLOUDFLARE_MAIL_DOMAINS": ""
+		"CLOUDFLARE_MAIL_DOMAINS": "",
+		// Domains explicitly verified for Resend sending during setup.
+		"RESEND_SEND_DOMAINS": ""
 	},
 
 	"d1_databases": [

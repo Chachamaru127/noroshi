@@ -15,6 +15,19 @@ import { POST as importOutlook } from '../../routes/api/admin/import-outlook/+se
 import { handle } from '../../hooks.server';
 
 describe('runtime request security', () => {
+	test('keeps inbound diagnostics free of message and attachment identifiers', () => {
+		for (const path of [
+			'cloudflare-inbound.ts',
+			'inbound.ts',
+			'../../routes/api/webhooks/resend/+server.ts'
+		]) {
+			const source = readFileSync(new URL(path, import.meta.url), 'utf8');
+			assert.doesNotMatch(
+				source,
+				/console\.(?:error|warn)\([^\n]*(?:filename|providerId|attachment\.id|event\.type|,\s*error)/u
+			);
+		}
+	});
 	test('rejects cross-origin browser mutations but permits same-origin and bearer API calls', () => {
 		const crossOrigin = new Request('https://mail.example/api/auth/login', {
 			method: 'POST',

@@ -23,8 +23,10 @@ export function setVars(source, { provider, inboundProvider, domains }) {
 	if (inboundProvider) lines.push(`\t\t"INBOUND_EMAIL_PROVIDER": "${inboundProvider}"`);
 	if (domains) {
 		lines.push(`\t\t"CLOUDFLARE_MAIL_DOMAINS": "${domains}"`);
+		lines.push(`\t\t"RESEND_SEND_DOMAINS": ""`);
 	} else {
 		lines.push(`\t\t// "CLOUDFLARE_MAIL_DOMAINS": "example.com"`);
+		lines.push(`\t\t// "RESEND_SEND_DOMAINS": "example.com"`);
 	}
 	const block = `\t"vars": {\n${lines.join(',\n')}\n\t}`;
 	if (/\t"vars"\s*:\s*\{[\s\S]*?\n\t\}/.test(source)) {

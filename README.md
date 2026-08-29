@@ -136,7 +136,7 @@ bash scripts/setup.sh
 4. `wrangler.jsonc`とローカル用`.dev.vars`の非秘密設定だけを更新
 5. 利用者がパスワード管理ツールで作成したセットアップキーを非表示入力
 6. `BOOTSTRAP_SECRET`と自動生成した`AUTH_RATE_LIMIT_SECRET`をCloudflareのWorkerシークレットへ直接保存
-7. Cloudflare Email RoutingとResend送信を設定
+7. Cloudflare Email Routing、Catch-all、MXの公式画面を確認して案内。明示確認後にResendのドメイン限定送信キーを登録し、Webhookを作成
 8. D1マイグレーションを適用し、確認後にデプロイ
 
 セットアップキーは最初の管理者を作るときに使います。利用者がパスワード管理ツールで作成・保管し、ウィザードの非表示プロンプトへ入力してください。ウィザードは値を表示せず、ファイルにも保存しません。`/setup`で管理者を作成した後は破棄してください。`AUTH_RATE_LIMIT_SECRET`は認証の試行回数を安全に識別するための秘密値で、ウィザードが生成してWorkerシークレットへ直接保存します。
@@ -158,11 +158,12 @@ D1作成時に表示された`database_id`を`wrangler.jsonc`の`REPLACE_WITH_YO
 "vars": {
   "EMAIL_PROVIDER": "resend",
   "INBOUND_EMAIL_PROVIDER": "cloudflare",
-  "CLOUDFLARE_MAIL_DOMAINS": "example.com"
+  "CLOUDFLARE_MAIL_DOMAINS": "example.com",
+  "RESEND_SEND_DOMAINS": ""
 }
 ```
 
-続いてCloudflareのネイティブな非表示プロンプトからシークレットを入力します。値をチャット、コマンド引数、ファイル、ログへ書かないでください。Workerへ渡すResendキーは対象ドメインに限定した送信専用キーです。ドメイン確認やWebhook作成に使った一時的なフルアクセスキーはWorkerへ配備せず、設定後に失効させます。
+続いてCloudflareのネイティブな非表示プロンプトからシークレットを入力します。値をチャット、コマンド引数、ファイル、ログへ書かないでください。Workerへ渡すResendキーは対象ドメインに限定した送信専用キーです。Resend公式画面またはAPIで送信ドメインが`verified`になったことを確認した後だけ、`RESEND_SEND_DOMAINS`へ同じドメインを設定します。未確認の間は空欄のままにしてください。ドメイン確認やWebhook作成に使った一時的なフルアクセスキーはWorkerへ配備せず、設定後に失効させます。
 
 ```bash
 bunx wrangler secret put BOOTSTRAP_SECRET
@@ -180,10 +181,12 @@ bun run deploy
 ```bash
 cp .dev.vars.example .dev.vars
 bun run db:migrate:local
+read -rs QUICKMAIL_BOOTSTRAP_SECRET
+export QUICKMAIL_BOOTSTRAP_SECRET
 bun run setup -- --local-dev
 ```
 
-`.dev.vars`には非秘密設定だけを置きます。ローカル用セットアップキーは、パスワード管理ツール等から現在のプロセスの`QUICKMAIL_BOOTSTRAP_SECRET`へ一時的に渡してください。`--local-dev`は秘密値を子の開発サーバープロセスだけへ渡し、表示も保存もしません。
+`.dev.vars`には非秘密設定だけを置きます。`read -rs`はローカル用セットアップキーを画面やシェル履歴へ表示せず、現在のシェルへ読み込みます。開発サーバーを停止した後は`unset QUICKMAIL_BOOTSTRAP_SECRET`を実行してください。`--local-dev`は秘密値を子の開発サーバープロセスだけへ渡し、ファイルへ保存しません。
 
 受信の動作確認には`bun run preview`またはデプロイ済みWorkerを使います。Viteの開発サーバーだけではCloudflare Email Routingからメールを受信できません。
 

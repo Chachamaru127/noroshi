@@ -86,10 +86,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 	} catch (error) {
 		// Release the claim so Resend's retry can succeed.
 		await db.prepare('DELETE FROM webhook_events WHERE id = ?').bind(eventId).run();
-		console.error('Webhook handling failed', event.type, error);
-		return json(
-			{ error: error instanceof Error ? error.message : 'Webhook handling failed' },
-			{ status: 500 }
-		);
+		console.error('resend_webhook_handling_failed');
+		return json({ error: 'Webhook handling failed' }, { status: 500 });
 	}
 };

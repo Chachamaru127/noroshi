@@ -4,6 +4,7 @@
 	"version": "1.0.0",
 	"license": "MIT",
 	"type": "module",
+	"packageManager": "bun@1.3.14",
 	"bin": {
 		"quickmail": "./bin/quickmail.mjs"
 	},
@@ -84,6 +85,9 @@
 			},
 			"CLOUDFLARE_MAIL_DOMAINS": {
 				"description": "Comma-separated domains onboarded in Cloudflare Email Routing."
+			},
+			"RESEND_SEND_DOMAINS": {
+				"description": "Comma-separated domains explicitly verified for Resend sending during setup."
 			},
 			"BOOTSTRAP_SECRET": {
 				"description": "One-time setup key required to create the first administrator. Store it only as a Worker secret."

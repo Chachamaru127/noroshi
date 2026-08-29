@@ -289,8 +289,7 @@ async function promptSecret(question) {
 }
 
 async function chooseBootstrapSecret() {
-	const value = process.env.QUICKMAIL_BOOTSTRAP_SECRET?.trim() ||
-		(await promptSecret('パスワード管理ツールで作成したセットアップキー（24文字以上）'));
+	const value = await promptSecret('パスワード管理ツールで作成したセットアップキー（24文字以上）');
 	if (!value) throw new Error('セットアップキーは空欄にできません。');
 	return buildBootstrapSecretPlan(value);
 }
@@ -403,6 +402,9 @@ function isR2BucketName(value) {
 async function ensureRuntime() {
 	const version = run(bunBin(), ['--version'], { allowFail: true }).stdout.trim();
 	if (!version) throw new Error('Bunが必要です。https://bun.sh から導入して再実行してください。');
+	if (version !== '1.3.14') {
+		throw new Error(`Bun 1.3.14が必要です。現在は${version}です。公式手順で固定バージョンを導入してください。`);
+	}
 	ok(`Bun ${version}`);
 }
 
@@ -881,6 +883,7 @@ function printNextSteps(state) {
 
 async function main() {
 	assertSafeSetupMode({ yes: args.yes, interactive: Boolean(stdinStream.isTTY) });
+	await ensureRuntime();
 	if (args.localDev) return runLocalDev();
 
 	log(`\n${c.bold('QuickMail-ja セットアップ')}`);
@@ -889,7 +892,6 @@ async function main() {
 	const total = 9;
 
 	section(1, total, '実行環境');
-	await ensureRuntime();
 	installDeps();
 
 	section(2, total, 'Cloudflareログイン');
@@ -965,6 +967,11 @@ async function main() {
 	let resend = { setupCredential: null, webhookConfigured: false, domainOk: false };
 	await setupCloudflare(domain);
 	resend = await setupResend(domain);
+	if (resend.domainOk) {
+		writeWrangler(setFirstString(readWrangler(), 'RESEND_SEND_DOMAINS', domain));
+		upsertEnvFile(devVarsFile, { RESEND_SEND_DOMAINS: domain });
+		ok('Resend送信を検証済みドメインとして記録しました');
+	}
 
 	section(8, total, 'データベース');
 	migrate(true, false);

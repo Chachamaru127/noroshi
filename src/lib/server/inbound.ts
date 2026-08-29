@@ -200,8 +200,8 @@ async function storeInboundAttachments(
 	let attachments;
 	try {
 		attachments = await client.listReceivedAttachments(providerId);
-	} catch (error) {
-		console.error('Failed to list inbound attachments', providerId, error);
+	} catch {
+		console.error('inbound_attachment_list_failed');
 		return false;
 	}
 
@@ -212,7 +212,7 @@ async function storeInboundAttachments(
 			continue;
 		}
 		if (attachment.size && attachment.size > MAX_ATTACHMENT_BYTES) {
-			console.warn(`Skipping oversized attachment ${attachment.filename} on ${providerId}`);
+			console.warn('inbound_attachment_oversized');
 			ready = false;
 			continue;
 		}
@@ -229,10 +229,10 @@ async function storeInboundAttachments(
 				type: attachment.content_type || 'application/octet-stream',
 				bytes
 			});
-		} catch (error) {
+		} catch {
 			ready = false;
 			// One bad attachment shouldn't cost us the message.
-			console.error('Failed to store inbound attachment', attachment.id, error);
+			console.error('inbound_attachment_store_failed');
 		}
 	}
 	if (attachments.length > MAX_ATTACHMENTS_PER_EMAIL) ready = false;

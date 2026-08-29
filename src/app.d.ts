@@ -18,6 +18,8 @@ declare global {
 				INBOUND_EMAIL_PROVIDER?: string;
 				/** Comma-separated domains received through Cloudflare Email Routing. */
 				CLOUDFLARE_MAIL_DOMAINS?: string;
+				/** Domains whose sending setup was verified before runtime deployment. */
+				RESEND_SEND_DOMAINS?: string;
 				/** One-time secret required to create the first administrator. */
 				BOOTSTRAP_SECRET?: string;
 				AUTH_RATE_LIMIT_SECRET?: string;

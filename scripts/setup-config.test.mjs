@@ -49,6 +49,7 @@ describe('setup provider config transforms', () => {
 		assert.match(configured, /"EMAIL_PROVIDER": "resend"/);
 		assert.match(configured, /"INBOUND_EMAIL_PROVIDER": "cloudflare"/);
 		assert.match(configured, /"CLOUDFLARE_MAIL_DOMAINS": "example\.com"/);
+		assert.match(configured, /"RESEND_SEND_DOMAINS": ""/);
 	});
 
 	test('removes legacy Cloudflare outbound capability from a fresh setup', () => {
@@ -250,6 +251,7 @@ describe('setup provider config transforms', () => {
 		assert.match(configured, /"EMAIL_PROVIDER": "resend"/);
 		assert.match(configured, /"INBOUND_EMAIL_PROVIDER": "cloudflare"/);
 		assert.match(configured, /"CLOUDFLARE_MAIL_DOMAINS": "example\.com"/);
+		assert.match(configured, /"RESEND_SEND_DOMAINS": ""/);
 		assert.doesNotMatch(configured, /"send_email"\s*:/);
 		assert.doesNotMatch(configured, /^\s*"routes"\s*:/m);
 	});

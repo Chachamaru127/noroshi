@@ -8,14 +8,12 @@
 # EMAIL_PROVIDER=resend
 # INBOUND_EMAIL_PROVIDER=cloudflare
 # CLOUDFLARE_MAIL_DOMAINS=example.com
+# RESEND_SEND_DOMAINS=example.com
 
 # Production secrets are entered through Cloudflare's native secret prompt:
 # BOOTSTRAP_SECRET, AUTH_RATE_LIMIT_SECRET, RESEND_API_KEY, RESEND_WEBHOOK_SECRET.
 # The Worker receives only a domain-restricted Resend sending key.
 
-# --- Desktop notifications (optional) ---
-# Generate once with: bunx web-push generate-vapid-keys
-# Production values should be added with `wrangler secret put`, not committed.
-# VAPID_PUBLIC_KEY=REPLACE_WITH_YOUR_VAPID_PUBLIC_KEY
-# VAPID_PRIVATE_KEY=REPLACE_WITH_YOUR_VAPID_PRIVATE_KEY
-# VAPID_SUBJECT=mailto:admin@example.com
+# Optional Web Push public metadata may be set as non-secret vars:
+# VAPID_PUBLIC_KEY and VAPID_SUBJECT. Register VAPID_PRIVATE_KEY only through
+# the native `wrangler secret put VAPID_PRIVATE_KEY` prompt.

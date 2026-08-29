@@ -10,7 +10,9 @@ declare global {
 		EMAIL_PROVIDER?: string;
 		INBOUND_EMAIL_PROVIDER?: string;
 		CLOUDFLARE_MAIL_DOMAINS?: string;
+		RESEND_SEND_DOMAINS?: string;
 		BOOTSTRAP_SECRET?: string;
+		AUTH_RATE_LIMIT_SECRET?: string;
 		RESEND_API_KEY: string;
 		RESEND_WEBHOOK_SECRET: string;
 		FORWARDING_KILL_SWITCH?: string;

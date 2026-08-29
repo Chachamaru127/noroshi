@@ -58,17 +58,23 @@ describe('Resend provider with Cloudflare inbound', () => {
 	});
 
 	test('reports a send-only Resend domain as receivable when Email Routing owns inbound', async () => {
-		globalThis.fetch = (async () =>
-			domainResponse('example.com')) as typeof fetch;
+		let fetchCalls = 0;
+		globalThis.fetch = (async () => {
+			fetchCalls += 1;
+			return domainResponse('example.com');
+		}) as typeof fetch;
 
 		const provider = createResendProvider(
 			're_test',
-			'EXAMPLE.COM'
+			'EXAMPLE.COM',
+			'example.com'
 		);
 		const [domain] = await provider.listDomains();
 
 		assert.equal(domain.sendingEnabled, true);
 		assert.equal(domain.receivingEnabled, true);
+		assert.equal(fetchCalls, 0);
+		assert.equal((await provider.getDomain('example.com')).name, 'example.com');
 	});
 
 	test('does not claim Cloudflare inbound for an unrelated domain', async () => {
@@ -80,7 +86,9 @@ describe('Resend provider with Cloudflare inbound', () => {
 		);
 		const [domain] = await provider.listDomains();
 
-		assert.equal(domain.receivingEnabled, false);
+		assert.equal(domain.name, 'example.com');
+		assert.equal(domain.sendingEnabled, false);
+		assert.equal(domain.receivingEnabled, true);
 	});
 
 	test('ignores Resend receiving capability when Cloudflare owns inbound', async () => {
@@ -98,6 +106,8 @@ describe('Resend provider with Cloudflare inbound', () => {
 		);
 		const [domain] = await provider.listDomains();
 
-		assert.equal(domain.receivingEnabled, false);
+		assert.equal(domain.name, 'example.com');
+		assert.equal(domain.sendingEnabled, false);
+		assert.equal(domain.receivingEnabled, true);
 	});
 });

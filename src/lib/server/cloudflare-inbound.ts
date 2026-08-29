@@ -144,9 +144,9 @@ async function storeInboundAttachments(
 				type: attachment.mimeType || 'application/octet-stream',
 				bytes
 			});
-		} catch (error) {
+		} catch {
 			ready = false;
-			console.error('Failed to store inbound Cloudflare attachment', attachment.filename, error);
+			console.error('inbound_attachment_store_failed');
 		}
 	}
 	if (attachments.length > MAX_ATTACHMENTS_PER_EMAIL) ready = false;
