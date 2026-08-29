@@ -158,6 +158,42 @@ test('repository plugin passes the bounded manifest, generated projection, and M
 	);
 });
 
+test('treeish validation reads the same committed source that packaging will archive', () => {
+	const temporary = mkdtempSync(join(tmpdir(), 'quickmail-ja-agent-plugin-treeish-'));
+	try {
+		const archivePath = join(temporary, 'source.tar');
+		const archive = spawnSync(
+			'git',
+			['archive', '--format=tar', `--output=${archivePath}`, 'HEAD'],
+			{
+				cwd: repositoryRoot
+			}
+		);
+		assert.equal(archive.status, 0, archive.stderr?.toString());
+		const extracted = spawnSync('tar', ['-xf', archivePath, '-C', temporary]);
+		assert.equal(extracted.status, 0, extracted.stderr?.toString());
+		for (const args of [
+			['init', '-q'],
+			['config', 'user.name', 'QuickMail-ja fixture'],
+			['config', 'user.email', 'quickmail-ja-fixture@example.invalid'],
+			['add', '-A'],
+			['commit', '-qm', 'fixture']
+		]) {
+			const result = spawnSync('git', args, { cwd: temporary, encoding: 'utf8' });
+			assert.equal(result.status, 0, result.stderr);
+		}
+		const workingTreeManifest = JSON.parse(readFileSync(join(temporary, 'plugin.json'), 'utf8'));
+		workingTreeManifest.name = 'QuickMail-ja';
+		writeFileSync(
+			join(temporary, 'plugin.json'),
+			`${JSON.stringify(workingTreeManifest, null, '\t')}\n`
+		);
+		assert.doesNotThrow(() => validateAgentPlugin({ root: temporary, treeish: 'HEAD' }));
+	} finally {
+		rmSync(temporary, { recursive: true, force: true });
+	}
+});
+
 test('capability projection is exact and registry drift fails closed', () => {
 	const registry = JSON.parse(read('setup/capabilities.json'));
 	const projection = pluginCapabilityProjection(registry);

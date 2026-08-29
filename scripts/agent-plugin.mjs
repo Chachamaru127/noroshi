@@ -56,6 +56,34 @@ function readJson(path) {
 	return JSON.parse(readFileSync(path, 'utf8'));
 }
 
+function readPluginFile(root, relativePath, treeish = null) {
+	if (treeish === null || treeish === undefined) {
+		return readFileSync(join(root, relativePath), 'utf8');
+	}
+	const result = spawnSync('git', ['show', `${treeish}:${relativePath}`], {
+		cwd: root,
+		encoding: 'utf8'
+	});
+	if (result.status !== 0) {
+		throw new Error(`committed Agent Plugin file is missing: ${relativePath}`);
+	}
+	return result.stdout;
+}
+
+function hasPluginFile(root, relativePath, treeish = null) {
+	if (treeish === null || treeish === undefined) return existsSync(join(root, relativePath));
+	return (
+		spawnSync('git', ['cat-file', '-e', `${treeish}:${relativePath}`], {
+			cwd: root,
+			encoding: 'utf8'
+		}).status === 0
+	);
+}
+
+function readPluginJson(root, relativePath, treeish = null) {
+	return JSON.parse(readPluginFile(root, relativePath, treeish));
+}
+
 function canonical(value) {
 	return `${JSON.stringify(value, null, '\t')}\n`;
 }
@@ -100,7 +128,7 @@ export function pluginCapabilityProjection(registry) {
 	};
 }
 
-export function assertMcpConfiguration(mcp, { pluginRoot = REPOSITORY_ROOT } = {}) {
+export function assertMcpConfiguration(mcp, { pluginRoot = REPOSITORY_ROOT, treeish = null } = {}) {
 	const validate = schemaValidator(AGENT_MCP_SCHEMA);
 	if (!validate(mcp)) throw new Error(`mcp schema invalid: ${ajvErrors(validate)}`);
 	const servers = mcp.mcpServers;
@@ -121,29 +149,29 @@ export function assertMcpConfiguration(mcp, { pluginRoot = REPOSITORY_ROOT } = {
 	if (server.env && Object.keys(server.env).length > 0) {
 		throw new Error('setup MCP must not configure environment credentials');
 	}
-	const script = readFileSync(join(pluginRoot, 'scripts/setup-plugin-mcp.mjs'), 'utf8');
+	const script = readPluginFile(pluginRoot, 'scripts/setup-plugin-mcp.mjs', treeish);
 	if (/\b(?:fetch|WebSocket|http:|https:|net\.|dns\.)/u.test(script)) {
 		throw new Error('setup MCP must not contain a network/provider transport');
 	}
 	return true;
 }
 
-export function validateAgentPlugin({ root = REPOSITORY_ROOT } = {}) {
-	const manifest = readJson(join(root, 'plugin.json'));
+export function validateAgentPlugin({ root = REPOSITORY_ROOT, treeish = null } = {}) {
+	const manifest = readPluginJson(root, 'plugin.json', treeish);
 	const validateManifest = schemaValidator(AGENT_PLUGIN_SCHEMA);
 	if (!validateManifest(manifest)) {
 		throw new Error(`plugin schema invalid: ${ajvErrors(validateManifest)}`);
 	}
 	if (manifest.$schema !== AGENT_PLUGIN_SCHEMA_URI) throw new Error('plugin schema URI drift');
-	const mcpPath = join(root, 'mcp.json');
-	if (existsSync(mcpPath)) {
-		const mcp = readJson(mcpPath);
+	const hasMcp = hasPluginFile(root, 'mcp.json', treeish);
+	if (hasMcp) {
+		const mcp = readPluginJson(root, 'mcp.json', treeish);
 		if (mcp.$schema !== AGENT_MCP_SCHEMA_URI) throw new Error('MCP schema URI drift');
-		assertMcpConfiguration(mcp, { pluginRoot: root });
+		assertMcpConfiguration(mcp, { pluginRoot: root, treeish });
 	}
-	const registry = readJson(join(root, 'setup/capabilities.json'));
+	const registry = readPluginJson(root, 'setup/capabilities.json', treeish);
 	const expectedProjection = pluginCapabilityProjection(registry);
-	const projection = readJson(join(root, 'setup/plugin-capabilities.json'));
+	const projection = readPluginJson(root, 'setup/plugin-capabilities.json', treeish);
 	deepStrictEqual(projection, expectedProjection);
 	if (
 		manifest.extensions?.['com.quickmail-ja.setup']?.capability_registry !==
@@ -167,29 +195,27 @@ export function validateAgentPlugin({ root = REPOSITORY_ROOT } = {}) {
 	) {
 		throw new Error('plugin manifest must expose no provider capabilities or email access');
 	}
-	const skill = readFileSync(join(root, 'skills/quickmail-ja-operations/SKILL.md'), 'utf8');
+	const skill = readPluginFile(root, 'skills/quickmail-ja-operations/SKILL.md', treeish);
 	if (!/^---\nname: quickmail-ja-operations\n/mu.test(skill)) {
 		throw new Error('operations Skill frontmatter is missing');
 	}
-	const setupSkill = readFileSync(join(root, 'skills/quickmail-ja-setup/SKILL.md'), 'utf8');
+	const setupSkillPath = 'skills/quickmail-ja-setup/SKILL.md';
+	const setupSkill = readPluginFile(root, setupSkillPath, treeish);
 	if (!/^---\nname: quickmail-ja-setup\n/mu.test(setupSkill)) {
 		throw new Error('BYOK setup Skill frontmatter is missing');
 	}
-	for (const relativePath of [
-		'skills/quickmail-ja-setup/agents/openai.yaml',
-		'skills/quickmail-ja-setup/references/browser-and-byok.md',
-		'skills/quickmail-ja-setup/references/cloudflare-resend.md',
-		'skills/quickmail-ja-setup/references/gmail-byok.md',
-		'skills/quickmail-ja-setup/references/setup-patterns.json'
-	]) {
-		if (!existsSync(join(root, relativePath))) {
+	const packagedSetupFiles = PLUGIN_PACKAGE_FILES.filter((path) =>
+		path.startsWith('skills/quickmail-ja-setup/')
+	);
+	for (const relativePath of packagedSetupFiles.filter((path) => path !== setupSkillPath)) {
+		if (!hasPluginFile(root, relativePath, treeish)) {
 			throw new Error(`BYOK setup Skill file is missing: ${relativePath}`);
 		}
 	}
 	if (PLUGIN_PACKAGE_FILES.includes('scripts/setup.mjs')) {
 		throw new Error('interactive scripts/setup.mjs must stay outside the Agent Plugin');
 	}
-	const mcpScript = readFileSync(join(root, 'scripts/setup-plugin-mcp.mjs'), 'utf8');
+	const mcpScript = readPluginFile(root, 'scripts/setup-plugin-mcp.mjs', treeish);
 	for (const forbidden of [
 		'list_threads',
 		'get_thread',
@@ -203,7 +229,7 @@ export function validateAgentPlugin({ root = REPOSITORY_ROOT } = {}) {
 			throw new Error(`setup MCP must not expose mailbox/provider tool ${forbidden}`);
 		}
 	}
-	return { manifest, mcp: existsSync(mcpPath) ? readJson(mcpPath) : null, projection };
+	return { manifest, mcp: hasMcp ? readPluginJson(root, 'mcp.json', treeish) : null, projection };
 }
 
 function ajvErrors(validate) {
@@ -283,7 +309,7 @@ export function packageAgentPlugin({
 	treeish = 'HEAD',
 	output = join(REPOSITORY_ROOT, 'out', 'quickmail-ja-agent-plugin.zip')
 } = {}) {
-	validateAgentPlugin({ root: REPOSITORY_ROOT });
+	validateAgentPlugin({ root: REPOSITORY_ROOT, treeish });
 	const outputPath = validatePackageOutput(output);
 	mkdirSync(dirname(outputPath), { recursive: true });
 	rmSync(outputPath, { force: true });
