@@ -18,7 +18,7 @@
 		"db:migrate:local": "wrangler d1 migrations apply quickmail-ja --local",
 		"db:migrate:remote": "wrangler d1 migrations apply quickmail-ja --remote",
 		"test:d1-forwarding": "bun scripts/forwarding-d1-race.test.mjs",
-		"test:agent-plugin": "bun scripts/agent-plugin.test.mjs",
+		"test:agent-plugin": "bun test scripts/agent-plugin.test.mjs",
 		"check:agent-plugin": "bun scripts/agent-plugin.mjs check",
 		"package:agent-plugin": "bun scripts/agent-plugin.mjs package",
 		"generate:claude-adapter": "node scripts/generate-claude-adapter.mjs",

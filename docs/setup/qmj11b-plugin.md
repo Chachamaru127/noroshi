@@ -62,7 +62,7 @@ MCP のツール一覧は次の6つに固定する。
 bun scripts/agent-plugin.mjs check
 bun scripts/agent-plugin.mjs write
 node scripts/generate-claude-adapter.mjs --check
-bun scripts/agent-plugin.test.mjs
+bun test scripts/agent-plugin.test.mjs
 bun scripts/agent-plugin.mjs package
 ```
 
