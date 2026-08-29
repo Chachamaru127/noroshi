@@ -77,6 +77,54 @@ export function getEmailProvider(platform: PlatformLike): EmailProvider {
 	}
 }
 
+/** Local first-admin setup may use the configured inbound domain without a send credential. */
+export function getSetupEmailProvider(platform: PlatformLike, isDev: boolean): EmailProvider {
+	if (
+		isDev &&
+		getEmailProviderKind(platform) === 'resend' &&
+		getInboundEmailProviderKind(platform) === 'cloudflare' &&
+		!platform?.env.RESEND_API_KEY
+	) {
+		const domains = parseMailDomains(platform?.env.CLOUDFLARE_MAIL_DOMAINS).map((name) => ({
+			id: name,
+			name,
+			status: 'inbound_configured',
+			region: null,
+			sendingEnabled: false,
+			receivingEnabled: true
+		}));
+		return {
+			kind: 'resend',
+			async listDomains() {
+				return domains;
+			},
+			async getDomain(id) {
+				const domain = domains.find((candidate) => candidate.id === id);
+				if (!domain) throw new ProviderError(404, 'domain_not_configured', `${id} is not configured`);
+				return domain;
+			},
+			async send() {
+				throw new ProviderError(503, 'send_not_configured', 'Resend sending is not configured');
+			}
+		};
+	}
+	return getEmailProvider(platform);
+}
+
+export async function listSetupAvailableDomains(
+	platform: PlatformLike,
+	isDev: boolean
+): Promise<AvailableDomain[]> {
+	return (await getSetupEmailProvider(platform, isDev).listDomains()).map((domain) =>
+		toAvailableDomain(domain, false)
+	);
+}
+
+export function hasSetupProviderConfigured(platform: PlatformLike, isDev: boolean): boolean {
+	if (isDev && parseMailDomains(platform?.env.CLOUDFLARE_MAIL_DOMAINS).length > 0) return true;
+	return hasProviderConfigured(platform);
+}
+
 export function hasProviderConfigured(platform: PlatformLike): boolean {
 	try {
 		const kind = getEmailProviderKind(platform);

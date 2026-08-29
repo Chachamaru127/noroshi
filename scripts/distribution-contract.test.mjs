@@ -263,6 +263,7 @@ test('QMJ-9 distribution keeps setup secrets out of files and stays on workers.d
 		devVars,
 		/^(?:BOOTSTRAP_SECRET|AUTH_RATE_LIMIT_SECRET|RESEND_API_KEY|RESEND_WEBHOOK_SECRET)=/mu
 	);
+	assert.doesNotMatch(devVars, /VAPID_PRIVATE_KEY\s*=/u);
 	assert.match(wrangler, /AUTH_RATE_LIMIT_SECRET/u);
 	assert.doesNotMatch(wrangler, /"routes"|custom_domain/u);
 	assert.match(

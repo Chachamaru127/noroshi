@@ -3,7 +3,7 @@ import { countUsers, login, sessionCookieOptions, SESSION_COOKIE } from '$lib/se
 import { SESSION_DAYS } from '$lib/server/constants';
 import {
 	ConfigError,
-	getEmailProvider,
+	getSetupEmailProvider,
 	safeEmailProviderKind,
 	hasProviderConfigured,
 	ProviderError
@@ -41,7 +41,8 @@ async function matchesBootstrapSecret(
 const defaultSetupDependencies = {
 	countUsers,
 	login,
-	getEmailProvider,
+	getEmailProvider: (platform: App.Platform | null | undefined) =>
+		getSetupEmailProvider(platform, import.meta.env.DEV),
 	finalizeSetup,
 	consumeAuthRateLimit,
 	pruneAuthRateLimits,

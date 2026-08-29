@@ -1,6 +1,6 @@
 # QuickMail-ja Repository Separation Plan
 
-Status: Local sanitized release candidate complete; extensible UI-profile redesign approved by the user for this local Breezing run — public release and deployment remain on HOLD
+Status: Local sanitized release candidate and QMJ-9 runtime/setup hardening complete — public release, provider writes, and deployment remain on HOLD
 Team validation mode: `subagent`
 
 ## Purpose
@@ -311,7 +311,7 @@ Binary DoD:
 
 Priority: Required
 Depends on: QMJ-8A
-Status: Not started
+Status: Completed locally on 2026-08-29
 
 - Add login/setup rate limits, CSP/HSTS/frame/referrer/permissions headers, same-origin/CSRF negative coverage, upload limits before buffering, privacy/log retention, cost-alert guidance, and external-font removal.
 - Replace the current one-key Resend setup. A temporary full-access setup credential may inspect/create domain or webhook but is never deployed; the Worker receives only a domain-restricted sending key.
@@ -326,6 +326,16 @@ Binary DoD:
 - Ambiguous account/team/zone selection, provider read failure, same-name collision, and unattended write each cause a fail-closed stop with 0 provider writes.
 - Worker runtime contains a sending-only domain-restricted Resend key and never contains a full-access setup key.
 - Independent security review returns APPROVE.
+
+Evidence:
+
+- Integrated setup hardening `25da541` as `0dadf4d`, runtime request hardening through `cf546f1`, release supply-chain evidence `a2f7b8d` as `42c64eb`, distribution contract `de09c65`, and final review corrections `6f8f0dc`.
+- `bun test`: 374 passed, 0 failed. `bun run test:d1-forwarding`: passed.
+- `bun run check`: 0 errors, 0 warnings. `bun run format:check`, `bun run check:clean`, `bun run build`, and `git diff --check`: passed.
+- Bun 1.3.14 is enforced before normal and local-dev setup; install remains frozen. Runtime secrets use native Worker secret prompts or the bounded local child-process path and are absent from `.dev.vars`.
+- Resend send-domain metadata starts empty and is written only after exact verified-domain selection and domain-scoped sending-key attestation. Cloudflare inbound metadata alone cannot mark a domain sendable.
+- Local development can discover the configured Cloudflare inbound domain and create the first administrator without a Resend credential or provider call; compose/send remains fail-closed until Resend is configured. Production provider behavior is unchanged.
+- Independent security and product re-reviews returned APPROVE with no unresolved P0/P1. No provider, network, deploy, DNS, billing, or external-send call was made.
 
 #### QMJ-10 — Provider-neutral inspect/plan/apply engine
 

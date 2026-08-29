@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { _createSetupPostHandler } from '../../routes/api/setup/+server';
 import { resolveAuthRateLimitSecret, resolveBootstrapSecret } from './bootstrap-secret';
+import { getSetupEmailProvider } from './context';
 
 const childEnvironment = {
 	BOOTSTRAP_SECRET: 'correct-bootstrap-secret-value',
@@ -199,5 +200,56 @@ describe('first-run bootstrap secret gate', () => {
 		});
 		assert.deepEqual(calls, ['countUsers']);
 		assert.deepEqual(observed(), { queryCount: 0, cookieWrites: 0 });
+	});
+
+	test('creates the local first admin from Cloudflare inbound metadata without a Resend key', async () => {
+		const configuredSecret = 'correct-bootstrap-secret-value';
+		let finalizedDomain = '';
+		const handler = _createSetupPostHandler({
+			resolveAuthRateLimitSecret: () => childEnvironment.AUTH_RATE_LIMIT_SECRET,
+			resolveBootstrapSecret: () => configuredSecret,
+			consumeAuthRateLimit: async () => ({
+				allowed: true,
+				attempts: 1,
+				retryAfterSeconds: 1,
+				keyHash: 'test'
+			}),
+			pruneAuthRateLimits: async () => undefined,
+			countUsers: async () => 0,
+			getEmailProvider: (platform) => getSetupEmailProvider(platform, true),
+			claimSetupBootstrap: async () => 'claim-token',
+			releaseSetupBootstrap: async () => undefined,
+			renewSetupBootstrap: async () => true,
+			finalizeSetup: async (_db, _claim, input) => {
+				finalizedDomain = input.domain.name;
+				return { userId: 'user-1', address: 'info@example.com' };
+			},
+			login: async () => null
+		});
+		const response = await handler({
+			request: new Request('http://localhost:5173/api/setup', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					bootstrapSecret: configuredSecret,
+					domainId: 'example.com',
+					localPart: 'info',
+					name: '管理者',
+					password: 'long-password'
+				})
+			}),
+			cookies: {},
+			platform: {
+				env: {
+					DB: {},
+					EMAIL_PROVIDER: 'resend',
+					INBOUND_EMAIL_PROVIDER: 'cloudflare',
+					CLOUDFLARE_MAIL_DOMAINS: 'example.com'
+				},
+				ctx: { waitUntil: () => undefined }
+			}
+		} as never);
+		assert.equal(response.status, 200);
+		assert.equal(finalizedDomain, 'example.com');
 	});
 });
