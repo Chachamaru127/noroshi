@@ -82,7 +82,11 @@ const FORBIDDEN_DATA_KEY_NAMES = new Set([
 	'resend_api_key',
 	'tokens',
 	'passwords',
-	'api_keys'
+	'api_keys',
+	'secrets',
+	'apikey',
+	'apikeys',
+	'credentials'
 ]);
 const FORBIDDEN_DATA_KEY_SUFFIXES = [
 	'_secret',
@@ -109,7 +113,8 @@ const FORBIDDEN_DATA_KEY_SUFFIXES = [
 	'_attachment_content',
 	'_raw_message',
 	'_mailbox_content',
-	'_private_key'
+	'_private_key',
+	'_credentials'
 ];
 const SAFE_PROVIDER_RESULT_KEYS = new Set([
 	'id',
@@ -601,6 +606,16 @@ function assertAuthoritativeDnsSnapshot(target, step, before) {
 	if (!target.zone_id) stop('missing_target_id', 'DNS changes require zone_id');
 }
 
+function assertDnsRollbackInvariants(step, rollback) {
+	if (step.kind !== 'dns_change') return;
+	if (rollback.mode !== 'restore_owned_records' || !rollback.owned_resource_ids.length) {
+		stop('invalid_rollback', 'DNS rollback requires an explicit owned-record list');
+	}
+	if (!rollback.preserve_unowned) {
+		stop('invalid_rollback', 'DNS rollback must preserve unowned records');
+	}
+}
+
 function dnsList(value) {
 	return Array.isArray(value) ? value : [];
 }
@@ -684,6 +699,10 @@ function assertPlanShape(plan) {
 	if (canonicalJson(normalizedRollback) !== canonicalJson(plan.rollback)) {
 		stop('invalid_rollback', 'plan rollback is not canonical');
 	}
+	assertNoCollision({ state: plan.before }, normalizedTarget, normalizedStep, plan.after);
+	assertInboundTopology(normalizedTarget, normalizedStep, plan.after);
+	assertAuthoritativeDnsSnapshot(normalizedTarget, normalizedStep, plan.before);
+	assertDnsRollbackInvariants(normalizedStep, normalizedRollback);
 	assertStepCapabilityContract(normalizedStep, normalizedTarget);
 	if (typeof plan.plan_hash !== 'string' || !/^[a-f0-9]{64}$/u.test(plan.plan_hash)) {
 		stop('plan_hash_mismatch', 'plan hash is missing or malformed');
@@ -814,17 +833,7 @@ export function createMutationPlan({
 	assertInboundTopology(normalizedTarget, normalizedStep, after);
 	assertAuthoritativeDnsSnapshot(normalizedTarget, normalizedStep, before);
 	const normalizedRollback = normalizeRollback(rollback, normalizedTarget);
-	if (normalizedStep.kind === 'dns_change') {
-		if (
-			normalizedRollback.mode !== 'restore_owned_records' ||
-			!normalizedRollback.owned_resource_ids.length
-		) {
-			stop('invalid_rollback', 'DNS rollback requires an explicit owned-record list');
-		}
-		if (!normalizedRollback.preserve_unowned) {
-			stop('invalid_rollback', 'DNS rollback must preserve unowned records');
-		}
-	}
+	assertDnsRollbackInvariants(normalizedStep, normalizedRollback);
 	const normalizedApproval = normalizeString(approvalId, 'approval_id');
 	const normalizedPlanId = normalizeString(planId, 'plan_id');
 	const expires = ensureFreshExpiry(expiresAt, now);

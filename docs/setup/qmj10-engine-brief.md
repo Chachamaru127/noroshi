@@ -33,7 +33,8 @@ separate approval classes.
 Secret values, API keys, passwords, cookies, mail bodies, attachments, and
 authorization headers are rejected from plan/evidence state. The key policy
 normalizes camelCase and rejects the fixed secret/body/attachment names and
-suffixes; it does not scan arbitrary values. An opaque
+suffixes, including bare `secrets`, `apikey`/`apikeys`, and `credentials`
+aliases; it does not scan arbitrary values. An opaque
 `secret_broker_reference` is the only secret-related key allowed, and it must
 contain a non-empty broker reference rather than a secret value.
 

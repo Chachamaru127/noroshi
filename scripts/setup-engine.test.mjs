@@ -189,6 +189,13 @@ function basePlanInput({
 	};
 }
 
+function recomputePlanHash(plan) {
+	const recomputed = clone(plan);
+	delete recomputed.plan_hash;
+	recomputed.plan_hash = fingerprint(recomputed);
+	return recomputed;
+}
+
 describe('QMJ-10 provider-neutral setup engine', () => {
 	test('inspect is read-only and provider list failure is not treated as empty', async () => {
 		const fake = new FakeCloudflare({ status: 'ready', resources: [] });
@@ -263,7 +270,12 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 			'cookies',
 			'passwords',
 			'api_keys',
-			'custom_tokens'
+			'custom_tokens',
+			'secrets',
+			'apikey',
+			'apikeys',
+			'credentials',
+			'custom_credentials'
 		]) {
 			assert.throws(
 				() =>
@@ -516,6 +528,156 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 			(error) => error instanceof SetupEngineError && error.code === 'invalid_rollback'
 		);
 		assert.equal(fake.applyCalls, 0);
+	});
+
+	test('recomputed handcrafted plans recheck safety invariants before provider writes', async () => {
+		const topologyAdapter = new FakeCloudflare({ version: 1 });
+		const topologyTarget = cloudflareTarget();
+		const topologyInspection = await inspectSetup({
+			adapter: topologyAdapter,
+			target: topologyTarget,
+			now: fixedNow
+		});
+		const topologyPlan = createMutationPlan(
+			basePlanInput({
+				inspection: topologyInspection,
+				desiredState: { version: 2, resend_receiving: false }
+			})
+		);
+		const forbiddenTopology = clone(topologyPlan);
+		forbiddenTopology.after.resend_receiving = true;
+		const topologyDiff = forbiddenTopology.diff.find(
+			(entry) => entry.path === '$.resend_receiving'
+		);
+		assert.ok(topologyDiff);
+		topologyDiff.after = true;
+		forbiddenTopology.desired_state_fingerprint = fingerprint(forbiddenTopology.after);
+		await assert.rejects(
+			() =>
+				applyMutationPlan({
+					plan: recomputePlanHash(forbiddenTopology),
+					adapter: topologyAdapter,
+					now: fixedNow
+				}),
+			(error) => error instanceof SetupEngineError && error.code === 'forbidden_topology'
+		);
+		assert.equal(topologyAdapter.applyCalls, 0);
+
+		const collisionAdapter = new FakeCloudflare({
+			version: 1,
+			resources: [{ id: 'existing-worker', name: 'quickmail-test-worker' }]
+		});
+		const collisionTarget = cloudflareTarget();
+		const collisionInspection = await inspectSetup({
+			adapter: collisionAdapter,
+			target: collisionTarget,
+			now: fixedNow
+		});
+		const collisionPlan = createMutationPlan(
+			basePlanInput({ inspection: collisionInspection, desiredState: { version: 2 } })
+		);
+		const forbiddenCollision = clone(collisionPlan);
+		forbiddenCollision.step = {
+			kind: 'resource_creation',
+			capability_id: 'cloudflare.create_worker',
+			operation: 'create_worker',
+			cost_class: 'none'
+		};
+		await assert.rejects(
+			() =>
+				applyMutationPlan({
+					plan: recomputePlanHash(forbiddenCollision),
+					adapter: collisionAdapter,
+					now: fixedNow
+				}),
+			(error) => error instanceof SetupEngineError && error.code === 'resource_collision'
+		);
+		assert.equal(collisionAdapter.applyCalls, 0);
+
+		const dnsTarget = {
+			provider: 'cloudflare',
+			adapter_kind: 'dns',
+			resource_type: 'cloudflare_dns_record',
+			account_id: 'cf-account-test',
+			zone_id: 'cf-zone-test',
+			domain: 'example.test',
+			resource_id: 'dns-record-test'
+		};
+		const nonAuthoritativeBefore = { authoritative: false, records: [], routing_rules: [] };
+		const nonAuthoritativeInspection = {
+			schema_version: SETUP_ENGINE_SCHEMA_VERSION,
+			target: dnsTarget,
+			state: nonAuthoritativeBefore,
+			current_state_fingerprint: fingerprint(nonAuthoritativeBefore)
+		};
+		const nonAuthoritativePlan = createMutationPlan(
+			basePlanInput({
+				inspection: nonAuthoritativeInspection,
+				target: dnsTarget,
+				desiredState: nonAuthoritativeBefore
+			})
+		);
+		const forbiddenSnapshot = clone(nonAuthoritativePlan);
+		forbiddenSnapshot.step = {
+			kind: 'dns_change',
+			capability_id: 'cloudflare.change_dns',
+			operation: 'create_dns_record',
+			cost_class: 'none'
+		};
+		const dnsAdapter = new FakeDNS(nonAuthoritativeBefore);
+		await assert.rejects(
+			() =>
+				applyMutationPlan({
+					plan: recomputePlanHash(forbiddenSnapshot),
+					adapter: dnsAdapter,
+					now: fixedNow
+				}),
+			(error) => error instanceof SetupEngineError && error.code === 'non_authoritative_snapshot'
+		);
+		assert.equal(dnsAdapter.applyCalls, 0);
+
+		const authoritativeBefore = { authoritative: true, records: [], routing_rules: [] };
+		const authoritativeAfter = {
+			authoritative: true,
+			records: [{ id: 'dns-record-test', type: 'TXT', name: '@', content: 'qmj-owned' }],
+			routing_rules: []
+		};
+		const authoritativeInspection = {
+			schema_version: SETUP_ENGINE_SCHEMA_VERSION,
+			target: dnsTarget,
+			state: authoritativeBefore,
+			current_state_fingerprint: fingerprint(authoritativeBefore)
+		};
+		const validDnsPlan = createMutationPlan(
+			basePlanInput({
+				inspection: authoritativeInspection,
+				target: dnsTarget,
+				step: {
+					kind: 'dns_change',
+					capability_id: 'cloudflare.change_dns',
+					operation: 'create_dns_record'
+				},
+				desiredState: authoritativeAfter,
+				rollback: {
+					mode: 'restore_owned_records',
+					owned_resource_ids: ['dns-record-test'],
+					description: 'restore only owned DNS records'
+				}
+			})
+		);
+		const forbiddenRollback = clone(validDnsPlan);
+		forbiddenRollback.rollback.preserve_unowned = false;
+		const invalidRollbackAdapter = new FakeDNS(authoritativeBefore);
+		await assert.rejects(
+			() =>
+				applyMutationPlan({
+					plan: recomputePlanHash(forbiddenRollback),
+					adapter: invalidRollbackAdapter,
+					now: fixedNow
+				}),
+			(error) => error instanceof SetupEngineError && error.code === 'invalid_rollback'
+		);
+		assert.equal(invalidRollbackAdapter.applyCalls, 0);
 	});
 
 	test('inspection rejects unsupported fixed collection shapes instead of treating them as empty', async () => {
