@@ -15,7 +15,12 @@ import {
 import { resolveReplyFromAddress, sendAndStore } from '$lib/server/outbox';
 import { buildReferences, displaySubject } from '$lib/server/threads';
 import type { OutboundAttachmentInput } from '$lib/types';
-import { MAX_SMALL_JSON_BYTES, readJsonBody, RequestBodyError } from '$lib/server/request-security';
+import {
+	MAX_SMALL_JSON_BYTES,
+	readEndpointJsonBody,
+	RequestBodyError,
+	withRequestBodyErrors
+} from '$lib/server/request-security';
 import { readMailRequest } from '$lib/server/mail-request';
 
 type ReplyBody = {
@@ -47,13 +52,13 @@ export const GET: RequestHandler = async ({ params, locals, platform }) => {
 };
 
 /** Flag toggles from the list and the reader — applied to the whole thread. */
-export const PATCH: RequestHandler = async ({ params, request, locals, platform }) => {
+const patch: RequestHandler = async ({ params, request, locals, platform }) => {
 	const db = platform?.env.DB;
 	if (!db || !locals.user) {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 
-	const body = (await readJsonBody(request, MAX_SMALL_JSON_BYTES)) as {
+	const body = (await readEndpointJsonBody(request, MAX_SMALL_JSON_BYTES)) as {
 		isRead?: boolean;
 		isStarred?: boolean;
 		trashed?: boolean;
@@ -77,6 +82,8 @@ export const PATCH: RequestHandler = async ({ params, request, locals, platform 
 
 	return json({ ok: true });
 };
+
+export const PATCH = withRequestBodyErrors(patch);
 
 export const DELETE: RequestHandler = async ({ params, locals, platform }) => {
 	const db = platform?.env.DB;

@@ -1,5 +1,9 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
-import { MAX_SMALL_JSON_BYTES, readJsonBody } from '$lib/server/request-security';
+import {
+	MAX_SMALL_JSON_BYTES,
+	readEndpointJsonBody,
+	withRequestBodyErrors
+} from '$lib/server/request-security';
 import {
 	assignThreadsToFolder,
 	listFolders,
@@ -8,16 +12,16 @@ import {
 } from '$lib/server/folders';
 import { getMailboxCounts } from '$lib/server/mail-store';
 
-export const POST: RequestHandler = async ({ request, locals, platform }) => {
+const post: RequestHandler = async ({ request, locals, platform }) => {
 	const db = platform?.env.DB;
 	if (!db || !locals.user) return json({ error: 'Unauthorized' }, { status: 401 });
 	if (locals.authMethod !== 'session') {
 		return json({ error: 'Folders require a browser session.' }, { status: 403 });
 	}
-	const body = (await readJsonBody(request, MAX_SMALL_JSON_BYTES).catch(() => null)) as {
+	const body = (await readEndpointJsonBody(request, MAX_SMALL_JSON_BYTES)) as {
 		ids?: unknown;
 		folderId?: unknown;
-	} | null;
+	};
 	if (!body || !Array.isArray(body.ids) || !body.ids.every((id) => typeof id === 'string')) {
 		return json({ error: 'Select at least one message.' }, { status: 400 });
 	}
@@ -41,3 +45,5 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 		throw error;
 	}
 };
+
+export const POST = withRequestBodyErrors(post);

@@ -1,5 +1,9 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
-import { MAX_SMALL_JSON_BYTES, readJsonBody } from '$lib/server/request-security';
+import {
+	MAX_SMALL_JSON_BYTES,
+	readEndpointJsonBody,
+	withRequestBodyErrors
+} from '$lib/server/request-security';
 import { getEmailProvider, ProviderError } from '$lib/server/context';
 import {
 	disconnectDomain,
@@ -10,7 +14,7 @@ import {
 } from '$lib/server/domains';
 
 /** PATCH — set the catch-all owner or re-sync status from the active provider. */
-export const PATCH: RequestHandler = async ({ params, request, locals, platform }) => {
+const patch: RequestHandler = async ({ params, request, locals, platform }) => {
 	const db = platform?.env.DB;
 	if (!db || !locals.user?.is_admin) {
 		return json({ error: 'Forbidden' }, { status: 403 });
@@ -21,7 +25,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals, platform 
 		return json({ error: 'Domain not connected' }, { status: 404 });
 	}
 
-	const body = (await readJsonBody(request, MAX_SMALL_JSON_BYTES)) as {
+	const body = (await readEndpointJsonBody(request, MAX_SMALL_JSON_BYTES)) as {
 		catchallUserId?: string | null;
 		refresh?: boolean;
 	};
@@ -59,3 +63,5 @@ export const DELETE: RequestHandler = async ({ params, locals, platform }) => {
 	await disconnectDomain(db, params.id!);
 	return json({ ok: true });
 };
+
+export const PATCH = withRequestBodyErrors(patch);

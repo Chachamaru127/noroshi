@@ -1,5 +1,5 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
-import { MAX_SMALL_JSON_BYTES, readJsonBody } from '$lib/server/request-security';
+import { MAX_SMALL_JSON_BYTES, readEndpointJsonBody, withRequestBodyErrors } from '$lib/server/request-security';
 import {
 	hasPushSubscription,
 	parsePushSubscription,
@@ -26,7 +26,7 @@ export const GET: RequestHandler = async ({ url, locals, platform }) => {
 	return json({ registered: await hasPushSubscription(db, locals.user.id, endpoint) });
 };
 
-export const POST: RequestHandler = async ({ request, url, locals, platform }) => {
+const post: RequestHandler = async ({ request, url, locals, platform }) => {
 	const db = platform?.env.DB;
 	if (!db || !locals.user || locals.authMethod !== 'session') {
 		return json({ error: 'Unauthorized' }, { status: 401 });
@@ -34,7 +34,7 @@ export const POST: RequestHandler = async ({ request, url, locals, platform }) =
 	const crossOrigin = rejectCrossOrigin(request, url);
 	if (crossOrigin) return crossOrigin;
 
-	const body = await readJsonBody(request, MAX_SMALL_JSON_BYTES).catch(() => null);
+	const body = await readEndpointJsonBody(request, MAX_SMALL_JSON_BYTES);
 	const subscription = parsePushSubscription(body);
 	if (!subscription) {
 		return json({ error: 'Invalid push subscription' }, { status: 400 });
@@ -44,7 +44,7 @@ export const POST: RequestHandler = async ({ request, url, locals, platform }) =
 	return json({ ok: true }, { status: 201 });
 };
 
-export const DELETE: RequestHandler = async ({ request, url, locals, platform }) => {
+const remove: RequestHandler = async ({ request, url, locals, platform }) => {
 	const db = platform?.env.DB;
 	if (!db || !locals.user || locals.authMethod !== 'session') {
 		return json({ error: 'Unauthorized' }, { status: 401 });
@@ -52,9 +52,9 @@ export const DELETE: RequestHandler = async ({ request, url, locals, platform })
 	const crossOrigin = rejectCrossOrigin(request, url);
 	if (crossOrigin) return crossOrigin;
 
-	const body = (await readJsonBody(request, MAX_SMALL_JSON_BYTES).catch(() => null)) as {
+	const body = (await readEndpointJsonBody(request, MAX_SMALL_JSON_BYTES)) as {
 		endpoint?: unknown;
-	} | null;
+	};
 	if (typeof body?.endpoint !== 'string' || !body.endpoint.trim()) {
 		return json({ error: 'Push endpoint is required' }, { status: 400 });
 	}
@@ -62,3 +62,6 @@ export const DELETE: RequestHandler = async ({ request, url, locals, platform })
 	await removePushSubscription(db, locals.user.id, body.endpoint.trim());
 	return json({ ok: true });
 };
+
+export const POST = withRequestBodyErrors(post);
+export const DELETE = withRequestBodyErrors(remove);

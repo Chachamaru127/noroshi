@@ -1,5 +1,5 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
-import { MAX_SMALL_JSON_BYTES, readJsonBody } from '$lib/server/request-security';
+import { MAX_SMALL_JSON_BYTES, readEndpointJsonBody, withRequestBodyErrors } from '$lib/server/request-security';
 import { authorizeMailAction, isMailAction, type MailAction } from '$lib/server/api-access';
 import {
 	deleteEmailsPermanently,
@@ -18,13 +18,13 @@ type ActionBody = {
 	ids?: string[];
 };
 
-export const POST: RequestHandler = async ({ request, locals, platform }) => {
+const post: RequestHandler = async ({ request, locals, platform }) => {
 	const db = platform?.env.DB;
 	if (!db || !locals.user) {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 
-	const body = (await readJsonBody(request, MAX_SMALL_JSON_BYTES)) as ActionBody;
+	const body = (await readEndpointJsonBody(request, MAX_SMALL_JSON_BYTES)) as ActionBody;
 	const action = body.action;
 
 	if (!isMailAction(action)) {
@@ -93,3 +93,5 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 
 	return json({ ok: true, affected, counts });
 };
+
+export const POST = withRequestBodyErrors(post);

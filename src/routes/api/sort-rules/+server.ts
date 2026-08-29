@@ -1,5 +1,9 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
-import { MAX_SMALL_JSON_BYTES, readJsonBody } from '$lib/server/request-security';
+import {
+	MAX_SMALL_JSON_BYTES,
+	readEndpointJsonBody,
+	withRequestBodyErrors
+} from '$lib/server/request-security';
 import {
 	createSortRule,
 	listSortRules,
@@ -25,10 +29,10 @@ export const GET: RequestHandler = async ({ locals, platform }) => {
 	return json({ rules: await listSortRules(platform!.env.DB, locals.user!.id) });
 };
 
-export const POST: RequestHandler = async ({ request, locals, platform }) => {
+const post: RequestHandler = async ({ request, locals, platform }) => {
 	const accessError = denied(locals, Boolean(platform?.env.DB));
 	if (accessError) return accessError;
-	const body = (await readJsonBody(request, MAX_SMALL_JSON_BYTES).catch(() => null)) as Record<
+	const body = (await readEndpointJsonBody(request, MAX_SMALL_JSON_BYTES)) as Record<
 		string,
 		unknown
 	> | null;
@@ -63,3 +67,5 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 		throw error;
 	}
 };
+
+export const POST = withRequestBodyErrors(post);

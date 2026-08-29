@@ -6,7 +6,7 @@ import {
 } from '$lib/server/outlook-import';
 import {
 	MAX_EML_MULTIPART_BYTES,
-	requireBoundedContentLength,
+	readBoundedBody,
 	RequestBodyError,
 	safeRuntimeErrorCode
 } from '$lib/server/request-security';
@@ -19,15 +19,16 @@ export const POST: RequestHandler = async ({ locals, platform, request }) => {
 		return json({ error: '保存先を利用できません。' }, { status: 503 });
 	}
 
+	let boundedBody: ArrayBuffer;
 	try {
-		requireBoundedContentLength(request, MAX_EML_MULTIPART_BYTES);
+		boundedBody = await readBoundedBody(request, MAX_EML_MULTIPART_BYTES);
 	} catch (error) {
 		if (error instanceof RequestBodyError) {
 			return json({ error: error.message }, { status: error.status });
 		}
 		throw error;
 	}
-	const form = await request.formData();
+	const form = await new Request(request, { body: boundedBody }).formData();
 	const file = form.get('file');
 	const direction = form.get('direction');
 	const mailboxAddress = String(form.get('mailboxAddress') ?? '')

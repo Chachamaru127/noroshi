@@ -1,5 +1,9 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
-import { MAX_SMALL_JSON_BYTES, readJsonBody } from '$lib/server/request-security';
+import {
+	MAX_SMALL_JSON_BYTES,
+	readEndpointJsonBody,
+	withRequestBodyErrors
+} from '$lib/server/request-security';
 import {
 	ConfigError,
 	getEmailProvider,
@@ -78,13 +82,13 @@ export const GET: RequestHandler = async ({ locals, platform, url }) => {
 	}
 };
 
-export const POST: RequestHandler = async ({ request, locals, platform }) => {
+const post: RequestHandler = async ({ request, locals, platform }) => {
 	const db = platform?.env.DB;
 	if (!db || !locals.user?.is_admin) {
 		return json({ error: 'Forbidden' }, { status: 403 });
 	}
 
-	const body = (await readJsonBody(request, MAX_SMALL_JSON_BYTES)) as {
+	const body = (await readEndpointJsonBody(request, MAX_SMALL_JSON_BYTES)) as {
 		domainIds?: string[];
 		domainId?: string;
 	};
@@ -111,3 +115,5 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 		return json({ error: message }, { status: 400 });
 	}
 };
+
+export const POST = withRequestBodyErrors(post);

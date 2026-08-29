@@ -1,15 +1,21 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
-import { MAX_SMALL_JSON_BYTES, readJsonBody } from '$lib/server/request-security';
+import {
+	MAX_SMALL_JSON_BYTES,
+	readEndpointJsonBody,
+	withRequestBodyErrors
+} from '$lib/server/request-security';
 import { DOMAIN_COOKIE } from '$lib/server/constants';
 import { SESSION_DAYS } from '$lib/server/constants';
 
 /** Persist which connected domain the dashboard is filtered to (null = all). */
-export const POST: RequestHandler = async ({ request, cookies, locals }) => {
+const post: RequestHandler = async ({ request, cookies, locals }) => {
 	if (!locals.user) {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 
-	const body = (await readJsonBody(request, MAX_SMALL_JSON_BYTES)) as { domainId?: string | null };
+	const body = (await readEndpointJsonBody(request, MAX_SMALL_JSON_BYTES)) as {
+		domainId?: string | null;
+	};
 	const domainId = body.domainId ?? null;
 
 	if (domainId && !locals.domains.some((domain) => domain.id === domainId)) {
@@ -30,3 +36,5 @@ export const POST: RequestHandler = async ({ request, cookies, locals }) => {
 
 	return json({ ok: true, activeDomainId: domainId });
 };
+
+export const POST = withRequestBodyErrors(post);

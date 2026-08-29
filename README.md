@@ -143,6 +143,12 @@ bash scripts/setup.sh
 
 外部変更をまとめて承認する`--yes`はありません。アカウント、作成、シークレット登録、デプロイはそれぞれ内容を表示して確認します。QMJ-9では公開先を`workers.dev`だけに限定し、カスタムドメイン接続はQMJ-10へ延期しています。
 
+### 添付ファイルAPIの互換性変更（1.0.0）
+
+送信・返信で新しい添付ファイルを渡す場合は`multipart/form-data`を使用してください。JSONの`attachments[].content`へbase64を埋め込む方式は、Cloudflare Workersのメモリ上限を安全に守るため1.0.0で廃止し、HTTP 400で拒否します。Web UIは移行済みです。CLI/MCPは添付アップロードを提供していないため影響しません。既存メールの添付IDを指定する手動転送JSONは引き続き利用できます。
+
+multipartでは`payload`フィールドに添付以外のJSONを入れ、各ファイルを`attachment`フィールドとして最大5件追加します。`Content-Length`が省略されても実際に読み取ったバイト数で同じ上限を適用します。1件5MiB、合計25MiBの上限は維持されます。
+
 ### 手動でCloudflareリソースを作る場合
 
 ```bash

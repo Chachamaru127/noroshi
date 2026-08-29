@@ -1,5 +1,9 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
-import { MAX_SMALL_JSON_BYTES, readJsonBody } from '$lib/server/request-security';
+import {
+	MAX_SMALL_JSON_BYTES,
+	readEndpointJsonBody,
+	withRequestBodyErrors
+} from '$lib/server/request-security';
 import { createUser, listUsers } from '$lib/server/auth';
 import { createAddress, getDomain, listAllAddresses } from '$lib/server/domains';
 
@@ -19,7 +23,7 @@ export const GET: RequestHandler = async ({ locals, platform }) => {
  * Creates a user and their mailbox together — the address doubles as the login,
  * so an invited user lands straight in their inbox with nothing to configure.
  */
-export const POST: RequestHandler = async ({ request, locals, platform }) => {
+const post: RequestHandler = async ({ request, locals, platform }) => {
 	if (!locals.user?.is_admin) {
 		return json({ error: 'Forbidden' }, { status: 403 });
 	}
@@ -27,7 +31,7 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 	const db = platform?.env.DB;
 	if (!db) return json({ error: 'Database unavailable' }, { status: 503 });
 
-	const body = (await readJsonBody(request, MAX_SMALL_JSON_BYTES)) as {
+	const body = (await readEndpointJsonBody(request, MAX_SMALL_JSON_BYTES)) as {
 		name?: string;
 		domainId?: string;
 		localPart?: string;
@@ -70,3 +74,5 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 		);
 	}
 };
+
+export const POST = withRequestBodyErrors(post);

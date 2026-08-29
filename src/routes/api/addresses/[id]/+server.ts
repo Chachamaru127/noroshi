@@ -1,5 +1,9 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
-import { MAX_SMALL_JSON_BYTES, readJsonBody } from '$lib/server/request-security';
+import {
+	MAX_SMALL_JSON_BYTES,
+	readEndpointJsonBody,
+	withRequestBodyErrors
+} from '$lib/server/request-security';
 import {
 	deleteAddress,
 	listAddressesForUser,
@@ -7,13 +11,13 @@ import {
 	updateAddress
 } from '$lib/server/domains';
 
-export const PATCH: RequestHandler = async ({ params, request, locals, platform }) => {
+const patch: RequestHandler = async ({ params, request, locals, platform }) => {
 	const db = platform?.env.DB;
 	if (!db || !locals.user) {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 
-	const body = (await readJsonBody(request, MAX_SMALL_JSON_BYTES)) as {
+	const body = (await readEndpointJsonBody(request, MAX_SMALL_JSON_BYTES)) as {
 		isDefault?: boolean;
 		label?: string | null;
 		signature?: string | null;
@@ -60,3 +64,5 @@ export const DELETE: RequestHandler = async ({ params, locals, platform }) => {
 
 	return json({ addresses: await listAddressesForUser(db, locals.user.id) });
 };
+
+export const PATCH = withRequestBodyErrors(patch);

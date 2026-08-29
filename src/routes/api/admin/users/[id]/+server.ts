@@ -1,8 +1,12 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
-import { MAX_SMALL_JSON_BYTES, readJsonBody } from '$lib/server/request-security';
+import {
+	MAX_SMALL_JSON_BYTES,
+	readEndpointJsonBody,
+	withRequestBodyErrors
+} from '$lib/server/request-security';
 import { deleteUser, setUserPassword } from '$lib/server/auth';
 
-export const PATCH: RequestHandler = async ({ params, request, locals, platform }) => {
+const patch: RequestHandler = async ({ params, request, locals, platform }) => {
 	if (!locals.user?.is_admin) {
 		return json({ error: 'Forbidden' }, { status: 403 });
 	}
@@ -10,7 +14,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals, platform 
 	const db = platform?.env.DB;
 	if (!db) return json({ error: 'Database unavailable' }, { status: 503 });
 
-	const body = (await readJsonBody(request, MAX_SMALL_JSON_BYTES)) as { password?: string };
+	const body = (await readEndpointJsonBody(request, MAX_SMALL_JSON_BYTES)) as { password?: string };
 	if (!body.password) {
 		return json({ error: 'Password is required' }, { status: 400 });
 	}
@@ -44,3 +48,5 @@ export const DELETE: RequestHandler = async ({ params, locals, platform }) => {
 		);
 	}
 };
+
+export const PATCH = withRequestBodyErrors(patch);

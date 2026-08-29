@@ -1,5 +1,9 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
-import { MAX_SMALL_JSON_BYTES, readJsonBody } from '$lib/server/request-security';
+import {
+	MAX_SMALL_JSON_BYTES,
+	readEndpointJsonBody,
+	withRequestBodyErrors
+} from '$lib/server/request-security';
 import {
 	deleteSortRule,
 	MailSortRuleNotFoundError,
@@ -19,11 +23,11 @@ function invalidCondition(value: unknown): boolean {
 	return value !== undefined && value !== null && typeof value !== 'string';
 }
 
-export const PATCH: RequestHandler = async ({ request, locals, platform, params }) => {
+const patch: RequestHandler = async ({ request, locals, platform, params }) => {
 	const accessError = denied(locals, Boolean(platform?.env.DB));
 	if (accessError) return accessError;
 	if (!params.id) return json({ error: 'Sorting rule was not found.' }, { status: 404 });
-	const body = (await readJsonBody(request, MAX_SMALL_JSON_BYTES).catch(() => null)) as Record<
+	const body = (await readEndpointJsonBody(request, MAX_SMALL_JSON_BYTES)) as Record<
 		string,
 		unknown
 	> | null;
@@ -73,3 +77,5 @@ export const DELETE: RequestHandler = async ({ locals, platform, params }) => {
 		throw error;
 	}
 };
+
+export const PATCH = withRequestBodyErrors(patch);

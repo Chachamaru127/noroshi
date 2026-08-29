@@ -1,5 +1,9 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
-import { MAX_DRAFT_JSON_BYTES, readJsonBody } from '$lib/server/request-security';
+import {
+	MAX_DRAFT_JSON_BYTES,
+	readEndpointJsonBody,
+	withRequestBodyErrors
+} from '$lib/server/request-security';
 import { resolveFromAddress } from '$lib/server/outbox';
 import { saveDraft } from '$lib/server/mail-store';
 
@@ -15,13 +19,13 @@ type DraftBody = {
 };
 
 /** Create or update a draft. Drafts never touch Resend. */
-export const POST: RequestHandler = async ({ request, locals, platform }) => {
+const post: RequestHandler = async ({ request, locals, platform }) => {
 	const db = platform?.env.DB;
 	if (!db || !locals.user) {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 
-	const body = (await readJsonBody(request, MAX_DRAFT_JSON_BYTES)) as DraftBody;
+	const body = (await readEndpointJsonBody(request, MAX_DRAFT_JSON_BYTES)) as DraftBody;
 
 	try {
 		const from = await resolveFromAddress(db, locals.user, body.fromAddressId);
@@ -46,3 +50,5 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 		);
 	}
 };
+
+export const POST = withRequestBodyErrors(post);

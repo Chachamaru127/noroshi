@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { describe, test } from 'node:test';
 import { redirect } from '@sveltejs/kit';
+import { MAX_BODY_BYTES } from './constants';
+import { readMailRequest, validateMailRequestBody } from './mail-request';
 import {
 	MAX_JSON_REQUEST_BYTES,
 	MAX_WEBHOOK_BYTES,
@@ -9,6 +11,8 @@ import {
 	applySecurityHeaders,
 	rejectCrossOriginMutation,
 	readJsonBody,
+	readEndpointJsonBody,
+	withRequestBodyErrors,
 	readTextBody
 } from './request-security';
 import { POST as importOutlook } from '../../routes/api/admin/import-outlook/+server';
@@ -78,6 +82,102 @@ describe('runtime request security', () => {
 		);
 	});
 
+	test('rejects malformed Content-Length but accepts a streamed JSON body without it', async () => {
+		await assert.rejects(
+			() =>
+				readJsonBody(
+					new Request('https://mail.example/api/mail', {
+						method: 'POST',
+						headers: { 'content-length': 'not-a-number' },
+						body: '{}'
+					})
+				),
+			(error: unknown) => error instanceof RequestBodyError && error.status === 400
+		);
+		await assert.doesNotReject(() =>
+			readJsonBody(
+				new Request('https://mail.example/api/mail', {
+					method: 'POST',
+					body: JSON.stringify({ ok: true })
+				})
+			)
+		);
+	});
+
+	test('bounds attachment-free multilingual JSON and rejects one byte over', async () => {
+		const legacyEnvelope = MAX_BODY_BYTES * 2 * 4 + 256 * 1024;
+		assert.equal(MAX_JSON_REQUEST_BYTES, legacyEnvelope);
+		const multilingualBodies =
+			new TextEncoder().encode('😀'.repeat(MAX_BODY_BYTES / 2)).byteLength +
+			new TextEncoder().encode('あ'.repeat(MAX_BODY_BYTES)).byteLength;
+		assert.ok(multilingualBodies + 256 * 1024 <= legacyEnvelope);
+		await assert.doesNotReject(() =>
+			readEndpointJsonBody(
+				new Request('https://mail.example/api/mail', {
+					method: 'POST',
+					headers: { 'content-length': String(legacyEnvelope) },
+					body: '{}'
+				})
+			)
+		);
+		const oversizedHandler = withRequestBodyErrors(
+			async ({ request }) =>
+				new Response(JSON.stringify(await readEndpointJsonBody(request, MAX_JSON_REQUEST_BYTES)))
+		);
+		const oversized = await oversizedHandler({
+			request: new Request('https://mail.example/api/mail', {
+				method: 'POST',
+				headers: { 'content-length': String(legacyEnvelope + 1) },
+				body: '{}'
+			})
+		} as never);
+		assert.equal(oversized.status, 413);
+	});
+
+	test('accepts bounded multilingual bodies but rejects JSON attachment content and null', async () => {
+		assert.doesNotThrow(() =>
+			validateMailRequestBody({
+				text: '😀'.repeat(MAX_BODY_BYTES / 2),
+				html: 'あ'.repeat(MAX_BODY_BYTES)
+			})
+		);
+		await assert.rejects(
+			() =>
+				readMailRequest(
+					new Request('https://mail.example/api/mail', {
+						method: 'POST',
+						headers: { 'content-type': 'application/json' },
+						body: JSON.stringify({
+							attachments: [{ filename: 'a.txt', type: 'text/plain', content: 'YQ==' }]
+						})
+					})
+				),
+			(error: unknown) => error instanceof RequestBodyError && error.status === 400
+		);
+		await assert.rejects(
+			() =>
+				readMailRequest(
+					new Request('https://mail.example/api/mail', {
+						method: 'POST',
+						headers: { 'content-type': 'application/json' },
+						body: JSON.stringify({ text: { invalid: true } })
+					})
+				),
+			(error: unknown) => error instanceof RequestBodyError && error.status === 400
+		);
+		await assert.rejects(
+			() =>
+				readMailRequest(
+					new Request('https://mail.example/api/mail', {
+						method: 'POST',
+						headers: { 'content-type': 'application/json' },
+						body: 'null'
+					})
+				),
+			(error: unknown) => error instanceof RequestBodyError && error.status === 400
+		);
+	});
+
 	test('stops a webhook stream that exceeds its real byte limit without Content-Length', async () => {
 		const request = new Request('https://mail.example/api/webhooks/resend', {
 			method: 'POST',
@@ -115,6 +215,25 @@ describe('runtime request security', () => {
 			if (!path.endsWith('+server.ts')) continue;
 			const source = readFileSync(new URL(path, routes), 'utf8');
 			assert.doesNotMatch(source, /request\.(?:json|text|arrayBuffer)\s*\(/, path);
+		}
+	});
+
+	test('maps every bounded JSON and mail endpoint body error at the endpoint boundary', () => {
+		const routes = new URL('../../routes/api/', import.meta.url);
+		for (const path of readdirSync(routes, { recursive: true, encoding: 'utf8' })) {
+			if (!path.endsWith('+server.ts')) continue;
+			const source = readFileSync(new URL(path, routes), 'utf8');
+			if (source.includes('readJsonBody(')) {
+				assert.match(source, /error instanceof RequestBodyError/u, path);
+				assert.match(source, /status:\s*error\.status/u, path);
+			}
+			if (source.includes('readEndpointJsonBody(')) {
+				assert.match(source, /withRequestBodyErrors/u, path);
+			}
+			if (source.includes('readMailRequest<')) {
+				assert.match(source, /error instanceof RequestBodyError/u, path);
+				assert.match(source, /status:\s*error\.status/u, path);
+			}
 		}
 	});
 

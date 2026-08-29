@@ -1,5 +1,9 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
-import { MAX_SMALL_JSON_BYTES, readJsonBody } from '$lib/server/request-security';
+import {
+	MAX_SMALL_JSON_BYTES,
+	readEndpointJsonBody,
+	withRequestBodyErrors
+} from '$lib/server/request-security';
 import {
 	describeProviderError,
 	getEmailProvider,
@@ -48,15 +52,13 @@ function verificationMessage(input: {
 	return { text, html };
 }
 
-export const PATCH: RequestHandler = async ({ params, request, locals, platform, url }) => {
+const patch: RequestHandler = async ({ params, request, locals, platform, url }) => {
 	const db = platform?.env.DB;
 	if (!db || !locals.user) return json({ error: 'Unauthorized' }, { status: 401 });
 
 	const ruleId = params.id;
 	if (!ruleId) return json({ error: 'Rule not found' }, { status: 404 });
-	const body = (await readJsonBody(request, MAX_SMALL_JSON_BYTES).catch(
-		() => null
-	)) as RuleBody | null;
+	const body = (await readEndpointJsonBody(request, MAX_SMALL_JSON_BYTES)) as RuleBody;
 	if (!body || (body.enabled === undefined && body.destination === undefined)) {
 		return json({ error: 'Enabled or destination is required' }, { status: 400 });
 	}
@@ -148,3 +150,5 @@ export const DELETE: RequestHandler = async ({ params, locals, platform }) => {
 		return json({ error: 'Could not disable forwarding rule' }, { status: 400 });
 	}
 };
+
+export const PATCH = withRequestBodyErrors(patch);

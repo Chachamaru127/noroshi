@@ -1,5 +1,9 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
-import { MAX_SMALL_JSON_BYTES, readJsonBody } from '$lib/server/request-security';
+import {
+	MAX_SMALL_JSON_BYTES,
+	readEndpointJsonBody,
+	withRequestBodyErrors
+} from '$lib/server/request-security';
 import { createAddress, listAddressesForUser, listAllAddresses } from '$lib/server/domains';
 
 export const GET: RequestHandler = async ({ locals, platform, url }) => {
@@ -19,13 +23,13 @@ export const GET: RequestHandler = async ({ locals, platform, url }) => {
 	return json({ addresses });
 };
 
-export const POST: RequestHandler = async ({ request, locals, platform }) => {
+const post: RequestHandler = async ({ request, locals, platform }) => {
 	const db = platform?.env.DB;
 	if (!db || !locals.user) {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 
-	const body = (await readJsonBody(request, MAX_SMALL_JSON_BYTES)) as {
+	const body = (await readEndpointJsonBody(request, MAX_SMALL_JSON_BYTES)) as {
 		domainId?: string;
 		localPart?: string;
 		label?: string;
@@ -54,3 +58,5 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 		);
 	}
 };
+
+export const POST = withRequestBodyErrors(post);

@@ -1,5 +1,9 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
-import { MAX_SMALL_JSON_BYTES, readJsonBody } from '$lib/server/request-security';
+import {
+	MAX_SMALL_JSON_BYTES,
+	readEndpointJsonBody,
+	withRequestBodyErrors
+} from '$lib/server/request-security';
 import {
 	describeProviderError,
 	getEmailProvider,
@@ -77,13 +81,11 @@ async function sendVerificationEmail(
 	});
 }
 
-export const POST: RequestHandler = async ({ request, locals, platform, url }) => {
+const post: RequestHandler = async ({ request, locals, platform, url }) => {
 	const db = platform?.env.DB;
 	if (!db || !locals.user) return json({ error: 'Unauthorized' }, { status: 401 });
 
-	const body = (await readJsonBody(request, MAX_SMALL_JSON_BYTES).catch(
-		() => null
-	)) as DestinationBody | null;
+	const body = (await readEndpointJsonBody(request, MAX_SMALL_JSON_BYTES)) as DestinationBody;
 	if (!body || typeof body.sourceAddressId !== 'string' || typeof body.destination !== 'string') {
 		return json({ error: 'Source address and destination are required' }, { status: 400 });
 	}
@@ -135,3 +137,5 @@ export const POST: RequestHandler = async ({ request, locals, platform, url }) =
 		return json({ error: 'Could not save forwarding destination' }, { status: 400 });
 	}
 };
+
+export const POST = withRequestBodyErrors(post);

@@ -1,5 +1,9 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
-import { MAX_SMALL_JSON_BYTES, readJsonBody } from '$lib/server/request-security';
+import {
+	MAX_SMALL_JSON_BYTES,
+	readEndpointJsonBody,
+	withRequestBodyErrors
+} from '$lib/server/request-security';
 import { createFolder, listFolders, MailFolderValidationError } from '$lib/server/folders';
 
 export const GET: RequestHandler = async ({ locals, platform }) => {
@@ -11,15 +15,15 @@ export const GET: RequestHandler = async ({ locals, platform }) => {
 	return json({ folders: await listFolders(db, locals.user.id, locals.activeDomainId) });
 };
 
-export const POST: RequestHandler = async ({ request, locals, platform }) => {
+const post: RequestHandler = async ({ request, locals, platform }) => {
 	const db = platform?.env.DB;
 	if (!db || !locals.user) return json({ error: 'Unauthorized' }, { status: 401 });
 	if (locals.authMethod !== 'session') {
 		return json({ error: 'Folders require a browser session.' }, { status: 403 });
 	}
-	const body = (await readJsonBody(request, MAX_SMALL_JSON_BYTES).catch(() => null)) as {
+	const body = (await readEndpointJsonBody(request, MAX_SMALL_JSON_BYTES)) as {
 		name?: unknown;
-	} | null;
+	};
 	if (!body || typeof body.name !== 'string') {
 		return json({ error: 'Folder name is required.' }, { status: 400 });
 	}
@@ -32,3 +36,5 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 		throw error;
 	}
 };
+
+export const POST = withRequestBodyErrors(post);
