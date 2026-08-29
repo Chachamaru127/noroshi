@@ -16,10 +16,24 @@ import readline from 'node:readline/promises';
 import { stdin as stdinStream, stdout as stdoutStream } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import {
+	assertSafeSetupMode,
+	buildAuthRateLimitSecretPlan,
 	buildBootstrapSecretPlan,
+	buildChildEnvironment,
+	buildResendCredentialPlan,
+	createWebhookWithSecretBroker,
 	configureSetupTemplate,
-	generateBootstrapSecret
+	parseProviderCollection,
+	assertResourceNameAvailable,
+	providerIdentityFingerprint,
+	selectExactProviderIdentity
 } from './setup-config.mjs';
+import {
+	createOpaqueSecret,
+	putOpaqueSecret,
+	withOpaqueSecret,
+	withLocalBootstrapEnvironment
+} from './setup-secret-broker.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const wranglerFile = join(root, 'wrangler.jsonc');
@@ -68,8 +82,9 @@ Cloudflareへログインし、D1/R2、設定ファイル、受信・送信経�
   --domain <name>      メールドメイン（例: example.com）
   --d1-name <name>     D1名（例: quickmail-ja）
   --r2-name <name>     R2名（例: quickmail-ja-attachments）
-  --yes                既定値を使用（--domainは必須）
+  --yes                使用不可（外部変更の一括承認を拒否）
   --skip-deploy        最後のデプロイを行わない
+  --local-dev          process環境のQUICKMAIL_BOOTSTRAP_SECRETをローカルdevへ渡す
   --help               このヘルプを表示
 `);
 }
@@ -79,6 +94,7 @@ function parseArgs(argv) {
 		help: false,
 		yes: false,
 		skipDeploy: false,
+		localDev: false,
 		domain: null,
 		d1Name: null,
 		r2Name: null
@@ -96,6 +112,9 @@ function parseArgs(argv) {
 				break;
 			case '--skip-deploy':
 				out.skipDeploy = true;
+				break;
+			case '--local-dev':
+				out.localDev = true;
 				break;
 			case '--domain':
 				out.domain = argv[++i] ?? '';
@@ -157,20 +176,19 @@ function bunBin() {
 	return which('bun') || process.execPath;
 }
 
-function childEnv(extra = {}) {
+function childEnv(extra = {}, omit = []) {
 	const bins = [join(root, 'node_modules', '.bin')];
-	return {
-		...process.env,
+	return buildChildEnvironment(process.env, {
 		PATH: `${bins.join(delimiter)}${delimiter}${process.env.PATH ?? ''}`,
 		...extra
-	};
+	}, omit);
 }
 
-function run(command, commandArgs, { inherit = false, input, env, allowFail = false, stdio } = {}) {
+function run(command, commandArgs, { inherit = false, input, env, omitEnv, allowFail = false, stdio } = {}) {
 	const result = spawnSync(command, commandArgs, {
 		cwd: root,
 		encoding: 'utf8',
-		env: childEnv(env),
+		env: childEnv(env, omitEnv),
 		input,
 		stdio: stdio ?? (inherit ? 'inherit' : ['pipe', 'pipe', 'pipe'])
 	});
@@ -193,10 +211,8 @@ function wrangler(wranglerArgs, options = {}) {
 		'.bin',
 		process.platform === 'win32' ? 'wrangler.cmd' : 'wrangler'
 	);
-	if (existsSync(local)) {
-		return run(local, wranglerArgs, options);
-	}
-	return run(bunBin(), ['x', 'wrangler', ...wranglerArgs], options);
+	if (!existsSync(local)) throw new Error('ロック済みWranglerがありません。frozen installを完了してください。');
+	return run(local, wranglerArgs, options);
 }
 
 function parseJsonOutput(text) {
@@ -242,7 +258,6 @@ async function closeReadline() {
 }
 
 async function prompt(question, fallback = '') {
-	if (args.yes) return fallback;
 	if (!stdinStream.isTTY) {
 		if (fallback) return fallback;
 		throw new Error(`対話できない環境では値の指定が必要です: ${question}`);
@@ -253,8 +268,9 @@ async function prompt(question, fallback = '') {
 }
 
 async function confirm(question, defaultYes = true) {
-	if (args.yes) return defaultYes;
-	if (!stdinStream.isTTY) return defaultYes;
+	if (!stdinStream.isTTY) {
+		throw new Error(`対話できない環境では確認できません: ${question}`);
+	}
 	const hint = defaultYes ? 'Y/n' : 'y/N';
 	const input = (await prompt(`${question} [${hint}]`)).toLowerCase();
 	if (!input) return defaultYes;
@@ -273,11 +289,9 @@ async function promptSecret(question) {
 }
 
 async function chooseBootstrapSecret() {
-	let value = '';
-	if (stdinStream.isTTY && !args.yes) {
-		value = await promptSecret('セットアップキー（空欄なら安全な値を自動生成）');
-	}
-	if (!value) value = generateBootstrapSecret(randomBytes(32));
+	const value = process.env.QUICKMAIL_BOOTSTRAP_SECRET?.trim() ||
+		(await promptSecret('パスワード管理ツールで作成したセットアップキー（24文字以上）'));
+	if (!value) throw new Error('セットアップキーは空欄にできません。');
 	return buildBootstrapSecretPlan(value);
 }
 
@@ -393,7 +407,7 @@ async function ensureRuntime() {
 }
 
 function installDeps() {
-	run(bunBin(), ['install'], { inherit: true });
+	run(bunBin(), ['install', '--frozen-lockfile'], { inherit: true });
 	ok('依存パッケージをBunで準備しました');
 }
 
@@ -402,12 +416,8 @@ function wranglerVersion() {
 	return parseVersion(`${result.stdout}\n${result.stderr}`);
 }
 
-function upgradeWrangler() {
-	run(bunBin(), ['add', '-d', 'wrangler@latest'], { inherit: true });
-}
-
 async function ensureWrangler() {
-	if (!existsSync(join(root, 'node_modules', 'wrangler')) && !which('wrangler')) {
+	if (!existsSync(join(root, 'node_modules', 'wrangler'))) {
 		installDeps();
 	}
 
@@ -416,14 +426,7 @@ async function ensureWrangler() {
 
 	if (versionGte(version, MIN_WRANGLER)) return version;
 
-	warn(`Wrangler ${formatVersion(version)}は古いため、${formatVersion(MIN_WRANGLER)}以上が必要です。`);
-	if (!(await confirm('Wranglerを最新版へ更新しますか？', true))) {
-		throw new Error('`bun add -d wrangler@latest`で更新してから再実行してください。');
-	}
-	upgradeWrangler();
-	version = wranglerVersion();
-	ok(`wrangler ${formatVersion(version)}`);
-	return version;
+	throw new Error(`ロック済みWrangler ${formatVersion(version)}は要件未満です。レビュー済みlockfileで${formatVersion(MIN_WRANGLER)}以上へ更新してください。`);
 }
 
 function parseWhoami(text) {
@@ -475,32 +478,29 @@ async function ensureLogin() {
 	return pickAccount(next.accounts);
 }
 
-async function pickAccount(accounts) {
-	if (accounts.length === 0) return null;
-	if (accounts.length === 1) {
-		ok(`アカウント: ${accounts[0].name}`);
-		upsertEnvFile(envFile, { CLOUDFLARE_ACCOUNT_ID: accounts[0].id });
-		return accounts[0];
-	}
-
-	log('  複数のCloudflareアカウントが見つかりました:');
-	accounts.forEach((account, index) => {
-		log(`    ${index + 1}) ${account.name}  ${c.dim(account.id)}`);
+async function confirmExactIdentity(provider, identity, label) {
+	const fingerprint = providerIdentityFingerprint(provider, identity);
+	log(`  ${label}: ${identity.name}  ${c.dim(identity.id)}  確認コード: ${fingerprint}`);
+	return selectExactProviderIdentity(provider, [identity], {
+		id: await prompt(`${label}のID`),
+		fingerprint: await prompt('表示された確認コード')
 	});
+}
 
-	if (args.yes) {
-		upsertEnvFile(envFile, { CLOUDFLARE_ACCOUNT_ID: accounts[0].id });
-		ok(`${accounts[0].name}を使用します`);
-		return accounts[0];
+async function pickAccount(accounts) {
+	if (accounts.length === 0) {
+		throw new Error('CloudflareアカウントIDを確認できませんでした。推測で続行しません。');
 	}
 
-	let chosen = null;
-	while (!chosen) {
-		const raw = await prompt('使用するアカウント番号', '1');
-		const index = Number(raw) - 1;
-		chosen = accounts[index];
-		if (!chosen) warn('一覧の番号を入力してください。');
-	}
+	log('  Cloudflareアカウントを正確に確認してください:');
+	accounts.forEach((account) => {
+		const fingerprint = providerIdentityFingerprint('cloudflare', account);
+		log(`    ${account.name}  ${c.dim(account.id)}  確認コード: ${fingerprint}`);
+	});
+	const chosen = selectExactProviderIdentity('cloudflare', accounts, {
+		id: await prompt('使用するアカウントID'),
+		fingerprint: await prompt('表示された確認コード')
+	});
 	upsertEnvFile(envFile, { CLOUDFLARE_ACCOUNT_ID: chosen.id });
 	ok(`${chosen.name}を使用します`);
 	return chosen;
@@ -528,24 +528,12 @@ async function askWorkerName(current) {
 	}
 }
 
-async function askHostname(domain) {
-	const raw = await prompt('Web UIのホスト名（空欄ならworkers.dev）', '');
-	if (!raw) return null;
-	const host = normalizeDomain(raw.includes('.') ? raw : `${raw}.${domain}`);
-	if (!isDomain(host)) {
-		warn(`ホスト名"${raw}"の形式が正しくないため、workers.devへデプロイします。`);
-		return null;
-	}
-	return host;
-}
-
 async function askResourceName(question, fallback, flagValue, validate, invalidHint) {
 	if (flagValue) {
 		const name = flagValue.trim().toLowerCase();
 		if (!validate(name)) throw new Error(`${question}の形式が正しくありません: "${flagValue}"。${invalidHint}`);
 		return name;
 	}
-	if (args.yes) return fallback;
 	while (true) {
 		const raw = await prompt(question);
 		const name = (raw || fallback).toLowerCase();
@@ -556,26 +544,18 @@ async function askResourceName(question, fallback, flagValue, validate, invalidH
 
 function listD1() {
 	const result = wrangler(['d1', 'list', '--json'], { allowFail: true });
+	if (result.status !== 0) throw new Error('D1一覧を確認できないため、作成せず停止します。');
 	const parsed = parseJsonOutput(`${result.stdout}\n${result.stderr}`);
-	const rows = Array.isArray(parsed) ? parsed : parsed?.databases ?? parsed?.result ?? [];
+	const rows = Array.isArray(parsed) ? parsed : parsed?.databases ?? parsed?.result;
+	if (!Array.isArray(rows)) throw new Error('D1一覧の応答を解釈できないため、作成せず停止します。');
 	const fromJson = rows
 		.map((row) => ({
 			name: row.name ?? row.database_name,
 			id: row.uuid ?? row.id ?? row.database_id
 		}))
 		.filter((row) => row.name && row.id);
-	if (fromJson.length > 0) return fromJson;
-
-	const table = wrangler(['d1', 'list'], { allowFail: true });
-	const text = `${table.stdout}\n${table.stderr}`;
-	const found = [];
-	for (const line of text.split('\n')) {
-		const id = line.match(/\b([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b/i)?.[1];
-		if (!id) continue;
-		const name = line.match(/\b(quickmail|[a-z0-9][a-z0-9-]{1,62})\b/i)?.[1];
-		if (name) found.push({ name, id });
-	}
-	return found;
+	if (fromJson.length !== rows.length) throw new Error('D1一覧に不完全な項目があるため停止します。');
+	return fromJson;
 }
 
 function createD1(name) {
@@ -589,18 +569,14 @@ function createD1(name) {
 		text.match(/database_id\s*=\s*"([^"]+)"/)?.[1];
 	if (result.status === 0 && id) return id;
 	if (/already exists/i.test(text)) {
-		const existing = listD1().find((row) => row.name === name);
-		if (existing) return existing.id;
+		throw new Error(`D1データベース"${name}"は作成中に衝突しました。所有権を確認して再実行してください。`);
 	}
 	throw new Error(text.trim() || `D1データベース"${name}"を作成できませんでした。`);
 }
 
 async function ensureD1(databaseName) {
 	const existing = listD1().find((row) => row.name === databaseName);
-	if (existing) {
-		ok(`既存のD1 ${databaseName} (${existing.id}) を使用します`);
-		return existing.id;
-	}
+	assertResourceNameAvailable(existing ? [databaseName] : [], databaseName, 'D1データベース');
 
 	log(`  ${c.dim(`D1データベース ${databaseName} を作成しています…`)}`);
 	const id = createD1(databaseName);
@@ -610,28 +586,19 @@ async function ensureD1(databaseName) {
 
 function listR2Names() {
 	const result = wrangler(['r2', 'bucket', 'list', '--json'], { allowFail: true });
+	if (result.status !== 0) throw new Error('R2一覧を確認できないため、作成せず停止します。');
 	const parsed = parseJsonOutput(`${result.stdout}\n${result.stderr}`);
-	const rows = Array.isArray(parsed) ? parsed : parsed?.buckets ?? parsed?.result ?? [];
+	const rows = Array.isArray(parsed) ? parsed : parsed?.buckets ?? parsed?.result;
+	if (!Array.isArray(rows)) throw new Error('R2一覧の応答を解釈できないため、作成せず停止します。');
 	const fromJson = rows
 		.map((row) => (typeof row === 'string' ? row : row.name ?? row.Name))
 		.filter(Boolean);
-	if (fromJson.length > 0) return fromJson;
-
-	const table = wrangler(['r2', 'bucket', 'list'], { allowFail: true });
-	const text = `${table.stdout}\n${table.stderr}`;
-	const names = [];
-	for (const line of text.split('\n')) {
-		const match = line.match(/\b([a-z0-9][a-z0-9-]{1,61}[a-z0-9])\b/i);
-		if (match && !/^(name|creation|location|id)$/i.test(match[1])) names.push(match[1]);
-	}
-	return names;
+	if (fromJson.length !== rows.length) throw new Error('R2一覧に不完全な項目があるため停止します。');
+	return fromJson;
 }
 
 function ensureR2(bucketName) {
-	if (listR2Names().includes(bucketName)) {
-		ok(`既存のR2バケット ${bucketName} を使用します`);
-		return;
-	}
+	assertResourceNameAvailable(listR2Names(), bucketName, 'R2バケット');
 
 	log(`  ${c.dim(`R2バケット ${bucketName} を作成しています…`)}`);
 	const result = wrangler(['r2', 'bucket', 'create', bucketName], {
@@ -639,7 +606,10 @@ function ensureR2(bucketName) {
 		env: { CI: 'true' }
 	});
 	const text = `${result.stdout}\n${result.stderr}`;
-	if (result.status === 0 || /already exists/i.test(text)) {
+	if (/already exists/i.test(text)) {
+		throw new Error(`R2バケット"${bucketName}"は作成中に衝突しました。所有権を確認して再実行してください。`);
+	}
+	if (result.status === 0) {
 		ok(`R2 bucket ${bucketName}`);
 		return;
 	}
@@ -656,12 +626,33 @@ function setPackageMigrateScripts(databaseName) {
 	writeFileSync(pkgPath, `${JSON.stringify(pkg, null, '\t')}\n`);
 }
 
-function putSecret(name, value) {
-	wrangler(['secret', 'put', name], {
-		input: value,
-		stdio: ['pipe', 'inherit', 'inherit']
+function putSecret(name, secret) {
+	putOpaqueSecret({
+		name,
+		secret,
+		put: (secretName, value) =>
+			wrangler(['secret', 'put', secretName], {
+				input: value,
+				stdio: ['pipe', 'inherit', 'inherit']
+			})
 	});
 	ok(`${name}をWorkerシークレットとして保存しました`);
+}
+
+function runLocalDev() {
+	const raw = process.env.QUICKMAIL_BOOTSTRAP_SECRET?.trim();
+	if (!raw) throw new Error('--local-devにはprocess環境のQUICKMAIL_BOOTSTRAP_SECRETが必要です。');
+	const secret = buildBootstrapSecretPlan(raw).secret;
+	const authRateLimitSecret = buildAuthRateLimitSecretPlan(randomBytes(32)).secret;
+	return withLocalBootstrapEnvironment({
+		secret,
+		authRateLimitSecret,
+		launch: (env) => run(bunBin(), ['run', 'dev'], {
+			inherit: true,
+			env,
+			omitEnv: ['QUICKMAIL_BOOTSTRAP_SECRET', 'QUICKMAIL_AUTH_RATE_LIMIT_SECRET']
+		})
+	});
 }
 
 function wranglerOutputLooksEnabled(text) {
@@ -677,16 +668,8 @@ function tryWrangler(wranglerArgs) {
 }
 
 async function setupCloudflare(domain) {
-	log(`  ${c.dim('Email Routingを有効化しています…')}`);
-	const routing = tryWrangler(['email', 'routing', 'enable', domain]);
-	if (routing.ok) ok(`${domain}でEmail Routingを有効化しました`);
-	else {
-		warn('CLIからEmail Routingを有効化できませんでした。');
-		log(`  ${routing.text.split('\n').slice(0, 8).join('\n  ')}`);
-		log(
-			`  ${c.dim('Dashboard: https://dash.cloudflare.com/?to=/:account/email-service/routing')}`
-		);
-	}
+	warn('Email Routingの変更は、Cloudflare画面でゾーンIDと現在状態を確認してから手動で行います。');
+	log(`  ${c.dim(`対象: ${domain} / Dashboard: https://dash.cloudflare.com/?to=/:account/email-service/routing`)}`);
 
 	const routingDns = tryWrangler(['email', 'routing', 'dns', 'get', domain]);
 	if (routingDns.text) {
@@ -706,10 +689,17 @@ async function setupCloudflare(domain) {
 
 }
 
-async function listResendDomains(apiKey) {
-	const response = await fetch('https://api.resend.com/domains?limit=100', {
-		headers: { Authorization: `Bearer ${apiKey}` }
-	});
+async function resendFetch(credential, url, init = {}) {
+	return withOpaqueSecret(credential, (value) =>
+		fetch(url, {
+			...init,
+			headers: { ...init.headers, Authorization: `Bearer ${value}` }
+		})
+	);
+}
+
+async function listResendDomains(setupCredential) {
+	const response = await resendFetch(setupCredential, 'https://api.resend.com/domains?limit=100');
 	const raw = await response.text();
 	const parsed = raw ? parseJsonOutput(raw) : null;
 	if (!response.ok) {
@@ -719,21 +709,20 @@ async function listResendDomains(apiKey) {
 	return parsed?.data ?? [];
 }
 
-async function listResendWebhooks(apiKey) {
-	const response = await fetch('https://api.resend.com/webhooks', {
-		headers: { Authorization: `Bearer ${apiKey}` }
-	});
+async function listResendWebhooks(setupCredential) {
+	const response = await resendFetch(setupCredential, 'https://api.resend.com/webhooks');
 	const raw = await response.text();
 	const parsed = raw ? parseJsonOutput(raw) : null;
-	if (!response.ok) return [];
-	return parsed?.data ?? [];
+	if (!response.ok) {
+		throw new Error('Resend Webhook一覧を確認できませんでした。重複作成を避けるため停止します。');
+	}
+	return parseProviderCollection(parsed, 'Resend Webhook');
 }
 
-async function createResendWebhook(apiKey, endpoint) {
-	const response = await fetch('https://api.resend.com/webhooks', {
+async function createResendWebhook(setupCredential, endpoint) {
+	const response = await resendFetch(setupCredential, 'https://api.resend.com/webhooks', {
 		method: 'POST',
 		headers: {
-			Authorization: `Bearer ${apiKey}`,
 			'Content-Type': 'application/json'
 		},
 		body: JSON.stringify({ endpoint, events: RESEND_WEBHOOK_EVENTS })
@@ -746,32 +735,28 @@ async function createResendWebhook(apiKey, endpoint) {
 	return parsed;
 }
 
+async function deleteResendWebhook(setupCredential, id) {
+	const response = await resendFetch(setupCredential, `https://api.resend.com/webhooks/${encodeURIComponent(id)}`, { method: 'DELETE' });
+	if (!response.ok) throw new Error(`Webhook ${id} を削除できませんでした。`);
+}
+
 async function setupResend(domain) {
-	log('  https://resend.com/api-keys で送信・ドメイン確認用のAPIキーを作成してください。');
+	log('  https://resend.com/api-keys で一時セットアップ用とWorker送信用の2つのキーを作成してください。');
+	log('  Worker送信用はSending accessかつ対象ドメインだけに制限してください。');
 	log('  Resendでは送信用DNSだけを追加します。Receivingやapex MXは追加しません。');
 
-	let apiKey = '';
-	if (stdinStream.isTTY && !args.yes) {
-		apiKey = await promptSecret('Resend APIキー（re_で始まる値。空欄なら後で設定）');
-	} else {
-		warn('APIキー入力を省略しました。後で`wrangler secret put RESEND_API_KEY`を実行してください。');
+	const setupValue = await promptSecret('一時セットアップ用Resendキー（空欄ならResend確認を省略）');
+	if (!setupValue) {
+		warn('Resend設定を省略しました。後で2つのキーを分けて設定してください。');
+		return { setupCredential: null, webhookConfigured: false, domainOk: false };
 	}
-
-	if (!apiKey) {
-		return { apiKey: '', webhookSecret: '', domainOk: false };
-	}
-
-	if (!apiKey.startsWith('re_')) {
-		warn('Resend APIキーは通常re_で始まります。入力値はそのまま保存します。');
-	}
-
-	putSecret('RESEND_API_KEY', apiKey);
+	const setupCredential = createOpaqueSecret(setupValue);
 
 	try {
-		const domains = await listResendDomains(apiKey);
+		const domains = await listResendDomains(setupCredential);
 		if (domains.length === 0) {
 			warn('このキーで確認できるドメインがありません。公開前にResendへドメインを追加してください。');
-			return { apiKey, webhookSecret: '', domainOk: false };
+			return { setupCredential, webhookConfigured: false, domainOk: false };
 		}
 		log('  このキーで確認できるResendドメイン:');
 		for (const item of domains) {
@@ -781,16 +766,39 @@ async function setupResend(domain) {
 		const match = domains.find((item) => item.name?.toLowerCase() === domain);
 		if (!match) {
 			warn(`${domain}はまだResendにありません。追加後、送信用DNSを設定してください。`);
-			return { apiKey, webhookSecret: '', domainOk: false };
+			return { setupCredential, webhookConfigured: false, domainOk: false };
 		}
+		if (!match.id) {
+			throw new Error('ResendドメインIDを確認できませんでした。推測で続行しません。');
+		}
+		await confirmExactIdentity('resend', { id: match.id, name: match.name }, 'Resendドメイン');
 		ok(`${domain}をResendで確認しました（${match.status}）`);
 		if (match.capabilities?.receiving === 'enabled') {
 			warn('Resend Receivingを無効にしてください。受信はCloudflare Email Routingを使います。');
 		}
-		return { apiKey, webhookSecret: '', domainOk: match.status === 'verified' };
+		const sendingValue = await promptSecret('対象ドメインに制限したWorker送信用Resendキー');
+		if (!sendingValue) throw new Error('Worker送信用Resendキーは空欄にできません。');
+		const keyId = await prompt('Resend画面に表示されたWorker送信用キーID');
+		const metadata = { id: keyId, access: await prompt('キー権限（sending_access）'), domain: await prompt('キーの制限ドメイン') };
+		const officialScreenAttested = await confirm('Resend公式画面でキーID・sending_access・制限ドメインを確認しましたか？', false);
+		const metadataIdentity = { id: metadata.id, name: `${metadata.access}:${metadata.domain.toLowerCase()}` };
+		log(`  確認コード: ${providerIdentityFingerprint('resend-runtime-key', metadataIdentity)}`);
+		const credentialPlan = buildResendCredentialPlan({
+			setupCredential,
+			sendingCredential: sendingValue,
+			domain,
+			keyMetadata: metadata,
+			officialScreenAttested,
+			confirmationFingerprint: await prompt('Resend画面の内容と一致する確認コードを入力')
+		});
+		putSecret('RESEND_API_KEY', credentialPlan.sendingCredential);
+		return {
+			setupCredential,
+			webhookConfigured: false,
+			domainOk: match.status === 'verified'
+		};
 	} catch (error) {
-		warn(`Resendのドメイン一覧を取得できませんでした: ${error.message}`);
-		return { apiKey, webhookSecret: '', domainOk: false };
+		throw new Error('Resendの対象ID・ドメイン・権限を確認できなかったため停止します。', { cause: error });
 	}
 }
 
@@ -825,25 +833,23 @@ function deployCaptured() {
 	return { ok: result.status === 0, text };
 }
 
-async function maybeCreateWebhook(apiKey, publicUrl) {
-	if (!apiKey || !publicUrl) return '';
+async function maybeCreateWebhook(setupCredential, publicUrl) {
+	if (!setupCredential || !publicUrl) return false;
 	const endpoint = `${publicUrl.replace(/\/$/, '')}/api/webhooks/resend`;
-	const existing = await listResendWebhooks(apiKey);
+	const existing = await listResendWebhooks(setupCredential);
 	const already = existing.find((hook) => hook.endpoint === endpoint);
 	if (already) {
 		warn(`${endpoint}はResendに登録済みです。既存のRESEND_WEBHOOK_SECRETを維持してください。`);
-		return '';
+		return false;
 	}
-	if (!(await confirm(`${endpoint}をResend Webhookへ登録しますか？`, true))) return '';
-	const created = await createResendWebhook(apiKey, endpoint);
-	const secret = created?.signing_secret ?? created?.svix_secret ?? '';
-	if (!secret) {
-		warn('Webhookを作成しましたが署名シークレットを取得できませんでした。Resend画面から保存してください。');
-		return '';
-	}
-	putSecret('RESEND_WEBHOOK_SECRET', secret);
+	if (!(await confirm(`${endpoint}をResend Webhookへ登録しますか？`, false))) return false;
+	await createWebhookWithSecretBroker({
+		create: () => createResendWebhook(setupCredential, endpoint),
+		remove: (id) => deleteResendWebhook(setupCredential, id),
+		put: (secret) => putSecret('RESEND_WEBHOOK_SECRET', secret)
+	});
 	log(`  ${c.dim('署名シークレットを保存しました。値は再表示しません。')}`);
-	return secret;
+	return true;
 }
 
 function printNextSteps(state) {
@@ -855,13 +861,16 @@ function printNextSteps(state) {
 	if (!state.resendDomainOk) {
 		log(`  ${n++}. Resendへ${state.domain}を追加し、送信用DNSだけを設定します。Receivingとapex MXは追加しません。`);
 	}
-	if (!state.webhookSecret && state.publicUrl) {
+	if (!state.webhookConfigured && state.publicUrl) {
 		log(`  ${n++}. https://resend.com/webhooks で${state.publicUrl}/api/webhooks/resendを登録します。`);
 		log('     イベント: sent, delivered, bounced, complained, delivery_delayed, failed');
 		log('     その後: bunx wrangler secret put RESEND_WEBHOOK_SECRET && bun run deploy');
 	} else if (!state.publicUrl) {
 		log(`  ${n++}. デプロイ後、https://<worker>/api/webhooks/resendをResend Webhookへ登録します。`);
 		log('     1回だけ表示される署名シークレットをWorkerシークレットへ保存します。');
+	}
+	if (state.usedResendSetupCredential) {
+		log(`  ${n++}. Resend画面で一時セットアップ用キーを失効させます。Worker送信用キーは残します。`);
 	}
 	log(`  ${n++}. ${app}を開き、セットアップキーで最初の管理者を作成します。`);
 	log('  受信メールはデプロイ済みWorkerだけに届きます。vite devには届きません。');
@@ -871,12 +880,8 @@ function printNextSteps(state) {
 }
 
 async function main() {
-	if (!stdinStream.isTTY && !args.yes) {
-		throw new Error('対話できない環境では--yesと--domainが必要です。--helpを確認してください。');
-	}
-	if (args.yes && !args.domain) {
-		throw new Error('--yesを使う場合は--domainが必要です。');
-	}
+	assertSafeSetupMode({ yes: args.yes, interactive: Boolean(stdinStream.isTTY) });
+	if (args.localDev) return runLocalDev();
 
 	log(`\n${c.bold('QuickMail-ja セットアップ')}`);
 	log(c.dim('  Cloudflare上に独自ドメインのメール環境を作成します。\n'));
@@ -888,10 +893,15 @@ async function main() {
 	installDeps();
 
 	section(2, total, 'Cloudflareログイン');
-	await ensureLogin();
+	const account = await ensureLogin();
 
 	section(3, total, 'ドメインと送信サービス');
 	const domain = await askDomain();
+	await confirmExactIdentity(
+		'cloudflare-zone-target',
+		{ id: `${account.id}:${domain}`, name: domain },
+		'Cloudflareアカウントと対象ドメイン'
+	);
 	ok(domain);
 	ok('受信: Cloudflare Email Routing');
 	ok('Resend（送信）');
@@ -900,8 +910,7 @@ async function main() {
 
 	let source = readWrangler();
 	const workerName = await askWorkerName(jsoncString(source, 'name') || 'quickmail-ja');
-	const hostname = await askHostname(domain);
-	if (hostname) ok(`Web UIホスト名: ${hostname}`);
+	ok('Web UIはworkers.devへデプロイします。カスタムドメイン設定はこの段階では行いません。');
 
 	section(4, total, 'D1とR2');
 	const databaseName = await askResourceName(
@@ -930,8 +939,7 @@ async function main() {
 		databaseName,
 		databaseId,
 		bucketName,
-		domain,
-		hostname
+		domain
 	});
 	writeWrangler(source);
 	ok('wrangler.jsoncを更新しました');
@@ -948,27 +956,22 @@ async function main() {
 
 	section(6, total, 'セットアップキー');
 	const bootstrapPlan = await chooseBootstrapSecret();
-	upsertEnvFile(devVarsFile, bootstrapPlan.localUpdates, { fromExample: true });
-	putSecret('BOOTSTRAP_SECRET', bootstrapPlan.input);
-	log(`  ${c.bold('最初の管理者作成に使うセットアップキー（この画面での表示は1回だけです）')}`);
-	log(`  ${c.bold(bootstrapPlan.displayOnce)}`);
-	log(`  ${c.dim('安全な場所へ保存し、管理者作成後は破棄してください。')}`);
+	putSecret('BOOTSTRAP_SECRET', bootstrapPlan.secret);
+	const authRateLimitPlan = buildAuthRateLimitSecretPlan(randomBytes(32));
+	putSecret('AUTH_RATE_LIMIT_SECRET', authRateLimitPlan.secret);
+	log(`  ${c.dim('セットアップキーを保存しました。値は表示・ファイル保存しません。')}`);
 
 	section(7, total, 'メール経路');
-	let resend = { apiKey: '', webhookSecret: '', domainOk: false };
+	let resend = { setupCredential: null, webhookConfigured: false, domainOk: false };
 	await setupCloudflare(domain);
 	resend = await setupResend(domain);
-	if (resend.apiKey) {
-		upsertEnvFile(devVarsFile, { RESEND_API_KEY: resend.apiKey });
-		ok('RESEND_API_KEYを.dev.varsへ保存しました');
-	}
 
 	section(8, total, 'データベース');
 	migrate(true, false);
 
 	section(9, total, 'デプロイ');
 	let deployed = false;
-	let publicUrl = hostname ? `https://${hostname}` : null;
+	let publicUrl = null;
 	const shouldDeploy = args.skipDeploy ? false : await confirm('今すぐデプロイしますか？', true);
 	if (shouldDeploy) {
 		migrate(false, true);
@@ -979,12 +982,11 @@ async function main() {
 		if (deployed) ok('デプロイしました');
 		else warn('デプロイに失敗しました。表示されたエラーを修正し、`bun run deploy`を実行してください。');
 
-		if (deployed && resend.apiKey && publicUrl) {
+		if (deployed && resend.setupCredential && publicUrl) {
 			try {
-				const secret = await maybeCreateWebhook(resend.apiKey, publicUrl);
-				if (secret) {
-					resend.webhookSecret = secret;
-					upsertEnvFile(devVarsFile, { RESEND_WEBHOOK_SECRET: secret });
+				const configured = await maybeCreateWebhook(resend.setupCredential, publicUrl);
+				if (configured) {
+					resend.webhookConfigured = true;
 					log(`  ${c.dim('RESEND_WEBHOOK_SECRETを反映するため再デプロイしています…')}`);
 					const again = deploy();
 					if (!again.ok) warn('再デプロイに失敗しました。シークレットを確認後、`bun run deploy`を実行してください。');
@@ -1003,7 +1005,8 @@ async function main() {
 		deployed,
 		publicUrl,
 		resendDomainOk: resend.domainOk,
-		webhookSecret: resend.webhookSecret
+		webhookConfigured: resend.webhookConfigured,
+		usedResendSetupCredential: Boolean(resend.setupCredential)
 	});
 }
 

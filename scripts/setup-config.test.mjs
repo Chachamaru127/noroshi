@@ -2,13 +2,24 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
 import {
+	assertSafeSetupMode,
+	buildAuthRateLimitSecretPlan,
 	buildBootstrapSecretPlan,
+	buildResendCredentialPlan,
+	buildChildEnvironment,
+	createWebhookWithSecretBroker,
+	parseProviderCollection,
+	assertResourceNameAvailable,
 	configureSetupTemplate,
 	generateBootstrapSecret,
+	providerIdentityFingerprint,
 	removeAddresses,
 	removeSendEmailBinding,
+	selectExactProviderIdentity,
 	setVars
 } from './setup-config.mjs';
+
+import { isOpaqueSecret } from './setup-secret-broker.mjs';
 
 const base = `{
 \t"vars": {
@@ -17,6 +28,8 @@ const base = `{
 \t"d1_databases": []
 }
 `;
+
+const resendKey = (label) => ['re', label, 'abcdefghijklmnopqrstuvwxyz'].join('_');
 
 describe('setup provider config transforms', () => {
 	test('points setup completion only at the deployed URL', () => {
@@ -48,16 +61,177 @@ describe('setup provider config transforms', () => {
 		assert.doesNotMatch(resend, /"send_email"\s*:/);
 	});
 
-	test('generates a one-time setup key and a non-logging secret plan', () => {
+	test('generates a one-time setup key and an opaque non-persistent secret plan', () => {
 		const bytes = Uint8Array.from({ length: 32 }, (_, index) => index);
 		const secret = generateBootstrapSecret(bytes);
 		assert.match(secret, /^[A-Za-z0-9_-]{43}$/);
 		const plan = buildBootstrapSecretPlan(secret);
 		assert.deepEqual(plan.wranglerArgs, ['secret', 'put', 'BOOTSTRAP_SECRET']);
-		assert.equal(plan.input, secret);
-		assert.deepEqual(plan.localUpdates, { BOOTSTRAP_SECRET: secret });
-		assert.equal(plan.displayOnce, secret);
+		assert.equal(isOpaqueSecret(plan.secret), true);
+		assert.equal(
+			JSON.stringify(plan),
+			'{"wranglerArgs":["secret","put","BOOTSTRAP_SECRET"],"secret":"[REDACTED]"}'
+		);
+		assert.equal('localUpdates' in plan, false);
+		assert.equal('displayOnce' in plan, false);
 		assert.throws(() => buildBootstrapSecretPlan('short'), /24/);
+	});
+
+	test('requires an exact provider identity and matching fingerprint', () => {
+		const identities = [
+			{ id: 'a'.repeat(32), name: 'Sandbox' },
+			{ id: 'b'.repeat(32), name: 'Production' }
+		];
+		const fingerprint = providerIdentityFingerprint('cloudflare', identities[0]);
+		assert.equal(
+			selectExactProviderIdentity('cloudflare', identities, {
+				id: identities[0].id,
+				fingerprint
+			}),
+			identities[0]
+		);
+		assert.throws(
+			() => selectExactProviderIdentity('cloudflare', identities, {}),
+			/正確なIDと確認コード/
+		);
+		assert.throws(
+			() =>
+				selectExactProviderIdentity('cloudflare', identities, {
+					id: identities[0].id,
+					fingerprint: providerIdentityFingerprint('cloudflare', identities[1])
+				}),
+			/一致しません/
+		);
+	});
+
+	test('separates a temporary Resend setup credential from the domain-restricted sending key', () => {
+		const metadata = { id: 'key_123', access: 'sending_access', domain: 'mail.example.com' };
+		const plan = buildResendCredentialPlan({
+			setupCredential: resendKey('setup'),
+			sendingCredential: resendKey('send'),
+			domain: 'mail.example.com',
+			keyMetadata: metadata,
+			officialScreenAttested: true,
+			confirmationFingerprint: providerIdentityFingerprint('resend-runtime-key', {
+				id: metadata.id,
+				name: 'sending_access:mail.example.com'
+			})
+		});
+		assert.equal(isOpaqueSecret(plan.setupCredential), true);
+		assert.equal(isOpaqueSecret(plan.sendingCredential), true);
+		assert.deepEqual(plan.runtimeScope, {
+			access: 'sending_access',
+			domain: 'mail.example.com'
+		});
+		assert.equal(JSON.stringify(plan).includes('re_'), false);
+		assert.throws(
+			() =>
+				buildResendCredentialPlan({
+					setupCredential: resendKey('same'),
+					sendingCredential: resendKey('same'),
+					domain: 'mail.example.com',
+					keyMetadata: metadata,
+					officialScreenAttested: true,
+					confirmationFingerprint: providerIdentityFingerprint('resend-runtime-key', {
+						id: metadata.id,
+						name: 'sending_access:mail.example.com'
+					})
+				}),
+			/別のキー/
+		);
+		assert.throws(
+			() =>
+				buildResendCredentialPlan({
+					setupCredential: resendKey('setup'),
+					sendingCredential: resendKey('send'),
+					domain: 'mail.example.com',
+					keyMetadata: { ...metadata, access: 'full_access' },
+					officialScreenAttested: true,
+					confirmationFingerprint: 'bad'
+				}),
+			/sending_access/
+		);
+		assert.throws(
+			() =>
+				buildResendCredentialPlan({
+					setupCredential: resendKey('setup'),
+					sendingCredential: resendKey('send'),
+					domain: 'mail.example.com',
+					keyMetadata: metadata,
+					confirmationFingerprint: 'missing',
+					officialScreenAttested: false
+				}),
+			/公式画面/
+		);
+	});
+
+	test('creates an independent opaque auth rate-limit secret', () => {
+		const plan = buildAuthRateLimitSecretPlan(new Uint8Array(32));
+		assert.deepEqual(plan.wranglerArgs, ['secret', 'put', 'AUTH_RATE_LIMIT_SECRET']);
+		assert.equal(isOpaqueSecret(plan.secret), true);
+		assert.throws(() => buildAuthRateLimitSecretPlan(new Uint8Array(31)), /32/);
+	});
+
+	test('deletes exactly a newly-created webhook when secret storage fails', async () => {
+		const removed = [];
+		await assert.rejects(
+			() =>
+				createWebhookWithSecretBroker({
+					create: async () => ({ id: 'wh_123', signing_secret: 'opaque-value' }),
+					remove: async (id) => removed.push(id),
+					put: async () => {
+						throw new Error('store failed');
+					}
+				}),
+			/削除しました/
+		);
+		assert.deepEqual(removed, ['wh_123']);
+		await assert.rejects(
+			() =>
+				createWebhookWithSecretBroker({
+					create: async () => ({ id: 'wh_missing' }),
+					remove: async () => {
+						throw new Error('provider detail');
+					},
+					put: async () => {}
+				}),
+			/Webhook wh_missing の補償削除/
+		);
+	});
+
+	test('fails closed on malformed provider lists and same-name resources', () => {
+		assert.throws(() => parseProviderCollection(null, 'Webhook'), /解釈できない/);
+		assert.throws(() => parseProviderCollection({}, 'D1'), /解釈できない/);
+		assert.deepEqual(parseProviderCollection({ data: [] }, 'Webhook'), []);
+		assert.throws(
+			() => assertResourceNameAvailable(['owned-name'], 'owned-name', 'D1'),
+			/manifestなし/
+		);
+		assert.doesNotThrow(() => assertResourceNameAvailable([], 'new-name', 'R2'));
+	});
+
+	test('removes the setup input name at the actual child environment merge', () => {
+		const env = buildChildEnvironment(
+			{
+				QUICKMAIL_BOOTSTRAP_SECRET: 'operator-input',
+				QUICKMAIL_AUTH_RATE_LIMIT_SECRET: 'input-alias',
+				PATH: '/bin'
+			},
+			{ BOOTSTRAP_SECRET: 'runtime-only', AUTH_RATE_LIMIT_SECRET: 'independent-random' },
+			['QUICKMAIL_BOOTSTRAP_SECRET', 'QUICKMAIL_AUTH_RATE_LIMIT_SECRET']
+		);
+		assert.deepEqual(env, {
+			PATH: '/bin',
+			BOOTSTRAP_SECRET: 'runtime-only',
+			AUTH_RATE_LIMIT_SECRET: 'independent-random'
+		});
+		assert.notEqual(env.BOOTSTRAP_SECRET, env.AUTH_RATE_LIMIT_SECRET);
+	});
+
+	test('rejects unattended broad yes mode before any setup work', () => {
+		assert.throws(() => assertSafeSetupMode({ yes: true, interactive: true }), /--yes/);
+		assert.throws(() => assertSafeSetupMode({ yes: false, interactive: false }), /対話端末/);
+		assert.doesNotThrow(() => assertSafeSetupMode({ yes: false, interactive: true }));
 	});
 
 	test('generates a generic Resend outbound and Cloudflare inbound config', () => {
