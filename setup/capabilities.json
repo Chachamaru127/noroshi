@@ -1,0 +1,995 @@
+{
+	"schema_version": "quickmail-ja.setup-capabilities.v1",
+	"providers": ["cloudflare", "resend"],
+	"guidance_skill": {
+		"exposed_capability_ids": [],
+		"mailbox_permissions": { "read": false, "send": false, "admin": false }
+	},
+	"scope_constraint_behavior": "immutable_exact_match",
+	"human_handoffs": [
+		{
+			"id": "cloudflare.account_access",
+			"provider": "cloudflare",
+			"classes": ["write"],
+			"required_scopes": ["human_authenticated_session"],
+			"scope_constraints": ["intended_account_identity"],
+			"adapter_operations": [],
+			"content_access": "forbidden",
+			"data_handled": ["account_identity_metadata"],
+			"cost_class": "none",
+			"confirmation_class": "account_access",
+			"execution": "human_only",
+			"steps": ["account_creation", "login", "account_selection", "mfa", "captcha", "terms"],
+			"rollback": {
+				"mode": "manual_recovery",
+				"description_ja": "公式画面でログアウトまたはアカウント回復を行う。"
+			}
+		},
+		{
+			"id": "cloudflare.setup_credential",
+			"provider": "cloudflare",
+			"classes": ["write"],
+			"required_scopes": ["human_authenticated_session"],
+			"scope_constraints": ["account_id", "approved_permission_set", "approved_token_label"],
+			"adapter_operations": [],
+			"content_access": "forbidden",
+			"data_handled": ["account_id", "token_id", "secret_broker_reference"],
+			"cost_class": "none",
+			"confirmation_class": "secret_staging",
+			"execution": "human_only",
+			"steps": [
+				"create_or_oauth_authorize_temporary_credential",
+				"enter_credential_into_native_secret_broker"
+			],
+			"rollback": {
+				"mode": "separate_revoke_approval_required",
+				"description_ja": "失効は別の破壊的操作として承認する。"
+			}
+		},
+		{
+			"id": "cloudflare.revoke_setup_credential",
+			"provider": "cloudflare",
+			"classes": ["destructive", "write"],
+			"required_scopes": ["human_authenticated_session"],
+			"scope_constraints": ["account_id", "token_id"],
+			"adapter_operations": [],
+			"content_access": "forbidden",
+			"data_handled": ["account_id", "token_id"],
+			"cost_class": "none",
+			"confirmation_class": "destructive_cleanup",
+			"execution": "human_only",
+			"steps": ["revoke_temporary_credential_after_setup_or_abort"],
+			"rollback": {
+				"mode": "not_reversible",
+				"description_ja": "失効した資格情報は復元できない。"
+			}
+		},
+		{
+			"id": "cloudflare.zone_activation",
+			"provider": "cloudflare",
+			"classes": ["write"],
+			"required_scopes": ["human_authenticated_session"],
+			"scope_constraints": ["account_id", "zone_id", "domain", "registrar_account"],
+			"adapter_operations": [],
+			"content_access": "forbidden",
+			"data_handled": ["account_id", "zone_id", "domain", "nameserver_metadata", "zone_status"],
+			"cost_class": "none",
+			"confirmation_class": "dns_change",
+			"execution": "human_only",
+			"steps": ["registrar_nameserver_change", "wait_for_zone_activation"],
+			"rollback": {
+				"mode": "recorded_nameserver_restore",
+				"description_ja": "記録した以前のネームサーバーへ人間が戻す。"
+			}
+		},
+		{
+			"id": "cloudflare.billing",
+			"provider": "cloudflare",
+			"classes": ["billing"],
+			"required_scopes": ["human_authenticated_session"],
+			"scope_constraints": ["account_id", "approved_plan_or_purchase"],
+			"adapter_operations": [],
+			"content_access": "forbidden",
+			"data_handled": ["account_id", "plan_or_purchase_metadata"],
+			"cost_class": "potential_charge",
+			"confirmation_class": "billing",
+			"execution": "human_only",
+			"steps": ["payment", "plan_change", "domain_purchase", "domain_transfer"],
+			"rollback": {
+				"mode": "provider_terms_apply",
+				"description_ja": "解約・返金はCloudflareまたは登録事業者の条件に従う。"
+			}
+		},
+		{
+			"id": "resend.account_access",
+			"provider": "resend",
+			"classes": ["write"],
+			"required_scopes": ["human_authenticated_session"],
+			"scope_constraints": ["intended_team_identity"],
+			"adapter_operations": [],
+			"content_access": "forbidden",
+			"data_handled": ["team_identity_metadata"],
+			"cost_class": "none",
+			"confirmation_class": "account_access",
+			"execution": "human_only",
+			"steps": ["account_creation", "login", "team_selection", "mfa", "captcha", "terms"],
+			"rollback": {
+				"mode": "manual_recovery",
+				"description_ja": "公式画面でログアウトまたはアカウント回復を行う。"
+			}
+		},
+		{
+			"id": "resend.setup_credential",
+			"provider": "resend",
+			"classes": ["write"],
+			"required_scopes": ["human_authenticated_session"],
+			"scope_constraints": ["team_id", "approved_key_label"],
+			"adapter_operations": [],
+			"content_access": "forbidden",
+			"data_handled": ["team_id", "api_key_id", "secret_broker_reference"],
+			"cost_class": "none",
+			"confirmation_class": "secret_staging",
+			"execution": "human_only",
+			"steps": ["create_temporary_full_access_key", "enter_key_into_native_secret_broker"],
+			"rollback": {
+				"mode": "revoke_key",
+				"description_ja": "設定完了または中止後に公式画面で設定用キーを失効する。"
+			}
+		},
+		{
+			"id": "resend.billing",
+			"provider": "resend",
+			"classes": ["billing"],
+			"required_scopes": ["human_authenticated_session"],
+			"scope_constraints": ["team_id", "approved_plan"],
+			"adapter_operations": [],
+			"content_access": "forbidden",
+			"data_handled": ["team_id", "plan_metadata"],
+			"cost_class": "potential_charge",
+			"confirmation_class": "billing",
+			"execution": "human_only",
+			"steps": ["payment", "plan_change"],
+			"rollback": {
+				"mode": "provider_terms_apply",
+				"description_ja": "解約・返金はResendの条件に従う。"
+			}
+		}
+	],
+	"resource_collision": {
+		"same_name_behavior": "collision",
+		"provider_read_failure_behavior": "stop",
+		"implicit_adoption": false,
+		"adoption_requires_explicit_confirmation": true,
+		"missing_resource_id_behavior": "stop",
+		"prior_state_mismatch_behavior": "stop",
+		"ownership_mismatch_behavior": "stop",
+		"covered_resource_types": [
+			"cloudflare_zone",
+			"cloudflare_dns_record",
+			"cloudflare_email_routing_state",
+			"cloudflare_email_routing_rule",
+			"cloudflare_catch_all_rule",
+			"cloudflare_d1_database",
+			"cloudflare_r2_bucket",
+			"cloudflare_worker",
+			"resend_domain",
+			"resend_webhook",
+			"resend_api_key"
+		],
+		"ownership_manifest_common_fields": [
+			"schema_version",
+			"project_id",
+			"provider",
+			"resource_type",
+			"resource_id",
+			"resource_name",
+			"manifest_fingerprint"
+		],
+		"provider_identity_fields": {
+			"cloudflare": ["account_id"],
+			"resend": ["team_id"]
+		}
+	},
+	"capabilities": [
+		{
+			"id": "cloudflare.inspect_accounts",
+			"provider": "cloudflare",
+			"classes": ["read"],
+			"required_scopes": ["Account Settings Read"],
+			"scope_constraints": ["account_id"],
+			"adapter_operations": ["list_accounts"],
+			"content_access": "forbidden",
+			"data_handled": ["account_id", "account_name"],
+			"cost_class": "none",
+			"confirmation_class": "read_only",
+			"execution": "provider_adapter",
+			"rollback": { "mode": "not_needed", "description_ja": "読み取りのみで変更しない。" }
+		},
+		{
+			"id": "cloudflare.inspect_zones",
+			"provider": "cloudflare",
+			"classes": ["read"],
+			"required_scopes": ["Zone Read"],
+			"scope_constraints": ["account_id"],
+			"adapter_operations": ["list_zones"],
+			"content_access": "forbidden",
+			"data_handled": ["account_id", "zone_id", "domain", "zone_status"],
+			"cost_class": "none",
+			"confirmation_class": "read_only",
+			"execution": "provider_adapter",
+			"rollback": { "mode": "not_needed", "description_ja": "ゾーン一覧メタデータだけを読む。" }
+		},
+		{
+			"id": "cloudflare.create_zone",
+			"provider": "cloudflare",
+			"classes": ["write"],
+			"required_scopes": ["Zone Edit"],
+			"scope_constraints": ["account_id", "domain"],
+			"adapter_operations": ["create_zone"],
+			"credential_boundary": "temporary_broker_only",
+			"collision_resource_types": ["cloudflare_zone"],
+			"approval_binding": {
+				"immutable_fields": ["account_id", "domain"],
+				"prior_state_fingerprint_required": true,
+				"desired_state_fingerprint_required": true,
+				"ownership_manifest_required": true,
+				"mismatch_behavior": "stop"
+			},
+			"content_access": "forbidden",
+			"data_handled": [
+				"account_id",
+				"domain",
+				"prior_state_fingerprint",
+				"desired_state_fingerprint",
+				"ownership_manifest"
+			],
+			"cost_class": "none",
+			"confirmation_class": "resource_creation",
+			"execution": "provider_adapter",
+			"rollback": {
+				"mode": "human_review_required",
+				"description_ja": "ゾーンは自動削除しない。所有を確認し、別承認で公式画面から処理する。"
+			}
+		},
+		{
+			"id": "cloudflare.inspect_zone",
+			"provider": "cloudflare",
+			"classes": ["read"],
+			"required_scopes": ["Zone Read", "DNS Read"],
+			"scope_constraints": ["account_id", "zone_id"],
+			"adapter_operations": ["get_zone", "list_dns_records"],
+			"content_access": "forbidden",
+			"data_handled": ["account_id", "zone_id", "domain", "dns_metadata"],
+			"cost_class": "none",
+			"confirmation_class": "read_only",
+			"execution": "provider_adapter",
+			"rollback": { "mode": "not_needed", "description_ja": "読み取りのみで変更しない。" }
+		},
+		{
+			"id": "cloudflare.inspect_d1",
+			"provider": "cloudflare",
+			"classes": ["read"],
+			"required_scopes": ["D1 Read"],
+			"scope_constraints": ["account_id"],
+			"adapter_operations": ["list_d1_databases"],
+			"credential_boundary": "ephemeral_broker_only",
+			"content_access": "forbidden",
+			"data_handled": ["account_id", "resource_id", "resource_name"],
+			"cost_class": "none",
+			"confirmation_class": "read_only",
+			"execution": "provider_adapter",
+			"rollback": {
+				"mode": "not_needed",
+				"description_ja": "一覧メタデータだけを読み、D1へクエリを実行しない。"
+			}
+		},
+		{
+			"id": "cloudflare.inspect_r2",
+			"provider": "cloudflare",
+			"classes": ["read"],
+			"required_scopes": ["Workers R2 Storage Read"],
+			"scope_constraints": ["account_id"],
+			"adapter_operations": ["list_r2_buckets"],
+			"credential_boundary": "ephemeral_broker_only",
+			"content_access": "forbidden",
+			"data_handled": ["account_id", "resource_id", "resource_name"],
+			"cost_class": "none",
+			"confirmation_class": "read_only",
+			"execution": "provider_adapter",
+			"rollback": {
+				"mode": "not_needed",
+				"description_ja": "バケット一覧メタデータだけを読み、オブジェクトを取得しない。"
+			}
+		},
+		{
+			"id": "cloudflare.inspect_workers",
+			"provider": "cloudflare",
+			"classes": ["read"],
+			"required_scopes": ["Workers Scripts Read"],
+			"scope_constraints": ["account_id"],
+			"adapter_operations": ["list_workers"],
+			"content_access": "forbidden",
+			"data_handled": ["account_id", "resource_id", "resource_name"],
+			"cost_class": "none",
+			"confirmation_class": "read_only",
+			"execution": "provider_adapter",
+			"rollback": {
+				"mode": "not_needed",
+				"description_ja": "Worker一覧メタデータだけを読み、コードを取得しない。"
+			}
+		},
+		{
+			"id": "cloudflare.create_d1",
+			"provider": "cloudflare",
+			"classes": ["write"],
+			"required_scopes": ["D1 Edit"],
+			"scope_constraints": ["account_id", "resource_name"],
+			"adapter_operations": ["create_d1_database"],
+			"credential_boundary": "temporary_broker_only",
+			"collision_resource_types": ["cloudflare_d1_database"],
+			"content_access": "forbidden",
+			"data_handled": ["account_id", "resource_name", "ownership_manifest"],
+			"cost_class": "metered_usage",
+			"confirmation_class": "resource_creation",
+			"execution": "provider_adapter",
+			"rollback": {
+				"mode": "explicit_delete_if_empty",
+				"description_ja": "この計画が作成し、空であることを確認したD1だけを別承認で削除する。"
+			}
+		},
+		{
+			"id": "cloudflare.create_r2",
+			"provider": "cloudflare",
+			"classes": ["write"],
+			"required_scopes": ["Workers R2 Storage Edit"],
+			"scope_constraints": ["account_id", "resource_name"],
+			"adapter_operations": ["create_r2_bucket"],
+			"credential_boundary": "temporary_broker_only",
+			"collision_resource_types": ["cloudflare_r2_bucket"],
+			"content_access": "forbidden",
+			"data_handled": ["account_id", "resource_name", "ownership_manifest"],
+			"cost_class": "metered_usage",
+			"confirmation_class": "resource_creation",
+			"execution": "provider_adapter",
+			"rollback": {
+				"mode": "explicit_delete_if_empty",
+				"description_ja": "この計画が作成し、空であることを確認したR2だけを別承認で削除する。"
+			}
+		},
+		{
+			"id": "cloudflare.create_worker",
+			"provider": "cloudflare",
+			"classes": ["write"],
+			"required_scopes": ["Workers Scripts Edit"],
+			"scope_constraints": ["account_id", "resource_name"],
+			"adapter_operations": ["create_worker"],
+			"credential_boundary": "temporary_broker_only",
+			"collision_resource_types": ["cloudflare_worker"],
+			"content_access": "forbidden",
+			"data_handled": ["account_id", "resource_name", "ownership_manifest"],
+			"cost_class": "metered_usage",
+			"confirmation_class": "resource_creation",
+			"execution": "provider_adapter",
+			"rollback": {
+				"mode": "restore_or_explicit_delete",
+				"description_ja": "以前のWorker版を復元する。新規かつ未使用なら別承認で削除する。"
+			}
+		},
+		{
+			"id": "cloudflare.stage_worker_secret",
+			"provider": "cloudflare",
+			"classes": ["write"],
+			"required_scopes": ["Workers Scripts Edit"],
+			"scope_constraints": ["account_id", "worker_id", "secret_name", "secret_broker_reference"],
+			"adapter_operations": ["put_worker_secret"],
+			"credential_boundary": "temporary_broker_only",
+			"content_access": "forbidden",
+			"data_handled": ["account_id", "resource_id", "secret_name", "secret_broker_reference"],
+			"cost_class": "none",
+			"confirmation_class": "secret_staging",
+			"execution": "native_secret_broker",
+			"rollback": {
+				"mode": "restore_secret_version",
+				"description_ja": "旧値を表示せず、保存済みの以前の秘密バージョンへ戻す。"
+			}
+		},
+		{
+			"id": "cloudflare.apply_remote_migration",
+			"provider": "cloudflare",
+			"classes": ["write"],
+			"required_scopes": ["D1 Edit"],
+			"scope_constraints": [
+				"account_id",
+				"database_id",
+				"migration_ids",
+				"migration_bundle_digest"
+			],
+			"adapter_operations": ["apply_d1_migrations"],
+			"credential_boundary": "temporary_broker_only",
+			"approval_binding": {
+				"immutable_fields": [
+					"account_id",
+					"database_id",
+					"migration_ids",
+					"migration_bundle_digest"
+				],
+				"prior_state_fingerprint_required": true,
+				"desired_state_fingerprint_required": true,
+				"ownership_manifest_required": true,
+				"mismatch_behavior": "stop"
+			},
+			"content_access": "migration_only",
+			"data_handled": [
+				"account_id",
+				"resource_id",
+				"migration_ids",
+				"migration_bundle_digest",
+				"prior_state_fingerprint",
+				"desired_state_fingerprint",
+				"ownership_manifest"
+			],
+			"cost_class": "metered_usage",
+			"confirmation_class": "remote_migration",
+			"execution": "provider_adapter",
+			"rollback": {
+				"mode": "forward_recovery_only",
+				"description_ja": "自動削除せず、検証済みの前進修復手順を別計画として作る。"
+			}
+		},
+		{
+			"id": "cloudflare.deploy_worker",
+			"provider": "cloudflare",
+			"classes": ["write"],
+			"required_scopes": ["Workers Scripts Edit"],
+			"scope_constraints": ["account_id", "worker_id", "artifact_digest", "binding_metadata"],
+			"adapter_operations": ["deploy_worker_version"],
+			"credential_boundary": "temporary_broker_only",
+			"approval_binding": {
+				"immutable_fields": ["account_id", "worker_id", "artifact_digest", "binding_metadata"],
+				"prior_state_fingerprint_required": true,
+				"desired_state_fingerprint_required": true,
+				"ownership_manifest_required": true,
+				"mismatch_behavior": "stop"
+			},
+			"content_access": "forbidden",
+			"data_handled": [
+				"account_id",
+				"resource_id",
+				"artifact_digest",
+				"binding_metadata",
+				"prior_state_fingerprint",
+				"desired_state_fingerprint",
+				"ownership_manifest"
+			],
+			"cost_class": "metered_usage",
+			"confirmation_class": "deployment",
+			"execution": "provider_adapter",
+			"rollback": {
+				"mode": "restore_previous_version",
+				"description_ja": "記録した直前のWorker版へ戻す。"
+			}
+		},
+		{
+			"id": "cloudflare.inspect_email_routing",
+			"provider": "cloudflare",
+			"classes": ["read"],
+			"required_scopes": ["Email Routing Rules Read", "DNS Read"],
+			"scope_constraints": ["account_id", "zone_id"],
+			"adapter_operations": [
+				"get_email_routing_settings",
+				"list_email_routing_rules",
+				"list_dns_records"
+			],
+			"content_access": "forbidden",
+			"data_handled": ["account_id", "zone_id", "domain", "routing_rule_metadata", "dns_metadata"],
+			"cost_class": "none",
+			"confirmation_class": "read_only",
+			"execution": "provider_adapter",
+			"rollback": { "mode": "not_needed", "description_ja": "読み取りのみで変更しない。" }
+		},
+		{
+			"id": "cloudflare.enable_email_routing",
+			"provider": "cloudflare",
+			"classes": ["write"],
+			"required_scopes": ["Email Routing Rules Edit"],
+			"scope_constraints": [
+				"account_id",
+				"zone_id",
+				"domain",
+				"dns_record_ids",
+				"routing_rule_ids",
+				"routing_state"
+			],
+			"adapter_operations": ["enable_email_routing"],
+			"credential_boundary": "temporary_broker_only",
+			"collision_resource_types": [
+				"cloudflare_email_routing_state",
+				"cloudflare_email_routing_rule"
+			],
+			"approval_binding": {
+				"immutable_fields": [
+					"account_id",
+					"zone_id",
+					"domain",
+					"dns_record_ids",
+					"routing_rule_ids",
+					"routing_state"
+				],
+				"prior_state_fingerprint_required": true,
+				"desired_state_fingerprint_required": true,
+				"ownership_manifest_required": true,
+				"mismatch_behavior": "stop"
+			},
+			"content_access": "forbidden",
+			"data_handled": [
+				"account_id",
+				"zone_id",
+				"domain",
+				"dns_record_ids",
+				"routing_rule_ids",
+				"routing_state",
+				"prior_state_fingerprint",
+				"desired_state_fingerprint",
+				"ownership_manifest"
+			],
+			"cost_class": "none",
+			"confirmation_class": "email_routing",
+			"execution": "provider_adapter",
+			"rollback": {
+				"mode": "restore_routing_snapshot",
+				"description_ja": "事前に保存したEmail Routing状態へ戻す。"
+			}
+		},
+		{
+			"id": "cloudflare.change_dns",
+			"provider": "cloudflare",
+			"classes": ["write"],
+			"required_scopes": ["DNS Edit"],
+			"scope_constraints": [
+				"account_id",
+				"zone_id",
+				"domain",
+				"dns_record_ids",
+				"dns_record_metadata"
+			],
+			"adapter_operations": ["create_dns_record", "update_dns_record", "delete_owned_dns_record"],
+			"credential_boundary": "temporary_broker_only",
+			"collision_resource_types": ["cloudflare_dns_record"],
+			"approval_binding": {
+				"immutable_fields": [
+					"account_id",
+					"zone_id",
+					"domain",
+					"dns_record_ids",
+					"dns_record_metadata"
+				],
+				"prior_state_fingerprint_required": true,
+				"desired_state_fingerprint_required": true,
+				"ownership_manifest_required": true,
+				"mismatch_behavior": "stop"
+			},
+			"content_access": "forbidden",
+			"data_handled": [
+				"account_id",
+				"zone_id",
+				"domain",
+				"dns_record_ids",
+				"dns_record_metadata",
+				"prior_state_fingerprint",
+				"desired_state_fingerprint",
+				"ownership_manifest"
+			],
+			"cost_class": "none",
+			"confirmation_class": "dns_change",
+			"execution": "provider_adapter",
+			"rollback": {
+				"mode": "restore_owned_dns_snapshot",
+				"description_ja": "所有を確認した対象レコードだけを事前スナップショットへ戻す。"
+			}
+		},
+		{
+			"id": "cloudflare.configure_catch_all",
+			"provider": "cloudflare",
+			"classes": ["write"],
+			"required_scopes": ["Email Routing Rules Edit"],
+			"scope_constraints": [
+				"account_id",
+				"zone_id",
+				"domain",
+				"routing_rule_ids",
+				"worker_id",
+				"routing_rule_metadata"
+			],
+			"adapter_operations": ["create_catch_all_rule", "update_catch_all_rule"],
+			"credential_boundary": "temporary_broker_only",
+			"collision_resource_types": ["cloudflare_email_routing_rule", "cloudflare_catch_all_rule"],
+			"approval_binding": {
+				"immutable_fields": [
+					"account_id",
+					"zone_id",
+					"domain",
+					"routing_rule_ids",
+					"worker_id",
+					"routing_rule_metadata"
+				],
+				"prior_state_fingerprint_required": true,
+				"desired_state_fingerprint_required": true,
+				"ownership_manifest_required": true,
+				"mismatch_behavior": "stop"
+			},
+			"content_access": "forbidden",
+			"data_handled": [
+				"account_id",
+				"zone_id",
+				"domain",
+				"routing_rule_ids",
+				"routing_rule_metadata",
+				"worker_id",
+				"prior_state_fingerprint",
+				"desired_state_fingerprint",
+				"ownership_manifest"
+			],
+			"cost_class": "none",
+			"confirmation_class": "email_routing",
+			"execution": "provider_adapter",
+			"rollback": {
+				"mode": "restore_routing_snapshot",
+				"description_ja": "事前に保存したCatch-allとルールの状態へ戻す。"
+			}
+		},
+		{
+			"id": "cloudflare.delete_d1",
+			"provider": "cloudflare",
+			"classes": ["destructive", "write"],
+			"required_scopes": ["D1 Edit"],
+			"scope_constraints": ["account_id", "database_id", "ownership_manifest_fingerprint"],
+			"adapter_operations": ["delete_empty_owned_d1"],
+			"credential_boundary": "temporary_broker_only",
+			"content_access": "emptiness_check_only",
+			"data_handled": [
+				"account_id",
+				"resource_id",
+				"ownership_manifest_fingerprint",
+				"ownership_manifest"
+			],
+			"cost_class": "none",
+			"confirmation_class": "destructive_cleanup",
+			"execution": "provider_adapter",
+			"rollback": {
+				"mode": "not_reversible",
+				"description_ja": "空かつこの計画所有のD1だけを別承認で削除する。"
+			}
+		},
+		{
+			"id": "cloudflare.delete_r2",
+			"provider": "cloudflare",
+			"classes": ["destructive", "write"],
+			"required_scopes": ["Workers R2 Storage Edit"],
+			"scope_constraints": ["account_id", "bucket_name", "ownership_manifest_fingerprint"],
+			"adapter_operations": ["delete_empty_owned_r2"],
+			"credential_boundary": "temporary_broker_only",
+			"content_access": "emptiness_check_only",
+			"data_handled": [
+				"account_id",
+				"resource_id",
+				"ownership_manifest_fingerprint",
+				"ownership_manifest"
+			],
+			"cost_class": "none",
+			"confirmation_class": "destructive_cleanup",
+			"execution": "provider_adapter",
+			"rollback": {
+				"mode": "not_reversible",
+				"description_ja": "空かつこの計画所有のR2だけを別承認で削除する。"
+			}
+		},
+		{
+			"id": "cloudflare.delete_worker",
+			"provider": "cloudflare",
+			"classes": ["destructive", "write"],
+			"required_scopes": ["Workers Scripts Edit"],
+			"scope_constraints": ["account_id", "worker_id", "ownership_manifest_fingerprint"],
+			"adapter_operations": ["delete_owned_worker"],
+			"credential_boundary": "temporary_broker_only",
+			"content_access": "forbidden",
+			"data_handled": [
+				"account_id",
+				"resource_id",
+				"ownership_manifest_fingerprint",
+				"ownership_manifest"
+			],
+			"cost_class": "none",
+			"confirmation_class": "destructive_cleanup",
+			"execution": "provider_adapter",
+			"rollback": {
+				"mode": "not_reversible",
+				"description_ja": "この計画所有のWorkerだけを別承認で削除する。"
+			}
+		},
+		{
+			"id": "resend.inspect_team",
+			"provider": "resend",
+			"classes": ["read"],
+			"required_scopes": ["full_access"],
+			"scope_constraints": ["team_id"],
+			"adapter_operations": ["get_current_team"],
+			"credential_boundary": "temporary_setup_credential",
+			"content_access": "forbidden",
+			"data_handled": ["team_id", "team_name"],
+			"cost_class": "none",
+			"confirmation_class": "read_only",
+			"execution": "provider_adapter",
+			"rollback": { "mode": "not_needed", "description_ja": "読み取りのみで変更しない。" }
+		},
+		{
+			"id": "resend.inspect_domain",
+			"provider": "resend",
+			"classes": ["read"],
+			"required_scopes": ["full_access"],
+			"scope_constraints": ["team_id", "domain_id"],
+			"adapter_operations": ["list_domains", "get_domain"],
+			"credential_boundary": "temporary_setup_credential",
+			"content_access": "forbidden",
+			"data_handled": ["team_id", "domain_id", "domain", "sending_status", "dns_metadata"],
+			"cost_class": "none",
+			"confirmation_class": "read_only",
+			"execution": "provider_adapter",
+			"rollback": { "mode": "not_needed", "description_ja": "読み取りのみで変更しない。" }
+		},
+		{
+			"id": "resend.inspect_webhooks",
+			"provider": "resend",
+			"classes": ["read"],
+			"required_scopes": ["full_access"],
+			"scope_constraints": ["team_id"],
+			"adapter_operations": ["list_webhooks"],
+			"credential_boundary": "temporary_setup_credential",
+			"content_access": "forbidden",
+			"data_handled": ["team_id", "webhook_id", "webhook_url", "event_types"],
+			"cost_class": "none",
+			"confirmation_class": "read_only",
+			"execution": "provider_adapter",
+			"rollback": { "mode": "not_needed", "description_ja": "読み取りのみで変更しない。" }
+		},
+		{
+			"id": "resend.inspect_api_keys",
+			"provider": "resend",
+			"classes": ["read"],
+			"required_scopes": ["full_access"],
+			"scope_constraints": ["team_id"],
+			"adapter_operations": ["list_api_key_metadata"],
+			"credential_boundary": "temporary_setup_credential",
+			"content_access": "forbidden",
+			"data_handled": ["team_id", "api_key_id", "key_label", "key_permission", "domain_id"],
+			"cost_class": "none",
+			"confirmation_class": "read_only",
+			"execution": "provider_adapter",
+			"rollback": {
+				"mode": "not_needed",
+				"description_ja": "キー値を取得せずメタデータだけを読む。"
+			}
+		},
+		{
+			"id": "resend.create_domain",
+			"provider": "resend",
+			"classes": ["write"],
+			"required_scopes": ["full_access"],
+			"scope_constraints": ["team_id", "domain"],
+			"adapter_operations": ["create_domain"],
+			"credential_boundary": "temporary_setup_credential",
+			"collision_resource_types": ["resend_domain"],
+			"content_access": "forbidden",
+			"data_handled": ["team_id", "domain", "ownership_manifest"],
+			"cost_class": "none",
+			"confirmation_class": "resource_creation",
+			"execution": "provider_adapter",
+			"rollback": {
+				"mode": "explicit_delete_if_owned",
+				"description_ja": "この計画が作成した未使用ドメインだけを別承認で削除する。"
+			}
+		},
+		{
+			"id": "resend.verify_domain",
+			"provider": "resend",
+			"classes": ["write"],
+			"required_scopes": ["full_access"],
+			"scope_constraints": ["team_id", "domain_id", "current_state_fingerprint"],
+			"adapter_operations": ["verify_domain"],
+			"credential_boundary": "temporary_setup_credential",
+			"preconditions": {
+				"current_state_fingerprint_required": true,
+				"allowed_prior_statuses": ["not_started", "failure", "temporary_failure"],
+				"verified_behavior": "readback_noop",
+				"pending_behavior": "readback_noop",
+				"unknown_status_behavior": "stop"
+			},
+			"content_access": "forbidden",
+			"data_handled": [
+				"team_id",
+				"domain_id",
+				"current_state_fingerprint",
+				"dns_verification_status"
+			],
+			"cost_class": "none",
+			"confirmation_class": "domain_verification",
+			"execution": "provider_adapter",
+			"rollback": {
+				"mode": "not_reversible",
+				"description_ja": "検証要求はドメイン状態をpendingへ変え得るため取り消せない。現在状態を再確認し、許可状態だけで実行する。"
+			}
+		},
+		{
+			"id": "resend.create_sending_key",
+			"provider": "resend",
+			"classes": ["write"],
+			"required_scopes": ["full_access"],
+			"scope_constraints": ["team_id", "domain_id", "key_label", "secret_broker_reference"],
+			"adapter_operations": ["create_domain_restricted_sending_key"],
+			"credential_boundary": "temporary_setup_credential",
+			"collision_resource_types": ["resend_api_key"],
+			"secret_output_boundary": {
+				"output": "domain_restricted_sending_secret",
+				"destination": "native_secret_broker",
+				"model_context": "forbidden",
+				"logs": "forbidden",
+				"filesystem": "forbidden",
+				"plaintext_return": "forbidden"
+			},
+			"content_access": "forbidden",
+			"data_handled": ["team_id", "domain_id", "key_label", "secret_broker_reference"],
+			"cost_class": "none",
+			"confirmation_class": "secret_staging",
+			"execution": "native_secret_broker",
+			"rollback": {
+				"mode": "revoke_key",
+				"description_ja": "作成したキーIDだけを別承認で失効する。"
+			}
+		},
+		{
+			"id": "resend.create_webhook",
+			"provider": "resend",
+			"classes": ["write"],
+			"required_scopes": ["full_access"],
+			"scope_constraints": ["team_id", "webhook_url", "event_types", "secret_broker_reference"],
+			"adapter_operations": ["create_webhook"],
+			"credential_boundary": "temporary_setup_credential",
+			"collision_resource_types": ["resend_webhook"],
+			"secret_output_boundary": {
+				"output": "webhook_signing_secret",
+				"destination": "native_secret_broker",
+				"model_context": "forbidden",
+				"logs": "forbidden",
+				"filesystem": "forbidden",
+				"plaintext_return": "forbidden"
+			},
+			"content_access": "forbidden",
+			"data_handled": ["team_id", "webhook_url", "event_types", "secret_broker_reference"],
+			"cost_class": "none",
+			"confirmation_class": "webhook_creation",
+			"execution": "native_secret_broker",
+			"rollback": {
+				"mode": "explicit_delete_if_owned",
+				"description_ja": "この計画が作成したWebhook IDだけを別承認で削除する。"
+			}
+		},
+		{
+			"id": "resend.send_controlled_test",
+			"provider": "resend",
+			"classes": ["send", "write"],
+			"required_scopes": ["sending_access"],
+			"scope_constraints": [
+				"team_id",
+				"domain_id",
+				"controlled_sender",
+				"controlled_recipient",
+				"test_token",
+				"idempotency_key"
+			],
+			"adapter_operations": ["send_controlled_test"],
+			"credential_boundary": "domain_restricted_sending_credential",
+			"content_access": "fixed_non_sensitive_canary_only",
+			"data_handled": [
+				"team_id",
+				"domain_id",
+				"controlled_sender",
+				"controlled_recipient",
+				"test_token",
+				"idempotency_key"
+			],
+			"cost_class": "metered_usage",
+			"confirmation_class": "external_send",
+			"execution": "provider_adapter",
+			"rollback": {
+				"mode": "not_reversible",
+				"description_ja": "送信は取り消せない。承認済みの管理対象アドレスへ固定の非機密文だけを送る。"
+			}
+		},
+		{
+			"id": "resend.delete_domain",
+			"provider": "resend",
+			"classes": ["destructive", "write"],
+			"required_scopes": ["full_access"],
+			"scope_constraints": ["team_id", "domain_id", "ownership_manifest_fingerprint"],
+			"adapter_operations": ["delete_owned_domain"],
+			"credential_boundary": "temporary_setup_credential",
+			"content_access": "forbidden",
+			"data_handled": [
+				"team_id",
+				"domain_id",
+				"ownership_manifest_fingerprint",
+				"ownership_manifest"
+			],
+			"cost_class": "none",
+			"confirmation_class": "destructive_cleanup",
+			"execution": "provider_adapter",
+			"rollback": {
+				"mode": "not_reversible",
+				"description_ja": "この計画所有の未使用ドメインだけを別承認で削除する。"
+			}
+		},
+		{
+			"id": "resend.delete_webhook",
+			"provider": "resend",
+			"classes": ["destructive", "write"],
+			"required_scopes": ["full_access"],
+			"scope_constraints": ["team_id", "webhook_id", "ownership_manifest_fingerprint"],
+			"adapter_operations": ["delete_owned_webhook"],
+			"credential_boundary": "temporary_setup_credential",
+			"content_access": "forbidden",
+			"data_handled": [
+				"team_id",
+				"webhook_id",
+				"ownership_manifest_fingerprint",
+				"ownership_manifest"
+			],
+			"cost_class": "none",
+			"confirmation_class": "destructive_cleanup",
+			"execution": "provider_adapter",
+			"rollback": {
+				"mode": "not_reversible",
+				"description_ja": "この計画所有のWebhookだけを別承認で削除する。"
+			}
+		},
+		{
+			"id": "resend.revoke_api_key",
+			"provider": "resend",
+			"classes": ["destructive", "write"],
+			"required_scopes": ["full_access"],
+			"scope_constraints": ["team_id", "api_key_id", "ownership_manifest_fingerprint"],
+			"adapter_operations": ["revoke_owned_api_key"],
+			"credential_boundary": "temporary_setup_credential",
+			"content_access": "forbidden",
+			"data_handled": [
+				"team_id",
+				"api_key_id",
+				"ownership_manifest_fingerprint",
+				"ownership_manifest"
+			],
+			"cost_class": "none",
+			"confirmation_class": "destructive_cleanup",
+			"execution": "provider_adapter",
+			"rollback": {
+				"mode": "not_reversible",
+				"description_ja": "この計画が作成したAPIキーだけを別承認で失効する。"
+			}
+		},
+		{
+			"id": "resend.revoke_setup_credential",
+			"provider": "resend",
+			"classes": ["destructive", "write"],
+			"required_scopes": ["human_authenticated_session"],
+			"scope_constraints": ["team_id", "api_key_id"],
+			"adapter_operations": [],
+			"credential_boundary": "human_only",
+			"content_access": "forbidden",
+			"data_handled": ["team_id", "api_key_id"],
+			"cost_class": "none",
+			"confirmation_class": "destructive_cleanup",
+			"execution": "human_only",
+			"rollback": {
+				"mode": "not_reversible",
+				"description_ja": "利用者が設定用キーIDを確認し、Resend公式画面で失効する。"
+			}
+		}
+	]
+}
