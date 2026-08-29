@@ -25,6 +25,8 @@ export type ForwardingDeliveryEnv = {
 	EMAIL_PROVIDER?: string;
 	RESEND_API_KEY?: string;
 	RESEND_SEND_DOMAINS?: string;
+	/** Local-only loopback FakeProvider seam; omit in production. */
+	QMJ_FAKE_RESEND_ORIGIN?: string;
 	FORWARDING_KILL_SWITCH?: string;
 	FORWARDING_LEASE_MS?: string;
 	waitUntil?: (promise: Promise<void>) => void;
@@ -384,7 +386,12 @@ export async function enqueueAndScheduleForwarding(
 	try {
 		const work = deliverForwardingAttempt(
 			env,
-			createResendProvider(env.RESEND_API_KEY, undefined, env.RESEND_SEND_DOMAINS),
+			createResendProvider(
+				env.RESEND_API_KEY,
+				undefined,
+				env.RESEND_SEND_DOMAINS,
+				env.QMJ_FAKE_RESEND_ORIGIN
+			),
 			attempt.id,
 			input.now ?? new Date()
 		);
@@ -410,7 +417,12 @@ export async function runScheduledForwarding(
 		return { processed: 0, skipped: true };
 	}
 	await reconcileSavedForwardingEmails(env.DB, now);
-	const provider = createResendProvider(env.RESEND_API_KEY, undefined, env.RESEND_SEND_DOMAINS);
+	const provider = createResendProvider(
+		env.RESEND_API_KEY,
+		undefined,
+		env.RESEND_SEND_DOMAINS,
+		env.QMJ_FAKE_RESEND_ORIGIN
+	);
 	const due = await listDueForwardingAttempts(env.DB, now);
 	let processed = 0;
 	for (const attempt of due) {

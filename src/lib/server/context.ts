@@ -58,7 +58,8 @@ export function getEmailProvider(platform: PlatformLike): EmailProvider {
 				getInboundEmailProviderKind(platform) === 'cloudflare'
 					? platform?.env.CLOUDFLARE_MAIL_DOMAINS
 					: undefined,
-				platform?.env.RESEND_SEND_DOMAINS
+				platform?.env.RESEND_SEND_DOMAINS,
+				platform?.env.QMJ_FAKE_RESEND_ORIGIN
 			);
 		}
 		case 'cloudflare': {
@@ -165,7 +166,7 @@ export function getResendClient(platform: PlatformLike): ResendClient {
 			'RESEND_API_KEY is not set. Add it with the native `wrangler secret put RESEND_API_KEY` prompt.'
 		);
 	}
-	return getResendReceivingClient(apiKey);
+	return getResendReceivingClient(apiKey, platform?.env.QMJ_FAKE_RESEND_ORIGIN);
 }
 
 export function getWebhookSecret(platform: PlatformLike): string | null {

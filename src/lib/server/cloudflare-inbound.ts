@@ -28,6 +28,8 @@ export type CloudflareInboundEnv = PushNotificationEnv & {
 	EMAIL_PROVIDER?: string;
 	RESEND_API_KEY?: string;
 	RESEND_SEND_DOMAINS?: string;
+	/** Local-only loopback FakeProvider seam; omit in production. */
+	QMJ_FAKE_RESEND_ORIGIN?: string;
 	FORWARDING_KILL_SWITCH?: string;
 	FORWARDING_LEASE_MS?: string;
 };

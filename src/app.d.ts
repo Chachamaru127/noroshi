@@ -20,6 +20,8 @@ declare global {
 				CLOUDFLARE_MAIL_DOMAINS?: string;
 				/** Domains whose sending setup was verified before runtime deployment. */
 				RESEND_SEND_DOMAINS?: string;
+				/** Local-only loopback FakeProvider seam; omit in production. */
+				QMJ_FAKE_RESEND_ORIGIN?: string;
 				/** One-time secret required to create the first administrator. */
 				BOOTSTRAP_SECRET?: string;
 				AUTH_RATE_LIMIT_SECRET?: string;

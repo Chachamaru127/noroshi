@@ -10,6 +10,43 @@
 
 const API_BASE = 'https://api.resend.com';
 
+/**
+ * Local UI smoke tests may point the typed client at a loopback fake server.
+ * Production callers omit this argument and always use Resend's API origin.
+ */
+function normalizeResendApiBase(value?: string): string {
+	const candidate = value?.trim() || API_BASE;
+	try {
+		const url = new URL(candidate);
+		if (!url.protocol || !url.hostname) throw new Error('invalid_resend_api_base');
+		return candidate.replace(/\/+$/, '');
+	} catch {
+		throw new ResendError(500, 'invalid_api_base', 'Invalid Resend API base URL');
+	}
+}
+
+/**
+ * The Worker may only use an override for a local FakeProvider smoke test.
+ * Keeping the guard at the provider boundary prevents an environment value
+ * from turning the Resend bearer token into a request to an arbitrary host.
+ */
+export function normalizeLocalResendApiBase(value?: string): string | undefined {
+	if (!value?.trim()) return undefined;
+	try {
+		const url = new URL(value);
+		const hostname = url.hostname.toLowerCase();
+		const loopback = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '[::1]';
+		if (url.protocol !== 'http:' || !loopback) throw new Error('non_loopback_resend_api_base');
+		return normalizeResendApiBase(value);
+	} catch {
+		throw new ResendError(
+			500,
+			'invalid_local_api_base',
+			'FakeProvider API override must use an http loopback URL'
+		);
+	}
+}
+
 export class ResendError extends Error {
 	readonly status: number;
 	readonly code: string;
@@ -107,6 +144,15 @@ type ListResponse<T> = { object: 'list'; has_more: boolean; data: T[] };
 export type ResendClient = ReturnType<typeof createResendClient>;
 
 export function createResendClient(apiKey: string) {
+	return createResendClientAtBase(apiKey, API_BASE);
+}
+
+/** Explicitly named local seam; production code uses createResendClient. */
+export function createLocalResendClient(apiKey: string, apiBase?: string): ResendClient {
+	return createResendClientAtBase(apiKey, normalizeLocalResendApiBase(apiBase) ?? API_BASE);
+}
+
+function createResendClientAtBase(apiKey: string, base: string) {
 	if (!apiKey) {
 		throw new ResendError(500, 'missing_api_key', 'RESEND_API_KEY is not configured');
 	}
@@ -126,7 +172,7 @@ export function createResendClient(apiKey: string) {
 			headers['Idempotency-Key'] = idempotencyKey;
 		}
 
-		const response = await fetch(`${API_BASE}${path}`, { ...rest, headers });
+		const response = await fetch(`${base}${path}`, { ...rest, headers });
 		const raw = await response.text();
 		const parsed = raw ? safeJsonParse(raw) : null;
 

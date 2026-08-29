@@ -11,6 +11,8 @@ declare global {
 		INBOUND_EMAIL_PROVIDER?: string;
 		CLOUDFLARE_MAIL_DOMAINS?: string;
 		RESEND_SEND_DOMAINS?: string;
+		/** Local-only loopback FakeProvider seam; omit in production. */
+		QMJ_FAKE_RESEND_ORIGIN?: string;
 		BOOTSTRAP_SECRET?: string;
 		AUTH_RATE_LIMIT_SECRET?: string;
 		RESEND_API_KEY: string;

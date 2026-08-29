@@ -57,6 +57,46 @@ describe('Resend provider with Cloudflare inbound', () => {
 		assert.equal(idempotencyKey, 'quickmail-forward:rule:email');
 	});
 
+	test('can target an explicit local API origin for FakeProvider UI smoke', async () => {
+		let requestUrl = '';
+		globalThis.fetch = (async (input) => {
+			requestUrl = String(input);
+			return new Response(JSON.stringify({ id: 'fake-provider-id' }), {
+				status: 200,
+				headers: { 'content-type': 'application/json' }
+			});
+		}) as typeof fetch;
+
+		const provider = createResendProvider(
+			're_test',
+			undefined,
+			'quickmail.example',
+			'http://127.0.0.1:8788/'
+		);
+		const result = await provider.send({
+			from: {
+				id: 'address', user_id: 'user', domain_id: 'domain', domain_name: 'quickmail.example',
+				address: 'info@quickmail.example', label: null, is_default: true, signature: null,
+				created_at: '2026-08-25T00:00:00.000Z'
+			},
+			senderName: 'Info',
+			to: ['test@example.net'],
+			subject: 'Local smoke',
+			text: 'Body',
+			idempotencyKey: 'local-smoke-key'
+		});
+
+		assert.equal(requestUrl, 'http://127.0.0.1:8788/emails');
+		assert.equal(result.providerId, 'fake-provider-id');
+	});
+
+	test('rejects a non-loopback FakeProvider origin before provider calls', () => {
+		assert.throws(
+			() => createResendProvider('re_test', undefined, 'quickmail.example', 'https://collector.example'),
+			/loopback/i
+		);
+	});
+
 	test('rejects a sender outside RESEND_SEND_DOMAINS before a provider call', async () => {
 		let fetchCalls = 0;
 		globalThis.fetch = (async () => {

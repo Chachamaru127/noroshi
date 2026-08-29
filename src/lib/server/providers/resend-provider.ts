@@ -1,5 +1,5 @@
 import {
-	createResendClient,
+	createLocalResendClient,
 	isDomainReceivable,
 	isDomainSendable,
 	ResendError,
@@ -13,9 +13,10 @@ import type { OutboundMailInput, OutboundMailResult } from '../send-mail';
 export function createResendProvider(
 	apiKey: string,
 	cloudflareInboundDomains?: string,
-	resendSendDomains?: string
+	resendSendDomains?: string,
+	apiBase?: string
 ): EmailProvider {
-	const client = createResendClient(apiKey);
+	const client = createLocalResendClient(apiKey, apiBase);
 	const usesCloudflareInbound = cloudflareInboundDomains !== undefined;
 	const inboundDomains = new Set(parseMailDomains(cloudflareInboundDomains));
 	const configuredSendDomains = parseMailDomains(resendSendDomains);
@@ -99,8 +100,8 @@ export function createResendProvider(
 }
 
 /** Webhook ingest still needs the receiving endpoints on the raw client. */
-export function getResendReceivingClient(apiKey: string): ResendClient {
-	return createResendClient(apiKey);
+export function getResendReceivingClient(apiKey: string, apiBase?: string): ResendClient {
+	return createLocalResendClient(apiKey, apiBase);
 }
 
 function toProviderDomain(domain: ResendDomain): ProviderDomain {

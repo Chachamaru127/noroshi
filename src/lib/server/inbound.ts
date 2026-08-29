@@ -31,6 +31,8 @@ export type InboundEnv = PushNotificationEnv & {
 	EMAIL_PROVIDER?: string;
 	RESEND_API_KEY?: string;
 	RESEND_SEND_DOMAINS?: string;
+	/** Local-only loopback FakeProvider seam; omit in production. */
+	QMJ_FAKE_RESEND_ORIGIN?: string;
 	FORWARDING_KILL_SWITCH?: string;
 	FORWARDING_LEASE_MS?: string;
 };
@@ -42,6 +44,7 @@ export function createResendWebhookInboundEnv(platform: App.Platform): InboundEn
 		EMAIL_PROVIDER: platform.env.EMAIL_PROVIDER,
 		RESEND_API_KEY: platform.env.RESEND_API_KEY,
 		RESEND_SEND_DOMAINS: platform.env.RESEND_SEND_DOMAINS,
+		QMJ_FAKE_RESEND_ORIGIN: platform.env.QMJ_FAKE_RESEND_ORIGIN,
 		FORWARDING_KILL_SWITCH: platform.env.FORWARDING_KILL_SWITCH,
 		FORWARDING_LEASE_MS: platform.env.FORWARDING_LEASE_MS,
 		VAPID_PUBLIC_KEY: platform.env.VAPID_PUBLIC_KEY,
