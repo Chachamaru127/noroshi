@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { findExternalFontReferences } from './release-supply-chain.mjs';
+import { nativePackageFiles } from './generate-codex-native-adapter.mjs';
 
 const repository = fileURLToPath(new URL('..', import.meta.url));
 const temporary = await mkdtemp(join(tmpdir(), 'quickmail-ja-archive-smoke-'));
@@ -27,6 +28,11 @@ try {
 		.stdout.split('\0')
 		.filter(Boolean);
 	for (const entry of treeEntries) {
+		const separator = entry.indexOf('\t');
+		const path = separator === -1 ? '' : entry.slice(separator + 1);
+		if (path.startsWith('/') || path.includes('\\') || path.split('/').includes('..')) {
+			throw new Error(`Release tree contains an unsafe path: ${path}`);
+		}
 		if (!/^(?:100644|100755) blob [0-9a-f]+\t/u.test(entry)) {
 			throw new Error(`Release tree contains a symlink, gitlink, or special entry: ${entry}`);
 		}
@@ -35,6 +41,13 @@ try {
 		'.agents/skills/quickmail-ja-setup/SKILL.md',
 		'.claude/skills/quickmail-ja-setup/SKILL.md'
 	];
+	const nativeFiles = nativePackageFiles();
+	const allowedClientFiles = [...adapters, ...nativeFiles].sort();
+	for (const path of allowedClientFiles) {
+		if (path.startsWith('/') || path.includes('\\') || path.split('/').includes('..')) {
+			throw new Error(`Release client allowlist contains an unsafe path: ${path}`);
+		}
+	}
 	const trackedClientFiles = run(
 		'git',
 		['ls-tree', '-r', '--name-only', treeish, '--', '.agents', '.claude'],
@@ -44,12 +57,12 @@ try {
 		.split(/\r?\n/u)
 		.filter(Boolean)
 		.sort();
-	if (JSON.stringify(trackedClientFiles) !== JSON.stringify([...adapters].sort())) {
+	if (JSON.stringify(trackedClientFiles) !== JSON.stringify(allowedClientFiles)) {
 		throw new Error(
 			`Release archive client-file allowlist mismatch: ${trackedClientFiles.join(', ')}`
 		);
 	}
-	for (const adapter of adapters) {
+	for (const adapter of allowedClientFiles) {
 		const tracked = run('git', ['ls-tree', treeish, '--', adapter], { cwd: repository }).stdout;
 		if (!/^100644 blob [0-9a-f]+\t/u.test(tracked)) {
 			throw new Error(`Release adapter must be a tracked regular 100644 file: ${adapter}`);

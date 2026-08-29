@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url';
 
 const repositoryRoot = fileURLToPath(new URL('..', import.meta.url));
 const nativeRoot = join(repositoryRoot, '.agents/plugins/quickmail-ja-setup');
+const nativePackagePrefix = '.agents/plugins/quickmail-ja-setup';
+const nativeStaticFiles = Object.freeze(['.codex-plugin/plugin.json', '.mcp.json']);
 
 const mirrorFiles = Object.freeze([
 	['skills/quickmail-ja-operations/SKILL.md', 'skills/quickmail-ja-operations/SKILL.md'],
@@ -33,6 +35,14 @@ const mirrorFiles = Object.freeze([
 
 export function nativeAdapterFiles() {
 	return mirrorFiles.map(([source, destination]) => ({ source, destination }));
+}
+
+export function nativePackageFiles() {
+	return [
+		'.agents/plugins/marketplace.json',
+		...nativeStaticFiles.map((path) => `${nativePackagePrefix}/${path}`),
+		...mirrorFiles.map(([, destination]) => `${nativePackagePrefix}/${destination}`)
+	].sort();
 }
 
 export function syncNativeAdapter({ check = false } = {}) {

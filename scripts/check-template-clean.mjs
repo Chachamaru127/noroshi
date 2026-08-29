@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { nativePackageFiles } from './generate-codex-native-adapter.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 
@@ -109,7 +110,8 @@ export function checkTemplate(directory = root) {
 
 	const trackedAdapterPaths = new Set([
 		'.agents/skills/quickmail-ja-setup/SKILL.md',
-		'.claude/skills/quickmail-ja-setup/SKILL.md'
+		'.claude/skills/quickmail-ja-setup/SKILL.md',
+		...nativePackageFiles()
 	]);
 	const localOnlyPaths = [
 		/^backup(?:\/|$)/,
@@ -120,6 +122,10 @@ export function checkTemplate(directory = root) {
 		/^\.harness(?:[-/]|$)/
 	];
 	for (const file of tracked) {
+		if (file.startsWith('/') || file.includes('\\') || file.split('/').includes('..')) {
+			fail(`${file} is an unsafe tracked path`);
+			continue;
+		}
 		if (!trackedAdapterPaths.has(file) && localOnlyPaths.some((pattern) => pattern.test(file))) {
 			fail(`${file} is local or operational state and must not be tracked`);
 		}

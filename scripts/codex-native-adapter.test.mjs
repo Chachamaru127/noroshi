@@ -5,7 +5,11 @@ import { readFileSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { nativeAdapterFiles, syncNativeAdapter } from './generate-codex-native-adapter.mjs';
+import {
+	nativeAdapterFiles,
+	nativePackageFiles,
+	syncNativeAdapter
+} from './generate-codex-native-adapter.mjs';
 import { PLUGIN_PACKAGE_FILES } from './agent-plugin.mjs';
 
 const repositoryRoot = fileURLToPath(new URL('..', import.meta.url));
@@ -74,6 +78,30 @@ test('Codex native marketplace and plugin manifests stay in the official shape',
 		args: ['scripts/setup-plugin-mcp.mjs'],
 		cwd: '.'
 	});
+});
+
+test('Codex native distribution keeps one exact generated file allowlist', () => {
+	const files = nativePackageFiles();
+	assert.deepEqual(files, [
+		'.agents/plugins/marketplace.json',
+		'.agents/plugins/quickmail-ja-setup/.codex-plugin/plugin.json',
+		'.agents/plugins/quickmail-ja-setup/.mcp.json',
+		'.agents/plugins/quickmail-ja-setup/LICENSE.md',
+		'.agents/plugins/quickmail-ja-setup/scripts/setup-engine.mjs',
+		'.agents/plugins/quickmail-ja-setup/scripts/setup-plugin-mcp.mjs',
+		'.agents/plugins/quickmail-ja-setup/skills/quickmail-ja-operations/SKILL.md',
+		'.agents/plugins/quickmail-ja-setup/skills/quickmail-ja-setup/SKILL.md',
+		'.agents/plugins/quickmail-ja-setup/skills/quickmail-ja-setup/agents/openai.yaml',
+		'.agents/plugins/quickmail-ja-setup/skills/quickmail-ja-setup/references/browser-and-byok.md',
+		'.agents/plugins/quickmail-ja-setup/skills/quickmail-ja-setup/references/cloudflare-resend.md',
+		'.agents/plugins/quickmail-ja-setup/skills/quickmail-ja-setup/references/gmail-byok.md',
+		'.agents/plugins/quickmail-ja-setup/skills/quickmail-ja-setup/references/setup-patterns.json'
+	]);
+	for (const path of files) {
+		assert.equal(path.startsWith('/'), false);
+		assert.equal(path.includes('\\'), false);
+		assert.equal(path.split('/').includes('..'), false);
+	}
 });
 
 test('Codex native adapter mirrors the canonical Skill, MCP, and safety runtime', () => {

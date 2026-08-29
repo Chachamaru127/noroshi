@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
-import { findForbiddenFindings } from './check-template-clean.mjs';
+import { checkTemplate, findForbiddenFindings } from './check-template-clean.mjs';
 import { validateSkillTreeListing } from './package-setup-skill.mjs';
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
@@ -220,6 +220,11 @@ test('clean-template diagnostics never include the matched secret value', () => 
 	assert.doesNotMatch(clean, /matched|JSON\.stringify\(match|slice\(0, 40\)/);
 	assert.doesNotMatch(clean, /\$\{route\[1\]\}/);
 	assert.match(clean, /\$\{finding\.label\} in \$\{file\}:\$\{finding\.line\}/);
+});
+
+test('clean-template accepts only the tracked Codex native distribution paths', () => {
+	const result = checkTemplate(root);
+	assert.deepEqual(result.failures, []);
 });
 
 test('clean scanner checks every match and scans the text Bun lockfile', () => {
