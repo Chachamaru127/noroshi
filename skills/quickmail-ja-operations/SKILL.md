@@ -15,8 +15,8 @@ metadata:
 - `setup_plan`: QMJ-10の許可された capability と operation の組み合わせから、1つの変更計画を作る。
 - `setup_approve`: 計画に対する1回限りの承認記録を作る。
 - `setup_apply`: プロバイダー用アダプターが別途検証・承認されていない限り、常に停止する。
-- `setup_readback`: 提示された状態が承認済み計画の前状態または後状態と一致するかを検証する。
-- `setup_verify`: 読み返しの指紋と計画の指紋を照合する。
+- `setup_readback`: 提示された状態が検証済み計画の前状態または後状態と一致するかを検証する。
+- `setup_verify`: 検証済み計画と読み返しの指紋を照合する。
 
 この構成にメールボックスMCPは含まれない。`list_threads`、`get_thread`、`send_message`、`reply`、添付ファイル取得、QuickMailユーザー管理は別設定であり、このプラグインから呼び出せない。
 

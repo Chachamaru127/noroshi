@@ -4,7 +4,7 @@ description: QuickMail-jaのセットアップ計画を、QMJ-10の固定契約�
 metadata:
   short-description: QMJ-10の導入計画を安全に確認
 ---
-<!-- Generated from skills/quickmail-ja-operations/SKILL.md; source-sha256: 45aa176d5eaf74ee95ebbfd69be1eabffc93bdf25bd4c25d0ea93dbce2728d73 -->
+<!-- Generated from skills/quickmail-ja-operations/SKILL.md; source-sha256: 453a5e561181817af29cb4a41dae378ca34192cc074158cad46c11356fe482a5 -->
 
 # QuickMail-ja セットアップ操作
 
@@ -16,8 +16,8 @@ metadata:
 - `setup_plan`: QMJ-10の許可された capability と operation の組み合わせから、1つの変更計画を作る。
 - `setup_approve`: 計画に対する1回限りの承認記録を作る。
 - `setup_apply`: プロバイダー用アダプターが別途検証・承認されていない限り、常に停止する。
-- `setup_readback`: 提示された状態が承認済み計画の前状態または後状態と一致するかを検証する。
-- `setup_verify`: 読み返しの指紋と計画の指紋を照合する。
+- `setup_readback`: 提示された状態が検証済み計画の前状態または後状態と一致するかを検証する。
+- `setup_verify`: 検証済み計画と読み返しの指紋を照合する。
 
 この構成にメールボックスMCPは含まれない。`list_threads`、`get_thread`、`send_message`、`reply`、添付ファイル取得、QuickMailユーザー管理は別設定であり、このプラグインから呼び出せない。
 

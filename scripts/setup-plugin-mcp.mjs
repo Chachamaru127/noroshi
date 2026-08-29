@@ -84,7 +84,7 @@ const toolDefinitions = [
 	{
 		name: 'setup_readback',
 		description:
-			'Check a supplied non-secret readback state against the approved QMJ-10 before or after fingerprint. No provider call is made.',
+			'Check a supplied non-secret readback state against a validated QMJ-10 plan before or after fingerprint. No provider call is made.',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -99,7 +99,7 @@ const toolDefinitions = [
 	{
 		name: 'setup_verify',
 		description:
-			'Verify a supplied non-secret readback state against an approved QMJ-10 plan. A mismatch stops without retrying or writing.',
+			'Verify a supplied non-secret readback state against a validated QMJ-10 plan. A mismatch stops without retrying or writing.',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -219,10 +219,7 @@ async function handleMessage(message) {
 	if (!isObject(message) || message.jsonrpc !== '2.0') {
 		return jsonRpcError(null, -32600, 'Invalid JSON-RPC request.');
 	}
-	if (
-		message.method === 'notifications/initialized' ||
-		message.method === 'notifications/cancelled'
-	) {
+	if (typeof message.method === 'string' && message.method.startsWith('notifications/')) {
 		return null;
 	}
 	switch (message.method) {

@@ -13,3 +13,11 @@ QMJ-11BではCodex/ChatGPTのクリーンプロファイルによるインスト
 - Agent Plugins Specification: <https://agent-plugins.org/specification>
 - OpenAI Codex plugins: <https://developers.openai.com/codex/plugins>
 - OpenAI plugins repository: <https://github.com/openai/plugins>
+
+## 実装ソースの確認記録
+
+- Codex source commit: [2b5bdcf67547860f2e5c5a605009a70026796b2b](https://github.com/openai/codex/commit/2b5bdcf67547860f2e5c5a605009a70026796b2b)
+- commit date: 2026-08-02
+- 確認日: 2026-08-29
+- 対応対象: Agent Plugins 1.0.0 の portable root 処理
+- これは source commit の記録であり、Codex アプリの release version や ChatGPT の利用可否を意味しない。公開 metadata に release version がないため、version は断定しない。

@@ -11,7 +11,8 @@
 ルートが Agent Plugins 1.0 の配布形である。
 
 - `plugin.json`: 公式マニフェスト。カスタム拡張には capability registry の参照と、メールボックス権限が全て `false` であることだけを記録する。
-- `skills/quickmail-ja-operations/SKILL.md`: QMJ-10 の `inspect → plan → approve → apply → readback → verify` を日本語で案内する正本 Skill。
+- `skills/quickmail-ja-operations/SKILL.md`: QMJ-10 の `inspect → plan → approve → apply → readback → verify` を日本語で案内する正本 operations Skill。
+- `skills/quickmail-ja-setup/SKILL.md`: QMJ-11A の BYOK・公式画面・手動 fallback を案内する正本 guidance Skill。portable package の利用者向け構成にはこの2つを含めるが、このリリースの Agent Plugin ZIP は operations Skill だけを狭く含める。
 - `mcp.json`: 任意コンポーネントとして、ローカルの狭い QMJ-10 操作だけを stdio で公開する。メールボックス MCP とは物理的に別である。
 - `setup/plugin-capabilities.json`: `setup/capabilities.json` と QMJ-10 の固定 step contract から生成した射影。公開 capability と provider operation は空である。
 - `adapters/claude/`: Agent Plugins 1.0 と別形式の Claude ネイティブアダプター。portable package の自動発見を意味しない。
@@ -25,13 +26,19 @@ MCP のツール一覧は次の6つに固定する。
 
 ## 公式仕様と確認日
 
-2026-08-29 に、次の一次資料を確認した。スキーマは配布時のネットワーク取得に依存しないよう、公開された Agent Plugins 1.0.0 / MCP schema の内容を `scripts/agent-plugin-schemas.mjs` に固定して検証する。
+2026-08-29 に、次の一次資料を確認した。公式スキーマ原文は同日取得し、`docs/setup/vendor/agent-plugins/1.0.0/` に変更せず保存した。SHA-256とライセンスは同ディレクトリの `NOTICE.md` に記録している。プラグイン読み込み時にネットワークからスキーマを取得しない。`scripts/agent-plugin-schemas.mjs` はコミット済み原文を読み込み、SHA-256を検証してからコンパイルする。
+
+| 原文                 | URL                                                          | 対応 version / 取得日            | SHA-256                                                            |
+| -------------------- | ------------------------------------------------------------ | -------------------------------- | ------------------------------------------------------------------ |
+| `plugin.schema.json` | <https://agent-plugins.org/schemas/1.0.0/plugin.schema.json> | Agent Plugins 1.0.0 / 2026-08-29 | `0a4aad95ce337878ad38802ebf0daa3fde76abe3f65400c86bcbb1ec0b3ab883` |
+| `mcp.schema.json`    | <https://agent-plugins.org/schemas/1.0.0/mcp.schema.json>    | Agent Plugins 1.0.0 / 2026-08-29 | `6539175bfcdf43085855183e86da40ea94b166547a72b47ae9a0a390516d3acb` |
 
 - [Agent Plugins specification](https://agent-plugins.org/specification) — v1.0.0。ルート `plugin.json`、任意のルート `mcp.json`、`skills/<name>/SKILL.md`、パス展開と stdio / streamable-http / legacy SSE の transport 契約を確認。
 - [Agent Plugins plugin schema 1.0.0](https://agent-plugins.org/schemas/1.0.0/plugin.schema.json) — ルート manifest の必須キー、名前制約、追加キー拒否を確認。
 - [Agent Plugins MCP schema 1.0.0](https://agent-plugins.org/schemas/1.0.0/mcp.schema.json) — MCP server の transport とパス制約を確認。
+- 公式ライセンスの [Agent Plugins LICENSE.md](https://github.com/agentplugins/agent-plugins-spec/blob/main/LICENSE.md) — schemas は Apache-2.0 と記載されている。取得した原文のハッシュと provenance は `docs/setup/vendor/agent-plugins/1.0.0/NOTICE.md` に固定した。
 - [OpenAI Codex plugins](https://developers.openai.com/codex/plugins) — 2026-08-29 に確認。Codex / ChatGPT の公式プラグイン面を確認したが、任意の clone だけで自動インストールできるとは確認していない。
-- [OpenAI plugins repository](https://github.com/openai/plugins) と [portable Agent Plugins support](https://github.com/openai/codex/commit/2b5bdcf) — 2026-08-29 に確認。Codex 側の portable root manifest の実装資料として参照した。リポジトリ内の旧形式 `.codex-plugin/plugin.json` を portable root と混同しない。
+- [OpenAI plugins repository](https://github.com/openai/plugins) と [portable Agent Plugins support](https://github.com/openai/codex/commit/2b5bdcf67547860f2e5c5a605009a70026796b2b) — Codex source commit `2b5bdcf67547860f2e5c5a605009a70026796b2b`（2026-08-02）を、2026-08-29 に確認。Codex 側の portable root manifest の実装資料として参照した。これは Codex の source commit であり、対応対象は Agent Plugins 1.0.0 の portable root 処理である。commit metadata にアプリの release version はないため、version を断定しない。リポジトリ内の旧形式 `.codex-plugin/plugin.json` を portable root と混同しない。
 - [Anthropic Claude plugins](https://code.claude.com/docs/en/plugins)、[Claude plugin help](https://support.claude.com/en/articles/13837440-use-plugins-in-claude)、[Claude Skills help](https://support.claude.com/en/articles/12512180-use-skills-in-claude) — 2026-08-29 に確認。Claude は `.claude-plugin/plugin.json` と Skill upload / local plugin の別形式であるため、Agent Plugins 1.0 の自動互換とは表現しない。
 - [Agent Skills specification](https://agentskills.io/specification) — 2026-08-29 に確認。Skill の frontmatter をファイル先頭に置く契約を確認。
 

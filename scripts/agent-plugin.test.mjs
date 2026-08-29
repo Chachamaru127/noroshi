@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -11,7 +12,9 @@ import {
 	AGENT_MCP_SCHEMA,
 	AGENT_MCP_SCHEMA_URI,
 	AGENT_PLUGIN_SCHEMA,
-	AGENT_PLUGIN_SCHEMA_URI
+	AGENT_PLUGIN_SCHEMA_URI,
+	OFFICIAL_SCHEMA_PROVENANCE,
+	verifyOfficialSchemaBytes
 } from './agent-plugin-schemas.mjs';
 import {
 	ENGINE_OPERATIONS,
@@ -30,6 +33,7 @@ import { SETUP_STEP_CAPABILITY_CONTRACT } from './setup-engine.mjs';
 const root = new URL('..', import.meta.url);
 const repositoryRoot = fileURLToPath(root);
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+const readBytes = (path) => readFileSync(new URL(`../${path}`, import.meta.url));
 
 function compile(schema) {
 	return new Ajv2020({ allErrors: true, strict: false }).compile(schema);
@@ -63,6 +67,28 @@ test('portable root manifest and MCP use the published Agent Plugins 1.0 schemas
 	assert.equal(validateMcp(mcp), true, JSON.stringify(validateMcp.errors));
 	assert.equal(manifest.$schema, AGENT_PLUGIN_SCHEMA_URI);
 	assert.equal(mcp.$schema, AGENT_MCP_SCHEMA_URI);
+	assert.deepEqual(OFFICIAL_SCHEMA_PROVENANCE, {
+		version: 'Agent Plugins 1.0.0',
+		observed_at: '2026-08-29',
+		license: 'Apache-2.0',
+		plugin: {
+			uri: AGENT_PLUGIN_SCHEMA_URI,
+			sha256: '0a4aad95ce337878ad38802ebf0daa3fde76abe3f65400c86bcbb1ec0b3ab883'
+		},
+		mcp: {
+			uri: AGENT_MCP_SCHEMA_URI,
+			sha256: '6539175bfcdf43085855183e86da40ea94b166547a72b47ae9a0a390516d3acb'
+		}
+	});
+	for (const [path, expected] of [
+		[
+			'docs/setup/vendor/agent-plugins/1.0.0/plugin.schema.json',
+			OFFICIAL_SCHEMA_PROVENANCE.plugin.sha256
+		],
+		['docs/setup/vendor/agent-plugins/1.0.0/mcp.schema.json', OFFICIAL_SCHEMA_PROVENANCE.mcp.sha256]
+	]) {
+		assert.equal(createHash('sha256').update(readBytes(path)).digest('hex'), expected);
+	}
 	assert.equal(validateManifest({ ...manifest, unknown: true }), false);
 	assert.equal(validateManifest({ ...manifest, name: 'QuickMail-ja' }), false);
 	assert.equal(validateMcp({ ...mcp, extra: true }), false);
@@ -74,6 +100,20 @@ test('portable root manifest and MCP use the published Agent Plugins 1.0 schemas
 			}
 		}),
 		true
+	);
+});
+
+test('official schema checksum fixture rejects tampered bytes', () => {
+	const source = readBytes('docs/setup/vendor/agent-plugins/1.0.0/plugin.schema.json');
+	const tampered = Buffer.from(source);
+	tampered[0] = tampered[0] === 0x7b ? 0x5b : 0x7b;
+	assert.throws(
+		() =>
+			verifyOfficialSchemaBytes(tampered, {
+				uri: AGENT_PLUGIN_SCHEMA_URI,
+				sha256: OFFICIAL_SCHEMA_PROVENANCE.plugin.sha256
+			}),
+		/official Agent Plugins schema checksum mismatch/
 	);
 });
 
@@ -92,6 +132,11 @@ test('repository plugin passes the bounded manifest, generated projection, and M
 		admin: false
 	});
 	assert.equal(checked.projection.provider_email_access, false);
+	assert.match(read('skills/quickmail-ja-setup/SKILL.md'), /^---\nname: quickmail-ja-setup\n/u);
+	assert.deepEqual(
+		PLUGIN_PACKAGE_FILES.filter((path) => path.startsWith('skills/')),
+		['skills/quickmail-ja-operations/SKILL.md']
+	);
 });
 
 test('capability projection is exact and registry drift fails closed', () => {
@@ -150,6 +195,14 @@ test('MCP tools/list exposes exactly QMJ-10 operations and no mailbox/provider t
 		listed.result.tools.map((tool) => tool.name),
 		[...MCP_TOOL_NAMES]
 	);
+	assert.match(
+		listed.result.tools.find((tool) => tool.name === 'setup_readback').description,
+		/validated QMJ-10 plan/u
+	);
+	assert.match(
+		listed.result.tools.find((tool) => tool.name === 'setup_verify').description,
+		/validated QMJ-10 plan/u
+	);
 	const toolText = JSON.stringify(listed.result.tools);
 	for (const forbidden of [
 		'list_threads',
@@ -161,6 +214,17 @@ test('MCP tools/list exposes exactly QMJ-10 operations and no mailbox/provider t
 	]) {
 		assert.doesNotMatch(toolText, new RegExp(`\\b${forbidden}\\b`, 'u'));
 	}
+});
+
+test('MCP notifications produce no response, including unknown notification names', () => {
+	assert.deepEqual(
+		rpcLines([
+			{ jsonrpc: '2.0', id: 10, method: 'notifications/initialized' },
+			{ jsonrpc: '2.0', method: 'notifications/custom', params: { ignored: true } },
+			{ jsonrpc: '2.0', id: 11, method: 'notifications/cancelled' }
+		]),
+		[]
+	);
 });
 
 test('MCP inspects only a non-secret local snapshot and never applies a provider write', () => {
@@ -269,6 +333,48 @@ test('package output path rejects outside paths and symlinks without touching ta
 	} finally {
 		rmSync(output, { force: true });
 		rmSync(temporary, { recursive: true, force: true });
+	}
+});
+
+test('committed Agent Plugin archive passes exact-entry, traversal, symlink, and secret-canary checks', () => {
+	const out = join(repositoryRoot, 'out');
+	const output = join(out, `agent-plugin-archive-${process.pid}.zip`);
+	const canary = join(out, `secret-canary-${process.pid}.txt`);
+	mkdirSync(out, { recursive: true });
+	writeFileSync(canary, 'secret-canary-do-not-include');
+	try {
+		const packaged = packageAgentPlugin({ output });
+		assert.deepEqual([...packaged.files].sort(), [...PLUGIN_PACKAGE_FILES].sort());
+		const expectedEntries = [
+			'quickmail-ja-setup-plugin/',
+			'quickmail-ja-setup-plugin/LICENSE.md',
+			'quickmail-ja-setup-plugin/mcp.json',
+			'quickmail-ja-setup-plugin/plugin.json',
+			'quickmail-ja-setup-plugin/scripts/',
+			'quickmail-ja-setup-plugin/scripts/setup-engine.mjs',
+			'quickmail-ja-setup-plugin/scripts/setup-plugin-mcp.mjs',
+			'quickmail-ja-setup-plugin/setup/',
+			'quickmail-ja-setup-plugin/setup/capabilities.json',
+			'quickmail-ja-setup-plugin/setup/plugin-capabilities.json',
+			'quickmail-ja-setup-plugin/skills/',
+			'quickmail-ja-setup-plugin/skills/quickmail-ja-operations/',
+			'quickmail-ja-setup-plugin/skills/quickmail-ja-operations/SKILL.md'
+		];
+		const listing = spawnSync('unzip', ['-Z1', output], { encoding: 'utf8' });
+		assert.equal(listing.status, 0, listing.stderr);
+		assert.deepEqual(listing.stdout.trim().split(/\r?\n/u), expectedEntries);
+		for (const entry of listing.stdout.trim().split(/\r?\n/u)) {
+			assert.doesNotMatch(entry, /(?:^|\/)\.\.(?:\/|$)|\\/u);
+		}
+		const integrity = spawnSync('unzip', ['-t', output], { encoding: 'utf8' });
+		assert.equal(integrity.status, 0, integrity.stderr);
+		const contents = spawnSync('unzip', ['-p', output], { encoding: 'utf8' });
+		assert.equal(contents.status, 0, contents.stderr);
+		assert.doesNotMatch(contents.stdout, /secret-canary-do-not-include/u);
+		assert.doesNotMatch(contents.stdout, /re_[A-Za-z0-9_-]{20,}/u);
+	} finally {
+		rmSync(output, { force: true });
+		rmSync(canary, { force: true });
 	}
 });
 

@@ -1,105 +1,51 @@
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+
 export const AGENT_PLUGIN_SCHEMA_URI = 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json';
 export const AGENT_MCP_SCHEMA_URI = 'https://agent-plugins.org/schemas/1.0.0/mcp.schema.json';
 
-// Vendored copies of the published 1.0.0 machine schemas. The URLs and the
-// retrieval date are recorded in docs/setup/qmj11b-plugin.md; validation does
-// not fetch a schema while a plugin is loading.
-export const AGENT_PLUGIN_SCHEMA = {
-	$schema: 'https://json-schema.org/draft/2020-12/schema',
-	$id: AGENT_PLUGIN_SCHEMA_URI,
-	type: 'object',
-	properties: {
-		$schema: { const: AGENT_PLUGIN_SCHEMA_URI },
-		name: {
-			type: 'string',
-			minLength: 1,
-			maxLength: 64,
-			pattern: '^(?!.*(?:--|\\.\\.))[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$'
-		},
-		version: { type: 'string' },
-		description: { type: 'string' },
-		author: {
-			type: 'object',
-			properties: {
-				name: { type: 'string' },
-				email: { type: 'string' },
-				url: { type: 'string' }
-			},
-			additionalProperties: false
-		},
-		homepage: { type: 'string' },
-		repository: { type: 'string' },
-		license: { type: 'string' },
-		keywords: { type: 'array', items: { type: 'string' } },
-		extensions: {
-			type: 'object',
-			additionalProperties: { type: 'object' }
-		}
-	},
-	required: ['$schema', 'name'],
-	additionalProperties: false
-};
+const OFFICIAL_SCHEMA_FILES = Object.freeze({
+	plugin: Object.freeze({
+		uri: AGENT_PLUGIN_SCHEMA_URI,
+		path: new URL('../docs/setup/vendor/agent-plugins/1.0.0/plugin.schema.json', import.meta.url),
+		sha256: '0a4aad95ce337878ad38802ebf0daa3fde76abe3f65400c86bcbb1ec0b3ab883'
+	}),
+	mcp: Object.freeze({
+		uri: AGENT_MCP_SCHEMA_URI,
+		path: new URL('../docs/setup/vendor/agent-plugins/1.0.0/mcp.schema.json', import.meta.url),
+		sha256: '6539175bfcdf43085855183e86da40ea94b166547a72b47ae9a0a390516d3acb'
+	})
+});
 
-const headers = {
-	type: 'object',
-	additionalProperties: { type: 'string' }
-};
+export const OFFICIAL_SCHEMA_PROVENANCE = Object.freeze({
+	version: 'Agent Plugins 1.0.0',
+	observed_at: '2026-08-29',
+	license: 'Apache-2.0',
+	plugin: Object.freeze({
+		uri: AGENT_PLUGIN_SCHEMA_URI,
+		sha256: OFFICIAL_SCHEMA_FILES.plugin.sha256
+	}),
+	mcp: Object.freeze({
+		uri: AGENT_MCP_SCHEMA_URI,
+		sha256: OFFICIAL_SCHEMA_FILES.mcp.sha256
+	})
+});
 
-const stdioServer = {
-	type: 'object',
-	properties: {
-		type: { const: 'stdio' },
-		command: { type: 'string', minLength: 1 },
-		args: { type: 'array', items: { type: 'string' } },
-		env: {
-			type: 'object',
-			propertyNames: { not: { enum: ['PLUGIN_ROOT', 'PLUGIN_DATA'] } },
-			additionalProperties: { type: 'string' }
-		},
-		cwd: {
-			type: 'string',
-			pattern: '^(?:\\./|\\$\\{PLUGIN_ROOT\\}(?:/|$)|\\$\\{PLUGIN_DATA\\}(?:/|$))'
-		}
-	},
-	required: ['type', 'command'],
-	additionalProperties: false
-};
+export function verifyOfficialSchemaBytes(bytes, entry) {
+	const actual = createHash('sha256').update(bytes).digest('hex');
+	if (actual !== entry.sha256) {
+		throw new Error(`official Agent Plugins schema checksum mismatch: ${entry.uri}`);
+	}
+	return actual;
+}
 
-const streamableHttpServer = {
-	type: 'object',
-	properties: {
-		type: { const: 'streamable-http' },
-		url: { type: 'string', minLength: 1 },
-		headers
-	},
-	required: ['type', 'url'],
-	additionalProperties: false
-};
+function loadOfficialSchema(entry) {
+	const bytes = readFileSync(entry.path);
+	verifyOfficialSchemaBytes(bytes, entry);
+	return JSON.parse(bytes.toString('utf8'));
+}
 
-const sseServer = {
-	type: 'object',
-	properties: {
-		type: { const: 'sse' },
-		url: { type: 'string', minLength: 1 },
-		headers
-	},
-	required: ['type', 'url'],
-	additionalProperties: false
-};
-
-export const AGENT_MCP_SCHEMA = {
-	$schema: 'https://json-schema.org/draft/2020-12/schema',
-	$id: AGENT_MCP_SCHEMA_URI,
-	type: 'object',
-	properties: {
-		$schema: { const: AGENT_MCP_SCHEMA_URI },
-		mcpServers: {
-			type: 'object',
-			additionalProperties: {
-				oneOf: [stdioServer, streamableHttpServer, sseServer]
-			}
-		}
-	},
-	required: ['$schema', 'mcpServers'],
-	additionalProperties: false
-};
+// These values are loaded from the committed bytes above. The loader never
+// retrieves a schema while a plugin is loading.
+export const AGENT_PLUGIN_SCHEMA = loadOfficialSchema(OFFICIAL_SCHEMA_FILES.plugin);
+export const AGENT_MCP_SCHEMA = loadOfficialSchema(OFFICIAL_SCHEMA_FILES.mcp);
