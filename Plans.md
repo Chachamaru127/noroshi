@@ -397,11 +397,17 @@ Binary DoD:
 
 Priority: Required for automated setup claims
 Depends on: QMJ-8A, QMJ-10, and QMJ-11A
-Status: Not started
+Status: Local portable package implemented — provider adapters and clean-host discovery remain unverified
 
 - Add the portable root `plugin.json`, an operations Skill, and optional `mcp.json` from the QMJ-8A capability registry.
 - Keep the setup plugin separate from the mailbox MCP.
 - Add provider-enabled Codex/ChatGPT and independently generated Claude adapters only for officially supported surfaces.
+
+Local implementation boundary:
+
+- Root `plugin.json`, narrow stdio `mcp.json`, QMJ-10 operations Skill, generated capability projection, and Claude native Skill adapter are implemented and schema-checked.
+- The MCP exposes only `setup_inspect`, `setup_plan`, `setup_approve`, `setup_apply`, `setup_readback`, and `setup_verify`. `setup_apply` is fail-closed because no provider adapter is enabled.
+- Cloudflare/Resend provider adapters, mailbox MCP access, provider email read/send, account login, secrets, DNS, migrations, deployment, and clean-profile host discovery are not implemented or exercised here.
 
 Binary DoD:
 

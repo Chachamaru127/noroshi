@@ -1,0 +1,143 @@
+{
+	"schema_version": "quickmail-ja.setup-plugin-capabilities.v1",
+	"source_schema_version": "quickmail-ja.setup-capabilities.v1",
+	"source": "setup/capabilities.json",
+	"exposed_capability_ids": [],
+	"mailbox_permissions": {
+		"read": false,
+		"send": false,
+		"admin": false
+	},
+	"provider_email_access": false,
+	"engine_operations": [
+		"inspect",
+		"plan",
+		"approve",
+		"apply",
+		"readback",
+		"verify"
+	],
+	"provider_operations": [],
+	"step_contract": [
+		{
+			"kind": "deployment",
+			"capability_id": "cloudflare.deploy_worker",
+			"operation": "deploy_worker_version"
+		},
+		{
+			"kind": "destructive_cleanup",
+			"capability_id": "cloudflare.delete_d1",
+			"operation": "delete_empty_owned_d1"
+		},
+		{
+			"kind": "destructive_cleanup",
+			"capability_id": "cloudflare.delete_r2",
+			"operation": "delete_empty_owned_r2"
+		},
+		{
+			"kind": "destructive_cleanup",
+			"capability_id": "cloudflare.delete_worker",
+			"operation": "delete_owned_worker"
+		},
+		{
+			"kind": "destructive_cleanup",
+			"capability_id": "resend.delete_domain",
+			"operation": "delete_owned_domain"
+		},
+		{
+			"kind": "destructive_cleanup",
+			"capability_id": "resend.delete_webhook",
+			"operation": "delete_owned_webhook"
+		},
+		{
+			"kind": "destructive_cleanup",
+			"capability_id": "resend.revoke_api_key",
+			"operation": "revoke_owned_api_key"
+		},
+		{
+			"kind": "dns_change",
+			"capability_id": "cloudflare.change_dns",
+			"operation": "create_dns_record"
+		},
+		{
+			"kind": "dns_change",
+			"capability_id": "cloudflare.change_dns",
+			"operation": "delete_owned_dns_record"
+		},
+		{
+			"kind": "dns_change",
+			"capability_id": "cloudflare.change_dns",
+			"operation": "update_dns_record"
+		},
+		{
+			"kind": "domain_verification",
+			"capability_id": "resend.verify_domain",
+			"operation": "verify_domain"
+		},
+		{
+			"kind": "email_routing",
+			"capability_id": "cloudflare.configure_catch_all",
+			"operation": "create_catch_all_rule"
+		},
+		{
+			"kind": "email_routing",
+			"capability_id": "cloudflare.configure_catch_all",
+			"operation": "update_catch_all_rule"
+		},
+		{
+			"kind": "email_routing",
+			"capability_id": "cloudflare.enable_email_routing",
+			"operation": "enable_email_routing"
+		},
+		{
+			"kind": "external_send",
+			"capability_id": "resend.send_controlled_test",
+			"operation": "send_controlled_test"
+		},
+		{
+			"kind": "remote_migration",
+			"capability_id": "cloudflare.apply_remote_migration",
+			"operation": "apply_d1_migrations"
+		},
+		{
+			"kind": "resource_creation",
+			"capability_id": "cloudflare.create_d1",
+			"operation": "create_d1_database"
+		},
+		{
+			"kind": "resource_creation",
+			"capability_id": "cloudflare.create_r2",
+			"operation": "create_r2_bucket"
+		},
+		{
+			"kind": "resource_creation",
+			"capability_id": "cloudflare.create_worker",
+			"operation": "create_worker"
+		},
+		{
+			"kind": "resource_creation",
+			"capability_id": "cloudflare.create_zone",
+			"operation": "create_zone"
+		},
+		{
+			"kind": "resource_creation",
+			"capability_id": "resend.create_domain",
+			"operation": "create_domain"
+		},
+		{
+			"kind": "secret_staging",
+			"capability_id": "cloudflare.stage_worker_secret",
+			"operation": "put_worker_secret"
+		},
+		{
+			"kind": "secret_staging",
+			"capability_id": "resend.create_sending_key",
+			"operation": "create_domain_restricted_sending_key"
+		},
+		{
+			"kind": "webhook_creation",
+			"capability_id": "resend.create_webhook",
+			"operation": "create_webhook"
+		}
+	]
+}
