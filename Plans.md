@@ -139,7 +139,7 @@ After: the existing deployment remains the production downstream. QuickMail-ja c
 
 ## Next roadmap — Japanese setup distribution, Agent Plugin, and UI direction
 
-Status: QMJ-6, QMJ-6A, QMJ-6B, QMJ-7, QMJ-8A, and QMJ-9 are complete locally. QMJ-8B runs in parallel and remains a release dependency. QMJ-10 and QMJ-11B are not implemented. Public release remains HOLD.
+Status: QMJ-6, QMJ-6A, QMJ-6B, QMJ-7, QMJ-8A, and QMJ-9 are complete locally. QMJ-8B runs in parallel and remains a release dependency. QMJ-10 provider-neutral local engine and QMJ-11B local portable Agent Plugin package are implemented; real provider adapters and clean-profile host discovery remain unverified. Public release remains HOLD.
 
 ### Product decision
 
@@ -181,7 +181,7 @@ Reject for first release:
 
 ### Pre-approval and Risk Gates for this roadmap
 
-Approval state: planning plus local implementation of QMJ-6A/QMJ-6B and the guidance-only QMJ-11A packaging increment was requested. QMJ-8A, QMJ-8B, QMJ-9, QMJ-10, QMJ-11B, and every external mutation remain pending.
+Approval state: planning plus local implementation of QMJ-6A/QMJ-6B and the guidance-only QMJ-11A packaging increment was requested. QMJ-10 local engine and QMJ-11B local portable package are implemented, while real provider adapters, clean-profile host discovery/smokes, and every external mutation remain pending. Public release remains HOLD.
 
 - Secret reads for local implementation and automated tests: none. Tests use canaries and FakeProvider only.
 - Locally safe for QMJ-6A/QMJ-6B: edit generic source/docs/tests, create public-only fixtures, run local checks/builds, and create local commits. No new dependency is required for this slice.
