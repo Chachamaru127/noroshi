@@ -29,6 +29,7 @@ export function renderSetupKnowledge(source) {
 			version: parsed.version,
 			verified_at: parsed.verified_at,
 			review_by: parsed.review_by,
+			setup_runbook: parsed.setup_runbook,
 			patterns
 		},
 		null,

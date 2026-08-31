@@ -483,6 +483,25 @@
 			"confidence": "high"
 		},
 		{
+			"id": "cloudflare-worker-secrets",
+			"name": "Cloudflare Worker secrets",
+			"category": "provider/cloudflare",
+			"canonical_url": "https://developers.cloudflare.com/workers/configuration/secrets/",
+			"setup": {
+				"status": "found",
+				"url": "https://developers.cloudflare.com/workers/configuration/secrets/",
+				"source_type": "primary"
+			},
+			"faq": {
+				"status": "not_found",
+				"searched_at": "2026-08-31",
+				"note": "同ページをWorker実行時secretの現行仕様の正本とし、独立FAQは使用しません。"
+			},
+			"verified_at": "2026-08-31",
+			"review_by": "2026-09-30",
+			"confidence": "high"
+		},
+		{
 			"id": "cloudflare-route-emails",
 			"name": "Cloudflare Email Routing onboarding",
 			"category": "provider/cloudflare",
@@ -594,6 +613,82 @@
 			},
 			"verified_at": "2026-08-27",
 			"review_by": "2026-09-26",
+			"confidence": "high"
+		},
+		{
+			"id": "cloudflare-wrangler-auth",
+			"name": "Cloudflare Wrangler authentication",
+			"category": "provider/cloudflare",
+			"canonical_url": "https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/",
+			"setup": {
+				"status": "found",
+				"url": "https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/",
+				"source_type": "primary"
+			},
+			"faq": {
+				"status": "found",
+				"url": "https://developers.cloudflare.com/workers/wrangler/commands/general/",
+				"source_type": "primary"
+			},
+			"verified_at": "2026-08-31",
+			"review_by": "2026-09-30",
+			"confidence": "high"
+		},
+		{
+			"id": "cloudflare-service-bindings",
+			"name": "Cloudflare Workers Service bindings",
+			"category": "provider/cloudflare",
+			"canonical_url": "https://developers.cloudflare.com/workers/runtime-apis/bindings/service-bindings/",
+			"setup": {
+				"status": "found",
+				"url": "https://developers.cloudflare.com/workers/runtime-apis/bindings/service-bindings/",
+				"source_type": "primary"
+			},
+			"faq": {
+				"status": "not_found",
+				"searched_at": "2026-08-31",
+				"note": "同ページをWorker名とservice設定の現行仕様の正本とし、独立FAQは使用しません。"
+			},
+			"verified_at": "2026-08-31",
+			"review_by": "2026-09-30",
+			"confidence": "high"
+		},
+		{
+			"id": "cloudflare-d1-configuration",
+			"name": "Cloudflare Wrangler D1 configuration",
+			"category": "provider/cloudflare",
+			"canonical_url": "https://developers.cloudflare.com/workers/wrangler/configuration/#d1-databases",
+			"setup": {
+				"status": "found",
+				"url": "https://developers.cloudflare.com/workers/wrangler/configuration/#d1-databases",
+				"source_type": "primary"
+			},
+			"faq": {
+				"status": "not_found",
+				"searched_at": "2026-08-31",
+				"note": "同ページをD1 bindingとdatabase_idの現行仕様の正本とし、独立FAQは使用しません。"
+			},
+			"verified_at": "2026-08-31",
+			"review_by": "2026-09-30",
+			"confidence": "high"
+		},
+		{
+			"id": "cloudflare-d1-migrations",
+			"name": "Cloudflare D1 migrations",
+			"category": "provider/cloudflare",
+			"canonical_url": "https://developers.cloudflare.com/d1/reference/migrations/",
+			"setup": {
+				"status": "found",
+				"url": "https://developers.cloudflare.com/d1/reference/migrations/",
+				"source_type": "primary"
+			},
+			"faq": {
+				"status": "not_found",
+				"searched_at": "2026-08-31",
+				"note": "同ページを適用済みと未適用migrationの現行仕様の正本とし、独立FAQは使用しません。"
+			},
+			"verified_at": "2026-08-31",
+			"review_by": "2026-09-30",
 			"confidence": "high"
 		},
 		{

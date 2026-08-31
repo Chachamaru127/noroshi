@@ -2,8 +2,255 @@
 	"schema_version": 1,
 	"generated_from": "support/knowledge/patterns.json",
 	"version": 1,
-	"verified_at": "2026-08-27",
-	"review_by": "2026-09-26",
+	"verified_at": "2026-08-31",
+	"review_by": "2026-09-30",
+	"setup_runbook": {
+		"computer_use_boundary": "Computer Use、認証済みブラウザ、terminal、秘密入力経路はAIホスト側の能力です。開始時に可否を読み、利用不能な面は公式URLと手動経路へ切り替えます。Skill自体はこれらの能力を追加しません。",
+		"approval_policy": "事前承認は、対象、payload、変更前後の完全な差分、rollback、plan hash、有効期限を固定した1回限りのgrantを必要数だけ発行します。完全一致する未使用grantは再質問せず1回消費します。変更、期限切れ、使用済みでは停止します。DNS変更、外部送信、deploy、migrationを再利用可能な承認へ変えません。",
+		"recovery_policy": "タブ消失、セッション切れ、公式DOM変更では、許可済みかつ期待値と完全一致するoriginだけを再取得します。アカウント、ゾーン、ドメインがすべて読め、期待値と完全一致した後にだけ次へ進みます。クリップボード分離時も本人性の確認を先に行い、秘密値を再表示せず、人間の直接入力または秘密入力brokerへ切り替えます。",
+		"canary_surfaces": [
+			"Cloudflare Email RoutingのActivity",
+			"WorkerとD1の保存結果",
+			"Resendの配信状態",
+			"QuickMail-ja UIの受信・送信表示"
+		],
+		"dns_evidence": "DNSはメールcanaryと分離し、権威DNSと公開DNSリゾルバで同じドメイン、configuration fingerprint、MX、TXTを照合します。",
+		"stages": [
+			{
+				"id": "preflight",
+				"title_ja": "事前確認",
+				"ai_reads": [
+					"Computer Use、認証済みブラウザ、terminal、秘密入力経路の可否と対象アカウント、ゾーン、ドメインを読みます。"
+				],
+				"human_action": [
+					"ログイン、MFA、CAPTCHA、規約、支払い、アカウント切替は利用者が行います。"
+				],
+				"risk_gate": {
+					"required": true,
+					"scope": "対象、payload、変更前後の完全な差分、rollback、plan hash、有効期限を固定した1回限りのgrantを必要数だけ確定する前"
+				},
+				"completion_evidence": [
+					"対象の表示名と非秘密ID、既存リソース、料金境界、利用可能な操作面が記録されています。"
+				],
+				"rollback_to": [
+					"読み取り専用の開始状態へ戻ります。"
+				]
+			},
+			{
+				"id": "resend_authentication",
+				"title_ja": "Resend認証",
+				"ai_reads": [
+					"送信ドメイン状態とResendが示すDNS要件を読みます。"
+				],
+				"human_action": [
+					"アカウント作成、ログイン、秘密値表示、DNS保存は利用者が行います。"
+				],
+				"risk_gate": {
+					"required": true,
+					"scope": "送信ドメイン追加と完全一致するDNS変更の前"
+				},
+				"completion_evidence": [
+					"Resend、権威DNS、公開リゾルバでSPFとDKIMが一致し、送信ドメインが確認済みです。"
+				],
+				"rollback_to": [
+					"追加した送信用DNSだけを変更前状態へ戻します。"
+				]
+			},
+			{
+				"id": "d1_r2",
+				"title_ja": "D1とR2",
+				"ai_reads": [
+					"同一Cloudflareアカウント内の既存D1、R2、Worker名とBindingsを読みます。"
+				],
+				"human_action": [
+					"リソース作成または既存リソース採用を利用者が承認します。"
+				],
+				"risk_gate": {
+					"required": true,
+					"scope": "D1またはR2の作成、既存リソース採用、Binding変更の前"
+				},
+				"completion_evidence": [
+					"アカウント固有のD1 ID、R2名、Worker Bindingが対象と一致しています。"
+				],
+				"rollback_to": [
+					"Bindingを変更前へ戻し、新規リソースは削除せず隔離して確認します。"
+				]
+			},
+			{
+				"id": "migration",
+				"title_ja": "migration",
+				"ai_reads": [
+					"D1が空か既存か、適用済みと未適用のmigration、バックアップ可否を読みます。"
+				],
+				"human_action": [
+					"既存D1ではバックアップと適用対象を利用者が確認します。"
+				],
+				"risk_gate": {
+					"required": true,
+					"scope": "リモートD1へmigrationを適用する前"
+				},
+				"completion_evidence": [
+					"空DBは初期化済み、既存DBは未適用migrationだけが順序どおり適用済みです。"
+				],
+				"rollback_to": [
+					"Workerを直前版へ戻します。追加型migrationを破壊的に巻き戻しません。"
+				]
+			},
+			{
+				"id": "deploy",
+				"title_ja": "deploy",
+				"ai_reads": [
+					"デプロイ対象revision、Worker名、Bindings、認証主体を読みます。"
+				],
+				"human_action": [
+					"Cloudflareへの認証とデプロイ承認は利用者が行います。"
+				],
+				"risk_gate": {
+					"required": true,
+					"scope": "対象revisionをWorkerへデプロイする前"
+				},
+				"completion_evidence": [
+					"対象revision、Worker名、D1/R2 Binding、稼働URLが一致します。"
+				],
+				"rollback_to": [
+					"直前のWorker versionへ戻します。"
+				]
+			},
+			{
+				"id": "secrets",
+				"title_ja": "secrets",
+				"ai_reads": [
+					"必要なsecret名と登録済み状態だけを読みます。値は読みません。"
+				],
+				"human_action": [
+					"APIキー、Webhook secret、初回セットアップキーを秘密入力欄へ直接入力します。"
+				],
+				"risk_gate": {
+					"required": true,
+					"scope": "Worker secretの追加、更新、削除の前"
+				},
+				"completion_evidence": [
+					"必要なsecret名が登録済みで、秘密値はモデル入出力、ファイル、ログに0件です。"
+				],
+				"rollback_to": [
+					"追加したsecretを個別に無効化または削除します。秘密値は復元しません。"
+				]
+			},
+			{
+				"id": "email_routing",
+				"title_ja": "Email Routing",
+				"ai_reads": [
+					"Worker名、Routing Ruleの転送先、関連Service Binding、MX/TXTの現在値を読みます。"
+				],
+				"human_action": [
+					"Routing Rule、MX/TXTの変更を利用者が承認して保存します。"
+				],
+				"risk_gate": {
+					"required": true,
+					"scope": "Email Routing有効化、転送先変更、DNS変更の前"
+				},
+				"completion_evidence": [
+					"Worker名、転送先、Service Bindingが一致します。DNSは権威DNSと公開リゾルバで同じドメイン、configuration fingerprint、MX、TXTが一致します。"
+				],
+				"rollback_to": [
+					"Routing Ruleを無効化し、保存した旧MX/TXTへ戻します。"
+				]
+			},
+			{
+				"id": "first_admin",
+				"title_ja": "初回管理者",
+				"ai_reads": [
+					"初回セットアップ画面、管理者作成後の非秘密状態、セットアップキー無効化状態を読みます。"
+				],
+				"human_action": [
+					"初回管理者情報とセットアップキーを利用者が直接入力し、ログインします。"
+				],
+				"risk_gate": {
+					"required": true,
+					"scope": "初回管理者を作成する前"
+				},
+				"completion_evidence": [
+					"管理者がログインでき、同じセットアップキーが再利用不可です。"
+				],
+				"rollback_to": [
+					"管理者を自動削除せず、Worker secretを無効化して手動確認へ戻ります。"
+				]
+			},
+			{
+				"id": "outbound_send",
+				"title_ja": "送信",
+				"ai_reads": [
+					"送信元、宛先、件名、非秘密canary、idempotency key、Resend送信状態を読みます。"
+				],
+				"human_action": [
+					"制御済み外部メール1通の送信を利用者が承認します。"
+				],
+				"risk_gate": {
+					"required": true,
+					"scope": "宛先と内容が固定された外部メールを1通送る前"
+				},
+				"completion_evidence": [
+					"QuickMail-ja、D1、Resendで同じcanaryとidempotency keyが1件だけ記録されています。"
+				],
+				"rollback_to": [
+					"不確実な送信結果を再送せず、providerとD1のreadbackへ戻ります。"
+				]
+			},
+			{
+				"id": "reply_receive",
+				"title_ja": "返信受信",
+				"ai_reads": [
+					"Cloudflare Activity、Worker、D1、QuickMail-ja UIの同じcanaryを読みます。"
+				],
+				"human_action": [
+					"テスターが受信した制御済みメールへ返信します。"
+				],
+				"risk_gate": {
+					"required": true,
+					"scope": "返信元、返信先、canaryが固定された1通の返信前"
+				},
+				"completion_evidence": [
+					"Cloudflare Email Routing Activity、Worker/D1、Resend、QuickMail-ja UIで返信canaryが1件だけ一致します。"
+				],
+				"rollback_to": [
+					"Routingを変更せず、Cloudflare ActivityとWorker/D1の失敗点へ戻ります。"
+				]
+			},
+			{
+				"id": "rollback",
+				"title_ja": "rollback",
+				"ai_reads": [
+					"変更前スナップショット、現在のRouting/DNS/Worker状態、所有リソースを読みます。"
+				],
+				"human_action": [
+					"対象と変更差分が固定された復旧操作を利用者が承認します。"
+				],
+				"risk_gate": {
+					"required": true,
+					"scope": "Routing、DNS、deploy、secretを変更前状態へ戻す前"
+				},
+				"completion_evidence": [
+					"メール証拠はCloudflare Email Routing Activity、Worker/D1、Resend、QuickMail-ja UIで一致します。DNS証拠は権威DNSと公開リゾルバで同じドメイン、configuration fingerprint、MX、TXTが一致し、2回目の復旧操作はno-opです。"
+				],
+				"rollback_to": [
+					"復旧結果が不一致なら追加変更せず、最後に確認できた状態へ停止します。"
+				]
+			}
+		],
+		"deferred": [
+			"MBOX",
+			"IMAP",
+			"自動返信",
+			"List-Unsubscribe"
+		],
+		"not_adopted": [
+			"共有受信箱",
+			"WebSocket",
+			"カレンダー",
+			"自己更新",
+			"Cloudflare Email Serviceによる外部送信"
+		]
+	},
 	"patterns": [
 		{
 			"id": "deploy.banner.boundary",
@@ -16,7 +263,8 @@
 			],
 			"diagnostic_questions": [
 				"Worker、D1、R2が同じCloudflareアカウントに作成されていますか。",
-				"Email Routing、Resend、初回管理者の設定は別に完了していますか。"
+				"Email Routing、Resend、初回管理者の設定は別に完了していますか。",
+				"デプロイに使うWrangler認証とWorker実行時のAPI Tokenを別用途として管理していますか。"
 			],
 			"safe_steps": [
 				"デプロイ完了とメール開通を分けて確認します。",
@@ -28,7 +276,8 @@
 			],
 			"prohibited": [
 				"デプロイ成功だけを根拠に受信・送信可能と案内しません。",
-				"公開URLが未設定のリポジトリを別製品へ向けません。"
+				"公開URLが未設定のリポジトリを別製品へ向けません。",
+				"Wranglerのデプロイ認証をWorker runtime secretとして再利用しません。"
 			],
 			"risk_gate": {
 				"class": "deployment",
@@ -46,6 +295,8 @@
 			],
 			"source_refs": [
 				"cloudflare-deploy-buttons",
+				"cloudflare-wrangler-auth",
+				"cloudflare-worker-secrets",
 				"quickmail-upstream",
 				"agentmail"
 			],
@@ -95,8 +346,8 @@
 			"source_refs": [
 				"cloudflare-deploy-buttons",
 				"cloudflare-route-emails",
-				"agentmail",
-				"mailflare"
+				"cloudflare-wrangler-auth",
+				"agentmail"
 			],
 			"verified_at": "2026-08-27",
 			"review_by": "2026-09-26",
@@ -163,10 +414,11 @@
 			],
 			"diagnostic_questions": [
 				"対象アドレスまたはCatch-allのActionはSend to a Workerですか。",
-				"選択されたWorkerは現在のQuickMail-ja Workerですか。"
+				"選択されたWorkerは現在のQuickMail-ja Workerですか。",
+				"Service Bindingがある場合、serviceは対象Worker名と一致しますか。"
 			],
 			"safe_steps": [
-				"現在のRouting RulesとWorker名を読み取ります。",
+				"現在のRouting Rules、Worker名、Service Bindingのservice名を読み取ります。",
 				"意図するアドレス範囲とCatch-allの重複を確認します。",
 				"保存後にルールの有効状態を読み返します。"
 			],
@@ -186,7 +438,7 @@
 				"新規ルールを無効化し、保存済みの旧ルールを復元します。"
 			],
 			"expected_evidence": [
-				"対象ルールが有効で、ActionとWorkerが意図した値です。"
+				"対象ルールが有効で、Action、Worker、関連Service Bindingが意図した名前です。"
 			],
 			"unsupported": [
 				"Worker名の変更後も既存ルールが自動追従する保証はありません。"
@@ -194,6 +446,7 @@
 			"source_refs": [
 				"cloudflare-routing-rules",
 				"cloudflare-route-emails",
+				"cloudflare-service-bindings",
 				"cloudflare-email-community"
 			],
 			"verified_at": "2026-08-27",
@@ -263,19 +516,22 @@
 			"diagnostic_questions": [
 				"DB Bindingは意図したD1へ接続されていますか。",
 				"ATTACHMENTS Bindingは意図したR2へ接続されていますか。",
-				"対象D1へ必要なマイグレーションが適用されていますか。"
+				"対象D1へ必要なマイグレーションが適用されていますか。",
+				"D1は空の新規DBですか、それとも既存データと適用履歴を持つDBですか。"
 			],
 			"safe_steps": [
-				"BindingsとリソースIDを読み取り専用で比較します。",
+				"Bindingsとアカウント固有のD1 IDを読み取り専用で比較します。",
 				"同名リソースを自動採用せず所有関係を確認します。",
-				"適用予定マイグレーションを変更前に一覧化します。"
+				"空DBは初期化として、既存DBは適用履歴から未適用migrationだけを変更前に一覧化します。"
 			],
 			"human_only": [
 				"既存データを持つD1やR2の採用、移行、削除は利用者が判断します。"
 			],
 			"prohibited": [
 				"同名だけを理由に既存D1やR2へ接続しません。",
-				"バックアップなしでリモートマイグレーションを実行しません。"
+				"バックアップなしでリモートマイグレーションを実行しません。",
+				"別CloudflareアカウントのD1 IDを再利用しません。",
+				"既存DBへ空DB用bootstrap SQLを再適用しません。"
 			],
 			"risk_gate": {
 				"class": "remote-storage",
@@ -294,9 +550,9 @@
 			],
 			"source_refs": [
 				"cloudflare-deploy-buttons",
-				"cloudflare-d1-export",
+				"cloudflare-d1-configuration",
+				"cloudflare-d1-migrations",
 				"cloudflare-r2-s3",
-				"mailflare",
 				"cloud-mail"
 			],
 			"verified_at": "2026-08-27",

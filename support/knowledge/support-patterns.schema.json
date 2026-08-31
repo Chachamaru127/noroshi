@@ -4,12 +4,13 @@
 	"title": "QuickMail-ja Japanese support patterns",
 	"type": "object",
 	"additionalProperties": false,
-	"required": ["$schema", "version", "verified_at", "review_by", "patterns"],
+	"required": ["$schema", "version", "verified_at", "review_by", "setup_runbook", "patterns"],
 	"properties": {
 		"$schema": { "const": "./support-patterns.schema.json" },
 		"version": { "type": "integer", "const": 1 },
 		"verified_at": { "$ref": "#/$defs/date" },
 		"review_by": { "$ref": "#/$defs/date" },
+		"setup_runbook": { "$ref": "#/$defs/setupRunbook" },
 		"patterns": {
 			"type": "array",
 			"minItems": 10,
@@ -20,6 +21,79 @@
 	"$defs": {
 		"date": { "type": "string", "format": "date" },
 		"strings": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+		"setupRunbook": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": [
+				"computer_use_boundary",
+				"approval_policy",
+				"recovery_policy",
+				"canary_surfaces",
+				"dns_evidence",
+				"stages",
+				"deferred",
+				"not_adopted"
+			],
+			"properties": {
+				"computer_use_boundary": { "type": "string", "minLength": 1 },
+				"approval_policy": { "type": "string", "minLength": 1 },
+				"recovery_policy": { "type": "string", "minLength": 1 },
+				"canary_surfaces": { "$ref": "#/$defs/strings" },
+				"dns_evidence": { "type": "string", "minLength": 1 },
+				"stages": {
+					"type": "array",
+					"minItems": 11,
+					"maxItems": 11,
+					"items": { "$ref": "#/$defs/setupStage" }
+				},
+				"deferred": { "$ref": "#/$defs/strings" },
+				"not_adopted": { "$ref": "#/$defs/strings" }
+			}
+		},
+		"setupStage": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": [
+				"id",
+				"title_ja",
+				"ai_reads",
+				"human_action",
+				"risk_gate",
+				"completion_evidence",
+				"rollback_to"
+			],
+			"properties": {
+				"id": {
+					"enum": [
+						"preflight",
+						"resend_authentication",
+						"d1_r2",
+						"migration",
+						"deploy",
+						"secrets",
+						"email_routing",
+						"first_admin",
+						"outbound_send",
+						"reply_receive",
+						"rollback"
+					]
+				},
+				"title_ja": { "type": "string", "minLength": 1 },
+				"ai_reads": { "$ref": "#/$defs/strings" },
+				"human_action": { "$ref": "#/$defs/strings" },
+				"risk_gate": {
+					"type": "object",
+					"additionalProperties": false,
+					"required": ["required", "scope"],
+					"properties": {
+						"required": { "type": "boolean" },
+						"scope": { "type": "string", "minLength": 1 }
+					}
+				},
+				"completion_evidence": { "$ref": "#/$defs/strings" },
+				"rollback_to": { "$ref": "#/$defs/strings" }
+			}
+		},
 		"pattern": {
 			"type": "object",
 			"additionalProperties": false,

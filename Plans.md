@@ -518,7 +518,11 @@ Binary DoD:
 
 Priority: Recommended and externally gated
 Depends on: QMJ-9, QMJ-10, and QMJ-11B; before real provider mail-flow, pass a focused local login/inbox/compose smoke against the existing UI (QMJ-14 is not a prerequisite)
-Status: Not started
+Status: Partially completed — Codex real-provider pilot completed; cross-host discovery remains externally gated
+
+- On 2026-08-31, one isolated test domain completed the Codex browser-assisted real-provider path through send, reply receipt, idempotency readback, and rollback. Mail evidence correlated one non-secret canary across Cloudflare Email Routing Activity, Worker/D1, Resend, and QuickMail-ja UI. DNS evidence separately matched the domain and configuration across authoritative and public resolvers. Customer domains, account IDs, resource IDs, and secrets are intentionally absent from this repository.
+- This pilot proves the Codex-assisted provider path used in that session. It does not prove clean-profile Skill discovery or restart/resume from a clean clone.
+- Clean-profile Codex Skill discovery and restart/resume remain unconfirmed. ChatGPT Desktop, Claude Desktop, and Claude Code also remain independently unconfirmed on their officially supported Skill/plugin/browser surfaces. Until dated evidence exists, show the documented manual fallback and do not claim automatic discovery from a cloned folder.
 
 - Use one fresh Cloudflare test account, one fresh Resend test team, one dedicated non-production DNS zone, isolated client profiles, and tester-controlled sender/recipient addresses. Do not use an existing production zone or a subdomain that requires writes to one.
 - Treat local checks, FakeProvider, read-only inspection, readback, verification, evidence capture, waits, and crash/resume as HOTL-safe inside the fixed sandbox envelope. Keep signup, login, CAPTCHA, MFA, terms, payment, upgrades, account switching, and secret entry human-only.

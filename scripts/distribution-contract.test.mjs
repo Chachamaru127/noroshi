@@ -83,6 +83,34 @@ test('setup Skill has one canonical source and bounded repo adapters', () => {
 	assert.equal(codexNative.skills, './skills/');
 	assert.equal(codexNative.mcpServers, './.mcp.json');
 	assert.doesNotMatch(readme, /Setup Skill（準備中・未提供）/);
+	assert.match(canonical, /事前確認 → Resend認証 → D1\/R2 → migration → deploy → secrets/u);
+	assert.match(canonical, /Computer Use[\s\S]*Skillが追加する機能ではない/u);
+	assert.match(canonical, /完全一致する1回限りのgrant[\s\S]*必要数/u);
+	assert.match(canonical, /クリップボードが分離[\s\S]*秘密入力broker/u);
+	assert.match(
+		canonical,
+		/Cloudflare Email Routing Activity、Worker\/D1、Resend、QuickMail-ja UI[\s\S]*configuration fingerprint、MX、TXT[\s\S]*権威DNSと公開DNSリゾルバ/u
+	);
+});
+
+test('QMJ-15 records the bounded Codex pilot without claiming cross-host completion', () => {
+	const plans = read('Plans.md');
+	assert.match(plans, /QMJ-15[\s\S]*Codex real-provider pilot completed/u);
+	assert.match(
+		plans,
+		/clean-profile Codex Skill discovery and restart\/resume remain unconfirmed/iu
+	);
+	assert.match(
+		plans,
+		/ChatGPT Desktop, Claude Desktop, and Claude Code[\s\S]*remain independently unconfirmed/u
+	);
+	for (const marker of [
+		`${['can', 'ai'].join('')}-test.date`,
+		['japan', 'cannabinoid'].join('-'),
+		['account', '[a-z0-9-]+'].join('-')
+	]) {
+		assert.doesNotMatch(plans, new RegExp(marker, 'iu'));
+	}
 });
 
 test('setup Skill package is built from the staged tree without adapters or state', () => {
@@ -178,7 +206,9 @@ test('packaged setup knowledge is a current bounded projection of the reviewed P
 	);
 	assert.equal(checked.status, 0, checked.stderr);
 	const packaged = JSON.parse(read('skills/quickmail-ja-setup/references/setup-patterns.json'));
+	const source = JSON.parse(read('support/knowledge/patterns.json'));
 	assert.equal(packaged.generated_from, 'support/knowledge/patterns.json');
+	assert.deepEqual(packaged.setup_runbook, source.setup_runbook);
 	assert.ok(packaged.patterns.length > 0);
 	assert.ok(
 		packaged.patterns.every((pattern) => !['backup', 'migration'].includes(pattern.category))

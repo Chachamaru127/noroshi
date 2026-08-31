@@ -173,6 +173,64 @@ test('support patterns have the complete safety and recovery contract', () => {
 	}
 });
 
+test('setup runbook defines every stage with state, action, gate, evidence and rollback', () => {
+	const knowledge = patterns();
+	assert.deepEqual(
+		knowledge.setup_runbook.stages.map(({ id }) => id),
+		[
+			'preflight',
+			'resend_authentication',
+			'd1_r2',
+			'migration',
+			'deploy',
+			'secrets',
+			'email_routing',
+			'first_admin',
+			'outbound_send',
+			'reply_receive',
+			'rollback'
+		]
+	);
+	for (const stage of knowledge.setup_runbook.stages) {
+		for (const field of ['ai_reads', 'human_action', 'completion_evidence', 'rollback_to']) {
+			assert.ok(stage[field].length > 0, `${stage.id}.${field}`);
+		}
+		assert.equal(typeof stage.risk_gate.required, 'boolean');
+		assert.ok(stage.risk_gate.scope.length > 0);
+	}
+});
+
+test('setup knowledge is clean-room and records excluded Mailflare capabilities', () => {
+	const knowledge = patterns();
+	assert.equal(
+		knowledge.patterns.some(({ source_refs }) => source_refs.includes('mailflare')),
+		false
+	);
+	assert.deepEqual(knowledge.setup_runbook.deferred, [
+		'MBOX',
+		'IMAP',
+		'自動返信',
+		'List-Unsubscribe'
+	]);
+	assert.deepEqual(knowledge.setup_runbook.not_adopted, [
+		'共有受信箱',
+		'WebSocket',
+		'カレンダー',
+		'自己更新',
+		'Cloudflare Email Serviceによる外部送信'
+	]);
+	assert.deepEqual(knowledge.setup_runbook.canary_surfaces, [
+		'Cloudflare Email RoutingのActivity',
+		'WorkerとD1の保存結果',
+		'Resendの配信状態',
+		'QuickMail-ja UIの受信・送信表示'
+	]);
+	assert.match(
+		knowledge.setup_runbook.dns_evidence,
+		/ドメイン[\s\S]*configuration fingerprint[\s\S]*MX[\s\S]*TXT/u
+	);
+});
+
 test('schemas require provenance, applicability, safety and evidence fields', () => {
 	const sourceSchema = parse('support/knowledge/source-registry.schema.json');
 	const patternSchema = parse('support/knowledge/support-patterns.schema.json');
@@ -253,6 +311,7 @@ test('knowledge files contain no raw source body, HTML, secrets, customer values
 	const customerMarkers = [
 		['japan', 'cannabinoid'].join('-'),
 		[['can', 'ai'].join(''), 'jp'].join('.'),
+		`${['can', 'ai'].join('')}-test.date`,
 		['CAN', 'AI'].join(' ')
 	];
 	for (const document of documents) {
