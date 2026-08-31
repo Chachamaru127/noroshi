@@ -73,9 +73,8 @@ test('preserves stored address display names in compose, reply, and mailbox rows
 	assert.match(compose, /address\.label \? `\$\{address\.label\} · \$\{address\.address\}`/);
 	assert.match(compose, /addresses\[0\]\?\.label/);
 	assert.match(mail, /\{#if data\.replyFromName\}\{data\.replyFromName\} ·/);
-	assert.match(mailbox, /filter\(\(participant\) => !participant\.self\)/);
-	assert.match(mailbox, /participant\.label \|\| participant\.address/);
-	assert.match(mailbox, /\(participant\?\.label \|\| participant\?\.address \|\| '\?'\)\[0\]/);
+	assert.match(mailbox, /mailboxPeople\(thread, view\)/);
+	assert.match(mailbox, /mailboxInitial\(thread\)/);
 });
 
 test('marks inbox, starred, and sent as primary tabs', () => {

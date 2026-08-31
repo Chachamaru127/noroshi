@@ -145,7 +145,8 @@ describe('QuickMail-ja Japanese UI contract', () => {
 
 	test('keeps visible fallback copy Japanese across mail surfaces', () => {
 		const mailbox = source('src/lib/components/MailboxView.svelte');
-		assert.match(mailbox, /view === 'drafts' \? '宛先なし' : '不明'/);
+		const people = source('src/lib/mailbox-people.ts');
+		assert.match(people, /view === 'drafts' \? '宛先なし' : '不明'/);
 		assert.match(mailbox, /displayMailSubject\(thread\.subject\)/);
 
 		const threadPage = source('src/routes/mail/[id]/+page.svelte');

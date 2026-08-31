@@ -9,6 +9,7 @@
 	import PullToRefresh from './PullToRefresh.svelte';
 	import FolderMoveMenu from './FolderMoveMenu.svelte';
 	import { displayMailSubject } from '$lib/mail-ui-copy';
+	import { mailboxInitial, mailboxPeople } from '$lib/mailbox-people';
 	import { formatRelativeDate } from '$lib/utils/date';
 	import { haptic, isPrimaryTab } from '$lib/app-chrome';
 	import type { MailFolder, MailboxFilters, MailboxPage, MailboxView, ThreadSummary } from '$lib/types';
@@ -86,27 +87,11 @@
 	 * they name the recipient; everywhere else names the people in the thread.
 	 */
 	function people(thread: ThreadSummary): string {
-		if (view === 'drafts' || (view === 'sent' && thread.participants.every((p) => p.self))) {
-			return recipientOf(thread) || (view === 'drafts' ? '宛先なし' : '不明');
-		}
-
-		return thread.participants
-			.filter((participant) => !participant.self)
-			.map((participant) => participant.label || participant.address)
-			.join(', ');
-	}
-
-	function recipientOf(thread: ThreadSummary): string {
-		return thread.participants
-			.filter((participant) => !participant.self)
-			.map((participant) => participant.label || participant.address)
-			.join(', ');
+		return mailboxPeople(thread, view);
 	}
 
 	function initial(thread: ThreadSummary): string {
-		const external = thread.participants.find((participant) => !participant.self);
-		const participant = external ?? thread.participants[0];
-		return (participant?.label || participant?.address || '?')[0].toUpperCase();
+		return mailboxInitial(thread);
 	}
 
 	/** Rows carry the newest message; opening it opens the whole conversation. */
