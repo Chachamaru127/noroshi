@@ -28,6 +28,7 @@
 				"computer_use_boundary",
 				"approval_policy",
 				"recovery_policy",
+				"canary_token_policy",
 				"canary_surfaces",
 				"dns_evidence",
 				"stages",
@@ -38,6 +39,7 @@
 				"computer_use_boundary": { "type": "string", "minLength": 1 },
 				"approval_policy": { "type": "string", "minLength": 1 },
 				"recovery_policy": { "type": "string", "minLength": 1 },
+				"canary_token_policy": { "type": "string", "minLength": 1 },
 				"canary_surfaces": { "$ref": "#/$defs/strings" },
 				"dns_evidence": { "type": "string", "minLength": 1 },
 				"stages": {

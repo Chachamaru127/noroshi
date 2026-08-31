@@ -6,8 +6,9 @@
 	"review_by": "2026-09-30",
 	"setup_runbook": {
 		"computer_use_boundary": "Computer Use、認証済みブラウザ、terminal、秘密入力経路はAIホスト側の能力です。開始時に可否を読み、利用不能な面は公式URLと手動経路へ切り替えます。Skill自体はこれらの能力を追加しません。",
-		"approval_policy": "事前承認は、対象、payload、変更前後の完全な差分、rollback、plan hash、有効期限を固定した1回限りのgrantを必要数だけ発行します。完全一致する未使用grantは再質問せず1回消費します。変更、期限切れ、使用済みでは停止します。DNS変更、外部送信、deploy、migrationを再利用可能な承認へ変えません。",
-		"recovery_policy": "タブ消失、セッション切れ、公式DOM変更では、許可済みかつ期待値と完全一致するoriginだけを再取得します。アカウント、ゾーン、ドメインがすべて読め、期待値と完全一致した後にだけ次へ進みます。クリップボード分離時も本人性の確認を先に行い、秘密値を再表示せず、人間の直接入力または秘密入力brokerへ切り替えます。",
+		"approval_policy": "事前承認は、対象、payload、変更前後の完全な差分、rollback、plan hash、有効期限を固定した1回限りのgrantを必要数だけ発行します。完全一致する未使用grantは再質問せず1回消費します。変更、期限切れ、使用済みでは停止します。アカウント、ゾーン、ドメインの変更または欠落を観測した時点で、発行済みgrantを台帳から失効させ、明示的な再承認前には再利用しません。DNS変更、外部送信、deploy、migrationを再利用可能な承認へ変えません。",
+		"recovery_policy": "タブ消失では、許可済みかつ期待値と完全一致するoriginを実際に開き直してから再読取します。セッション切れ、公式DOM変更、想定外originでは本人性を未確認として発行済みgrantを失効させます。アカウント、ゾーン、ドメインの変更または欠落でも、変更対象をpayloadが含むかに関係なく既存grantをすべて失効させます。3項目がすべて読め、期待値と完全一致し、新しい承認が発行された後にだけ変更操作へ進みます。クリップボード分離時も本人性の確認を先に行い、秘密値を再表示せず、人間の直接入力または秘密入力brokerへ切り替えます。",
+		"canary_token_policy": "疎通確認tokenは`canary-`で始まる12〜72文字の小文字英数字とハイフンだけを使います。secret、password、api-key、bearer、tokenを含む値やprovider credential形式は証拠へ取り込みません。",
 		"canary_surfaces": [
 			"Cloudflare Email RoutingのActivity",
 			"WorkerとD1の保存結果",
@@ -26,8 +27,8 @@
 					"ログイン、MFA、CAPTCHA、規約、支払い、アカウント切替は利用者が行います。"
 				],
 				"risk_gate": {
-					"required": true,
-					"scope": "対象、payload、変更前後の完全な差分、rollback、plan hash、有効期限を固定した1回限りのgrantを必要数だけ確定する前"
+					"required": false,
+					"scope": "読み取り専用の事前確認には承認不要です。最初の変更操作へ進む前に、対象、payload、変更前後の完全な差分、rollback、plan hash、有効期限を固定したgrantを必要数だけ確定します。"
 				},
 				"completion_evidence": [
 					"対象の表示名と非秘密ID、既存リソース、料金境界、利用可能な操作面が記録されています。"

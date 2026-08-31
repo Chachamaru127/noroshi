@@ -198,6 +198,14 @@ test('setup runbook defines every stage with state, action, gate, evidence and r
 		assert.equal(typeof stage.risk_gate.required, 'boolean');
 		assert.ok(stage.risk_gate.scope.length > 0);
 	}
+	assert.equal(
+		knowledge.setup_runbook.stages.find(({ id }) => id === 'preflight').risk_gate.required,
+		false,
+		'read-only preflight must not claim a mutation approval is required'
+	);
+	for (const stage of knowledge.setup_runbook.stages.filter(({ id }) => id !== 'preflight')) {
+		assert.equal(stage.risk_gate.required, true, `${stage.id} must retain its Risk Gate`);
+	}
 });
 
 test('setup knowledge is clean-room and records excluded Mailflare capabilities', () => {

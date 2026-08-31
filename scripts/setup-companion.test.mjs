@@ -21,6 +21,18 @@ class FakeBrowser {
 	}
 }
 
+const expectedIdentity = {
+	account: 'account-fixture',
+	zone: 'zone-fixture',
+	domain: 'example.test'
+};
+
+function approvalLedgerFor(identity = expectedIdentity) {
+	const ledger = new ApprovalScopeLedger();
+	ledger.bindIdentity(identity);
+	return ledger;
+}
+
 test('companion stage order covers the bounded setup and rollback journey', () => {
 	assert.deepEqual(SETUP_STAGE_ORDER, [
 		'preflight',
@@ -65,7 +77,7 @@ const approvalOperation = {
 };
 
 test('bundled approval allocates distinct exact one-use grants without a new prompt', () => {
-	const ledger = new ApprovalScopeLedger();
+	const ledger = approvalLedgerFor();
 	ledger.approve({ ...approvalOperation, count: 2 });
 	assert.deepEqual(ledger.consume(approvalOperation, { now: '2026-08-31T12:00:00.000Z' }), {
 		status: 'approved',
@@ -82,7 +94,7 @@ test('bundled approval allocates distinct exact one-use grants without a new pro
 });
 
 test('approval ledger stops for any changed exact-plan field or an expired grant', () => {
-	const ledger = new ApprovalScopeLedger();
+	const ledger = approvalLedgerFor();
 	ledger.approve({ ...approvalOperation, count: 5 });
 	for (const changed of [
 		{ ...approvalOperation, target: { ...approvalOperation.target, zone: 'zone-b' } },
@@ -104,7 +116,7 @@ test('approval ledger stops for any changed exact-plan field or an expired grant
 });
 
 test('approval ledger refuses secret-bearing scope data', () => {
-	const ledger = new ApprovalScopeLedger();
+	const ledger = approvalLedgerFor();
 	assert.throws(
 		() =>
 			ledger.approve({
@@ -116,33 +128,164 @@ test('approval ledger refuses secret-bearing scope data', () => {
 	);
 });
 
-test('browser recovery reacquires an allowlisted origin after tab loss and rereads identity', async () => {
+test('approval ledger refuses to issue a grant before observed identity is bound', () => {
+	const ledger = new ApprovalScopeLedger();
+	assert.throws(
+		() => ledger.approve({ ...approvalOperation, count: 1 }),
+		/account, zone and domain identity/u
+	);
+});
+
+test('browser recovery opens an allowlisted origin after tab loss and rereads identity', async () => {
 	const browser = new FakeBrowser({
-		origin: 'https://dash.cloudflare.com',
-		tab: 'missing',
-		authenticated: true,
-		dom_contract: 'current',
-		account: 'account-fixture',
-		zone: 'zone-fixture',
-		domain: 'example.test'
+		tab: 'missing'
 	});
-	const result = await recoverBrowserSession(browser, {
-		allowed_origins: ['https://dash.cloudflare.com'],
-		expected_origin: 'https://dash.cloudflare.com',
-		expected_dom_contract: 'current',
-		expected_identity: {
-			account: 'account-fixture',
-			zone: 'zone-fixture',
-			domain: 'example.test'
+	const opened = [];
+	const result = await recoverBrowserSession(
+		browser,
+		{
+			allowed_origins: ['https://dash.cloudflare.com'],
+			expected_origin: 'https://dash.cloudflare.com',
+			expected_dom_contract: 'current',
+			expected_identity: expectedIdentity
+		},
+		{
+			approvalLedger: approvalLedgerFor(),
+			reacquire: async (origin) => {
+				opened.push(origin);
+				browser.state = {
+					origin,
+					tab: 'present',
+					authenticated: true,
+					dom_contract: 'current',
+					...expectedIdentity
+				};
+			}
 		}
+	);
+	assert.equal(result.status, 'ready');
+	assert.equal(result.reacquired, true);
+	assert.deepEqual(result.identity, expectedIdentity);
+	assert.deepEqual(opened, ['https://dash.cloudflare.com']);
+	assert.equal(browser.reads, 2);
+});
+
+test('browser recovery never opens a tab when the expected origin is not allowlisted', async () => {
+	let opens = 0;
+	const result = await recoverBrowserSession(
+		new FakeBrowser({ tab: 'missing' }),
+		{
+			allowed_origins: ['https://resend.com'],
+			expected_origin: 'https://dash.cloudflare.com',
+			expected_dom_contract: 'current',
+			expected_identity: expectedIdentity
+		},
+		{
+			approvalLedger: approvalLedgerFor(),
+			reacquire: async () => {
+				opens += 1;
+			}
+		}
+	);
+	assert.equal(result.status, 'unexpected_origin');
+	assert.equal(opens, 0);
+});
+
+test('identity changes invalidate every old exact grant even when its scope omits identity fields', async () => {
+	for (const [field, value] of [
+		['account', 'account-current'],
+		['zone', 'zone-current'],
+		['domain', 'other.example.test']
+	]) {
+		const ledger = approvalLedgerFor();
+		ledger.approve({ ...approvalOperation, count: 2 });
+		const currentIdentity = { ...expectedIdentity, [field]: value };
+		const result = await recoverBrowserSession(
+			new FakeBrowser({
+				origin: 'https://dash.cloudflare.com',
+				authenticated: true,
+				dom_contract: 'current',
+				...currentIdentity
+			}),
+			{
+				allowed_origins: ['https://dash.cloudflare.com'],
+				expected_origin: 'https://dash.cloudflare.com',
+				expected_dom_contract: 'current',
+				expected_identity: expectedIdentity
+			},
+			{ approvalLedger: ledger }
+		);
+		assert.equal(result.status, 'identity_changed');
+		assert.equal(result.invalidated_grants, 2);
+		assert.deepEqual(ledger.consume(approvalOperation, { now: '2026-08-31T12:00:00.000Z' }), {
+			status: 'approval_required',
+			reason: 'identity_invalidated'
+		});
+	}
+});
+
+test('missing identity invalidates old grants and requires explicit reapproval', async () => {
+	const ledger = approvalLedgerFor();
+	ledger.approve({ ...approvalOperation, count: 1 });
+	const result = await recoverBrowserSession(
+		new FakeBrowser({
+			origin: 'https://dash.cloudflare.com',
+			authenticated: true,
+			dom_contract: 'current',
+			account: 'account-fixture',
+			zone: 'zone-fixture'
+		}),
+		{
+			allowed_origins: ['https://dash.cloudflare.com'],
+			expected_origin: 'https://dash.cloudflare.com',
+			expected_dom_contract: 'current',
+			expected_identity: expectedIdentity
+		},
+		{ approvalLedger: ledger }
+	);
+	assert.equal(result.status, 'identity_unavailable');
+	assert.equal(result.invalidated_grants, 1);
+	assert.deepEqual(ledger.consume(approvalOperation, { now: '2026-08-31T12:00:00.000Z' }), {
+		status: 'approval_required',
+		reason: 'identity_invalidated'
 	});
-	assert.equal(result.status, 'reacquire_allowed_origin');
-	assert.deepEqual(result.identity, {
-		account: 'account-fixture',
-		zone: 'zone-fixture',
-		domain: 'example.test'
+
+	ledger.bindIdentity(expectedIdentity);
+	ledger.approve({ ...approvalOperation, count: 1 });
+	assert.deepEqual(ledger.consume(approvalOperation, { now: '2026-08-31T12:00:00.000Z' }), {
+		status: 'approved',
+		unused_grants: 0
 	});
-	assert.equal(browser.reads, 1);
+});
+
+test('changed identity is rebound only by an explicit new approval', async () => {
+	const ledger = approvalLedgerFor();
+	ledger.approve({ ...approvalOperation, count: 1 });
+	const changedIdentity = { ...expectedIdentity, account: 'account-current' };
+	await recoverBrowserSession(
+		new FakeBrowser({
+			origin: 'https://dash.cloudflare.com',
+			authenticated: true,
+			dom_contract: 'current',
+			...changedIdentity
+		}),
+		{
+			allowed_origins: ['https://dash.cloudflare.com'],
+			expected_origin: 'https://dash.cloudflare.com',
+			expected_dom_contract: 'current',
+			expected_identity: expectedIdentity
+		},
+		{ approvalLedger: ledger }
+	);
+	assert.deepEqual(ledger.consume(approvalOperation, { now: '2026-08-31T12:00:00.000Z' }), {
+		status: 'approval_required',
+		reason: 'identity_invalidated'
+	});
+	ledger.approve({ ...approvalOperation, count: 1 });
+	assert.deepEqual(ledger.consume(approvalOperation, { now: '2026-08-31T12:00:00.000Z' }), {
+		status: 'approved',
+		unused_grants: 0
+	});
 });
 
 test('browser recovery stops on session expiry, unexpected origin and DOM drift', async () => {
@@ -169,10 +312,20 @@ test('browser recovery stops on session expiry, unexpected origin and DOM drift'
 			'official_dom_changed'
 		]
 	]) {
-		assert.deepEqual(
-			(await recoverBrowserSession(new FakeBrowser(state), expected)).status,
+		const ledger = approvalLedgerFor();
+		ledger.approve({ ...approvalOperation, count: 1 });
+		assert.equal(
+			(
+				await recoverBrowserSession(new FakeBrowser(state), expected, {
+					approvalLedger: ledger
+				})
+			).status,
 			reason
 		);
+		assert.deepEqual(ledger.consume(approvalOperation, { now: '2026-08-31T12:00:00.000Z' }), {
+			status: 'approval_required',
+			reason: 'identity_invalidated'
+		});
 	}
 });
 
@@ -194,9 +347,10 @@ test('browser recovery requires complete account zone and domain identity', asyn
 				zone: 'zone-fixture',
 				domain: 'example.test'
 			}
-		}
+		},
+		{ approvalLedger: approvalLedgerFor() }
 	);
-	assert.deepEqual(result, { status: 'identity_unavailable' });
+	assert.equal(result.status, 'identity_unavailable');
 });
 
 test('clipboard split never asks the model to recover or display a secret', async () => {
@@ -219,6 +373,13 @@ test('clipboard split never asks the model to recover or display a secret', asyn
 				zone: 'send-domain-fixture',
 				domain: 'example.test'
 			}
+		},
+		{
+			approvalLedger: approvalLedgerFor({
+				account: 'team-fixture',
+				zone: 'send-domain-fixture',
+				domain: 'example.test'
+			})
 		}
 	);
 	assert.deepEqual(result, {
@@ -228,7 +389,13 @@ test('clipboard split never asks the model to recover or display a secret', asyn
 	});
 });
 
-test('resume rejects changed identity before considering clipboard fallback', async () => {
+test('resume invalidates grants for changed identity before considering clipboard fallback', async () => {
+	const ledger = approvalLedgerFor({
+		account: 'account-stale',
+		zone: 'zone-stale',
+		domain: 'example.test'
+	});
+	ledger.approve({ ...approvalOperation, count: 1 });
 	const result = await recoverBrowserSession(
 		new FakeBrowser({
 			origin: 'https://dash.cloudflare.com',
@@ -248,10 +415,16 @@ test('resume rejects changed identity before considering clipboard fallback', as
 				zone: 'zone-stale',
 				domain: 'example.test'
 			}
-		}
+		},
+		{ approvalLedger: ledger }
 	);
 	assert.equal(result.status, 'identity_changed');
 	assert.equal(result.requires_new_approval, true);
+	assert.equal(result.invalidated_grants, 1);
+	assert.deepEqual(ledger.consume(approvalOperation, { now: '2026-08-31T12:00:00.000Z' }), {
+		status: 'approval_required',
+		reason: 'identity_invalidated'
+	});
 });
 
 test('canary completion requires the same non-secret token across all independent surfaces', () => {
@@ -271,6 +444,32 @@ test('canary completion requires the same non-secret token across all independen
 		correlateCanaryEvidence({ ...complete, resend: { token: 'other', status: 'observed' } }),
 		{ status: 'incomplete', missing_or_mismatched: ['resend'] }
 	);
+});
+
+test('canary evidence rejects unbounded or secret-like tokens without reflecting them', () => {
+	for (const token of [
+		'',
+		'canary-x',
+		`canary-${'a'.repeat(80)}`,
+		['re', 'provider-value'].join('_'),
+		'canary-sk-live-provider-value',
+		'canary-re-provider-value',
+		'canary-secret-value',
+		'canary-token-value',
+		'canary-has whitespace',
+		'canary-日本語'
+	]) {
+		const evidence = Object.fromEntries(
+			['email_routing_activity', 'worker_d1', 'resend', 'quickmail_ui'].map((surface) => [
+				surface,
+				{ token, status: 'observed' }
+			])
+		);
+		assert.deepEqual(correlateCanaryEvidence(evidence), {
+			status: 'incomplete',
+			reason: 'invalid_canary_token'
+		});
+	}
 });
 
 test('DNS completion compares domain and configuration fingerprint without an email token', () => {
