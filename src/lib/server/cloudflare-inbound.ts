@@ -135,9 +135,15 @@ export function inboundSender(
 	envelopeFrom: string | undefined
 ): string {
 	const parsedHeader = parseEmailAddress(headerFrom ?? '');
-	if (parsedHeader.includes('@')) return parsedHeader;
+	if (isUsableMailbox(parsedHeader)) return parsedHeader;
 	const parsedEnvelope = parseEmailAddress(envelopeFrom ?? '');
-	return parsedEnvelope.includes('@') ? parsedEnvelope : '';
+	return isUsableMailbox(parsedEnvelope) ? parsedEnvelope : '';
+}
+
+function isUsableMailbox(value: string): boolean {
+	if (/[\s\u0000-\u001f\u007f]/u.test(value)) return false;
+	const separator = value.indexOf('@');
+	return separator > 0 && separator === value.lastIndexOf('@') && separator < value.length - 1;
 }
 
 async function storeInboundAttachments(

@@ -51,5 +51,8 @@ test('falls back to the envelope when From is absent or invalid', () => {
 	assert.equal(inboundSender(undefined, 'sender@example.test'), 'sender@example.test');
 	assert.equal(inboundSender('<>', 'sender@example.test'), 'sender@example.test');
 	assert.equal(inboundSender('undisclosed-recipients', 'sender@example.test'), 'sender@example.test');
+	assert.equal(inboundSender('a@', 'sender@example.test'), 'sender@example.test');
+	assert.equal(inboundSender('@b', 'sender@example.test'), 'sender@example.test');
+	assert.equal(inboundSender('a@@b', 'sender@example.test'), 'sender@example.test');
 	assert.equal(inboundSender(undefined, undefined), '');
 });
