@@ -57,6 +57,7 @@ export const POST: RequestHandler = async ({ locals, platform, request }) => {
 			{
 				userId: locals.user.id,
 				domainId: address.domain_id,
+				addressId: address.id,
 				mailboxAddress: address.address,
 				direction: direction as OutlookImportDirection,
 				raw: await file.arrayBuffer()

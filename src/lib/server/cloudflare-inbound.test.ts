@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { cloudflareProviderId, isAllowedCloudflareRecipient } from './cloudflare-inbound';
+import {
+	cloudflareProviderId,
+	inboundSender,
+	isAllowedCloudflareRecipient
+} from './cloudflare-inbound';
 
 test('accepts only recipients in configured Cloudflare domains', () => {
 	assert.equal(
@@ -34,4 +38,18 @@ test('keeps the legacy raw delivery identity while D1 scopes it by recipient', a
 	assert.equal(first, retry);
 	assert.equal(first, second);
 	assert.equal(first, legacy);
+});
+
+test('uses the parsed From header before the SMTP bounce envelope', () => {
+	assert.equal(
+		inboundSender('Sender Name <sender@example.test>', 'bounce@provider.example'),
+		'sender@example.test'
+	);
+});
+
+test('falls back to the envelope when From is absent or invalid', () => {
+	assert.equal(inboundSender(undefined, 'sender@example.test'), 'sender@example.test');
+	assert.equal(inboundSender('<>', 'sender@example.test'), 'sender@example.test');
+	assert.equal(inboundSender('undisclosed-recipients', 'sender@example.test'), 'sender@example.test');
+	assert.equal(inboundSender(undefined, undefined), '');
 });

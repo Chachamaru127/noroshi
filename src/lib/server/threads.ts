@@ -91,6 +91,7 @@ function addressesIn(value: string | null | undefined): string[] {
 export type ThreadLookup = {
 	/** Id already minted for the message being inserted; used as a new thread id. */
 	emailId: string;
+	direction: 'inbound' | 'outbound';
 	subject: string;
 	from: string;
 	to: string;
@@ -98,6 +99,8 @@ export type ThreadLookup = {
 	inReplyTo?: string | null;
 	references?: string | null;
 	replyToEmailId?: string | null;
+	/** NULL is a real legacy-domain bucket, not an unscoped lookup. */
+	domainId: string | null;
 	/** Drafts start their own conversation instead of joining one by subject. */
 	subjectMatch?: boolean;
 };
@@ -114,8 +117,10 @@ export async function resolveThreadId(
 ): Promise<string> {
 	if (input.replyToEmailId) {
 		const parent = await db
-			.prepare('SELECT thread_id, id FROM emails WHERE id = ? AND user_id = ?')
-			.bind(input.replyToEmailId, userId)
+			.prepare(
+				'SELECT thread_id, id FROM emails WHERE id = ? AND user_id = ? AND domain_id IS ?'
+			)
+			.bind(input.replyToEmailId, userId, input.domainId)
 			.first<{ thread_id: string | null; id: string }>();
 
 		if (parent) return parent.thread_id ?? parent.id;
@@ -130,11 +135,12 @@ export async function resolveThreadId(
 			.prepare(
 				`SELECT thread_id, id FROM emails
 				 WHERE user_id = ?
+				 AND domain_id IS ?
 				 AND message_id IS NOT NULL
 				 AND replace(replace(message_id, '<', ''), '>', '') IN (${placeholders})
-				 ORDER BY datetime(created_at) DESC LIMIT 1`
+				 ORDER BY julianday(created_at) DESC, rowid DESC LIMIT 1`
 			)
-			.bind(userId, ...referenced)
+			.bind(userId, input.domainId, ...referenced)
 			.first<{ thread_id: string | null; id: string }>();
 
 		if (match) return match.thread_id ?? match.id;
@@ -142,13 +148,11 @@ export async function resolveThreadId(
 
 	if (input.subjectMatch !== false) {
 		const threadKey = normalizeSubject(input.subject);
-		const participants = [
-			...new Set([
-				...addressesIn(input.from),
-				...addressesIn(input.to),
-				...addressesIn(input.cc)
-			])
-		].slice(0, MAX_PARTICIPANTS);
+		const correspondents =
+			input.direction === 'inbound'
+				? addressesIn(input.from)
+				: [...addressesIn(input.to), ...addressesIn(input.cc)];
+		const participants = [...new Set(correspondents)].slice(0, MAX_PARTICIPANTS);
 
 		if (threadKey && threadKey !== '(no subject)' && participants.length > 0) {
 			const overlap = participants
@@ -163,12 +167,13 @@ export async function resolveThreadId(
 					`SELECT thread_id, id FROM emails
 					 WHERE user_id = ?
 					 AND thread_key = ?
+					 AND domain_id IS ?
 					 AND (status IS NULL OR status <> 'draft')
 					 AND datetime(created_at) > datetime('now', ?)
 					 AND (${overlap})
-					 ORDER BY datetime(created_at) DESC LIMIT 1`
+					 ORDER BY julianday(created_at) DESC, rowid DESC LIMIT 1`
 				)
-				.bind(userId, threadKey, `-${SUBJECT_MATCH_DAYS} day`, ...participants)
+				.bind(userId, threadKey, input.domainId, `-${SUBJECT_MATCH_DAYS} day`, ...participants)
 				.first<{ thread_id: string | null; id: string }>();
 
 			if (match) return match.thread_id ?? match.id;
@@ -177,4 +182,3 @@ export async function resolveThreadId(
 
 	return input.emailId;
 }
-

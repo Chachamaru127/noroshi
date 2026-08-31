@@ -168,6 +168,7 @@ export async function sendAndStore(
 		references: input.references ?? null,
 		replyToEmailId: input.replyToEmailId ?? null,
 		domainId: from.domain_id,
+		addressId: from.id.startsWith('reply:') ? null : from.id,
 		providerId,
 		status: initialOutboundStatus(provider.kind),
 		isRead: true,

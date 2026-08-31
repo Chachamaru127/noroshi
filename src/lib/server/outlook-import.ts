@@ -20,6 +20,7 @@ export async function importOutlookEml(
 	input: {
 		userId: string;
 		domainId: string;
+		addressId: string;
 		mailboxAddress: string;
 		direction: OutlookImportDirection;
 		raw: ArrayBuffer;
@@ -69,6 +70,7 @@ export async function importOutlookEml(
 			inReplyTo: normalizeMessageId(parsed.inReplyTo),
 			references: parsed.references ?? null,
 			domainId: input.domainId,
+			addressId: input.addressId,
 			status: input.direction === 'outbound' ? 'sent' : null,
 			attachmentsReady: parsed.attachments.length === 0,
 			isRead: true,

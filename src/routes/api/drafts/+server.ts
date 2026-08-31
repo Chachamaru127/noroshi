@@ -39,7 +39,8 @@ const post: RequestHandler = async ({ request, locals, platform }) => {
 			subject: body.subject?.trim() ?? '',
 			bodyText: body.text ?? null,
 			bodyHtml: body.html ?? null,
-			domainId: from.domain_id
+			domainId: from.domain_id,
+			addressId: from.id
 		});
 
 		return json({ ok: true, id });

@@ -61,7 +61,7 @@ export async function handleCloudflareInbound(
 		? collectInboundRecipients({ received_for: [envelopeTo] })
 		: [];
 
-	const from = parseEmailAddress(message.from || mailboxAddresses(parsed.from)[0] || '');
+	const from = inboundSender(mailboxAddresses(parsed.from)[0], message.from);
 	const subject = parsed.subject?.trim() || message.headers.get('subject')?.trim() || '(no subject)';
 	const messageId =
 		normalizeMessageId(parsed.messageId ?? message.headers.get('message-id')) ?? null;
@@ -102,6 +102,7 @@ export async function handleCloudflareInbound(
 			inReplyTo,
 			references,
 			domainId: route.domainId,
+			addressId: route.addressId,
 			providerId,
 			forwardingHop: isForwardedHop(parsed.headers) ? 1 : 0,
 			attachmentsReady: parsed.attachments.length === 0
@@ -126,6 +127,17 @@ export async function handleCloudflareInbound(
 		from,
 		subject
 	});
+}
+
+/** Parsed From is the author; SMTP MAIL FROM is only a delivery fallback. */
+export function inboundSender(
+	headerFrom: string | undefined,
+	envelopeFrom: string | undefined
+): string {
+	const parsedHeader = parseEmailAddress(headerFrom ?? '');
+	if (parsedHeader.includes('@')) return parsedHeader;
+	const parsedEnvelope = parseEmailAddress(envelopeFrom ?? '');
+	return parsedEnvelope.includes('@') ? parsedEnvelope : '';
 }
 
 async function storeInboundAttachments(

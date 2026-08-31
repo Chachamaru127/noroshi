@@ -107,6 +107,7 @@ test('imports a historical EML once, preserving a large body and attachment with
 	const input = {
 		userId: 'u',
 		domainId: 'd',
+		addressId: 'a',
 		mailboxAddress: 'info@example.net',
 		direction: 'inbound' as const,
 		raw
@@ -121,7 +122,7 @@ test('imports a historical EML once, preserving a large body and attachment with
 
 	const row = db.db
 		.query(
-			`SELECT direction,status,length(body_html) AS html_length,is_read,attachments_ready,provider_id
+			`SELECT direction,status,length(body_html) AS html_length,is_read,attachments_ready,provider_id,address_id
 			 FROM emails WHERE id=?`
 		)
 		.get<{
@@ -131,6 +132,7 @@ test('imports a historical EML once, preserving a large body and attachment with
 			is_read: number;
 			attachments_ready: number;
 			provider_id: string;
+			address_id: string;
 		}>(first.emailId);
 	assert.equal(row?.direction, 'inbound');
 	assert.equal(row?.status, null);
@@ -138,6 +140,7 @@ test('imports a historical EML once, preserving a large body and attachment with
 	assert.equal(row?.is_read, 1);
 	assert.equal(row?.attachments_ready, 1);
 	assert.ok(row?.provider_id.startsWith(OUTLOOK_IMPORT_PREFIX));
+	assert.equal(row?.address_id, 'a');
 	assert.equal(
 		db.db.query('SELECT COUNT(*) AS count FROM emails').get<{ count: number }>()?.count,
 		1
@@ -159,13 +162,14 @@ test('marks imported sent mail as outbound and sent', async () => {
 		{
 			userId: 'u',
 			domainId: 'd',
+			addressId: 'a',
 			mailboxAddress: 'info@example.net',
 			direction: 'outbound',
 			raw
 		}
 	);
 	const row = db.db
-		.query('SELECT direction,status FROM emails WHERE id=?')
-		.get<{ direction: string; status: string }>(result.emailId);
-	assert.deepEqual(row, { direction: 'outbound', status: 'sent' });
+		.query('SELECT direction,status,address_id FROM emails WHERE id=?')
+		.get<{ direction: string; status: string; address_id: string }>(result.emailId);
+	assert.deepEqual(row, { direction: 'outbound', status: 'sent', address_id: 'a' });
 });

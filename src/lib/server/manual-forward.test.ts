@@ -31,6 +31,7 @@ const sourceEmail: EmailRow = {
 	thread_id: 'thread-1',
 	thread_key: 'quarterly <update>',
 	domain_id: 'domain-1',
+	address_id: 'address-1',
 	provider_id: 'provider-1',
 	status: null,
 	status_at: null,
@@ -350,9 +351,11 @@ test('manual forwards can force a new thread despite a matching subject', async 
 
 	const threadId = await resolveThreadId(db, sourceEmail.user_id, {
 		emailId: 'new-forward-id',
+		direction: 'outbound',
 		subject: `Fwd: ${sourceEmail.subject}`,
 		from: sourceEmail.to_addr,
 		to: sourceEmail.from_addr,
+		domainId: sourceEmail.domain_id,
 		subjectMatch: false
 	});
 	assert.equal(threadId, 'new-forward-id');
