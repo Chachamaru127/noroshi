@@ -398,6 +398,7 @@ function toThreadSummary(messages: ThreadMessageRow[]): ThreadSummary {
 	// Senders in the order they first spoke, with our own identities collapsed
 	// into a single "me" the way a conversation header reads.
 	const participants: ThreadParticipant[] = [];
+	const namedExternalAddresses = new Set<string>();
 	for (const message of messages) {
 		if (message.direction === 'outbound') {
 			if (!participants.some((entry) => entry.self)) {
@@ -407,16 +408,25 @@ function toThreadSummary(messages: ThreadMessageRow[]): ThreadSummary {
 		}
 
 		const address = message.from_addr;
-		const seen = participants.some(
-			(entry) => !entry.self && entry.address.toLowerCase() === address.toLowerCase()
+		const addressKey = address.toLowerCase();
+		const storedName = message.from_name?.trim() || null;
+		const existing = participants.find(
+			(entry) => !entry.self && entry.address.toLowerCase() === addressKey
 		);
-		if (seen) continue;
+		if (existing) {
+			if (storedName && !namedExternalAddresses.has(addressKey)) {
+				existing.label = storedName;
+				namedExternalAddresses.add(addressKey);
+			}
+			continue;
+		}
 
 		participants.push({
-			label: message.from_name || displayNameFor(address),
+			label: storedName || displayNameFor(address),
 			address,
 			self: false
 		});
+		if (storedName) namedExternalAddresses.add(addressKey);
 	}
 
 	return {

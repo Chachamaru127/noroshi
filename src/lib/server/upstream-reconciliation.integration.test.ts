@@ -393,6 +393,96 @@ describe('0021 address identity', () => {
 });
 
 describe('0022 inbound sender display names', () => {
+	test('persists the exact outbound sender label and account-name fallback', async () => {
+		const db = new SqliteD1();
+		seedPrincipals(db);
+		db.db.query("UPDATE addresses SET label='Support Desk' WHERE id='a1'").run();
+		const provider: EmailProvider = {
+			kind: 'resend',
+			async send() {
+				return { providerId: crypto.randomUUID() };
+			},
+			async listDomains() {
+				return [];
+			},
+			async getDomain() {
+				throw new Error('unused');
+			}
+		};
+		const user = {
+			id: 'u',
+			email: 'owner@example.test',
+			name: 'Owner Account',
+			is_admin: false,
+			created_at: ''
+		};
+		const labelled = await sendAndStore({ DB: d1(db), ATTACHMENTS: emptyBucket }, provider, user, {
+			fromAddressId: 'a1',
+			to: 'person@outside.test',
+			subject: 'Labelled sender',
+			text: 'Body'
+		});
+		db.db.query("UPDATE addresses SET label=NULL WHERE id='a1'").run();
+		const fallback = await sendAndStore({ DB: d1(db), ATTACHMENTS: emptyBucket }, provider, user, {
+			fromAddressId: 'a1',
+			to: 'other@outside.test',
+			subject: 'Account sender',
+			text: 'Body'
+		});
+
+		assert.deepEqual(
+			db.db
+				.query('SELECT id,from_name FROM emails WHERE id IN (?,?) ORDER BY subject')
+				.all(labelled.emailId, fallback.emailId),
+			[
+				{ id: fallback.emailId, from_name: 'Owner Account' },
+				{ id: labelled.emailId, from_name: 'Support Desk' }
+			]
+		);
+	});
+
+	test('upgrades a fallback participant label once without overwriting a stored name', async () => {
+		const db = new SqliteD1();
+		seedPrincipals(db);
+		const first = await insertEmail(d1(db), {
+			userId: 'u',
+			direction: 'inbound',
+			from: 'alice.customer@outside.test',
+			to: 'info@one.example',
+			subject: 'Name upgrade',
+			domainId: 'd1'
+		});
+		const second = await insertEmail(d1(db), {
+			userId: 'u',
+			direction: 'inbound',
+			from: 'alice.customer@outside.test',
+			fromName: 'Alice Customer',
+			to: 'info@one.example',
+			subject: 'Re: Name upgrade',
+			domainId: 'd1',
+			replyToEmailId: first
+		});
+		await insertEmail(d1(db), {
+			userId: 'u',
+			direction: 'inbound',
+			from: 'alice.customer@outside.test',
+			fromName: 'Later Alias',
+			to: 'info@one.example',
+			subject: 'Re: Name upgrade',
+			domainId: 'd1',
+			replyToEmailId: second
+		});
+
+		const mailbox = await listMailbox(d1(db), 'u', { view: 'inbox' });
+		assert.deepEqual(mailbox.threads[0]?.participants, [
+			{
+				label: 'Alice Customer',
+				address: 'alice.customer@outside.test',
+				self: false
+			}
+		]);
+	});
+
 	test('stores the parsed name through list and detail while keeping the address as identity', async () => {
 		const db = new SqliteD1();
 		seedPrincipals(db);

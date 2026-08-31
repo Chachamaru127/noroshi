@@ -151,9 +151,10 @@ export async function sendAndStore(
 		throw new Error('Attachments exceed the total size limit');
 	}
 
+	const senderName = from.label?.trim() || user.name;
 	const { providerId } = await sendOutboundEmail(provider, {
 		from,
-		senderName: from.label?.trim() || user.name,
+		senderName,
 		to: input.to,
 		cc: input.cc ?? undefined,
 		bcc: input.bcc ?? undefined,
@@ -169,6 +170,7 @@ export async function sendAndStore(
 		userId: user.id,
 		direction: 'outbound',
 		from: from.address,
+		fromName: senderName,
 		to: parseRecipients(input.to).join(', '),
 		cc: parseRecipients(input.cc).join(', ') || null,
 		bcc: parseRecipients(input.bcc).join(', ') || null,
