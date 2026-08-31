@@ -16,6 +16,7 @@ function thread(participants: ThreadSummary['participants']): ThreadSummary {
 		is_draft: false,
 		has_attachments: false,
 		domain_id: 'domain-1',
+		address_id: null,
 		status: 'sent',
 		created_at: '2026-08-31 12:00:00'
 	};
