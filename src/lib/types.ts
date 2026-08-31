@@ -117,6 +117,8 @@ export type EmailRow = {
 	user_id: string;
 	direction: 'inbound' | 'outbound';
 	from_addr: string;
+	/** RFC From display name. Address remains the identity/search key. */
+	from_name: string | null;
 	to_addr: string;
 	cc_addr: string | null;
 	bcc_addr: string | null;
@@ -148,6 +150,7 @@ export type EmailSummary = {
 	id: string;
 	direction: 'inbound' | 'outbound';
 	from_addr: string;
+	from_name: string | null;
 	to_addr: string;
 	subject: string;
 	/** First line of the body, shown next to the subject in the list. */
@@ -213,7 +216,9 @@ export type ThreadMessage = {
 	id: string;
 	direction: 'inbound' | 'outbound';
 	from_addr: string;
+	from_name: string | null;
 	to_addr: string;
+	domain_id: string | null;
 	cc_addr: string | null;
 	subject: string;
 	body_text: string | null;

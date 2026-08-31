@@ -4,10 +4,11 @@ import { describe, test } from 'node:test';
 import { Database } from 'bun:sqlite';
 import type { D1Database, D1PreparedStatement, R2Bucket } from '@cloudflare/workers-types';
 import type { EmailProvider } from './email-provider';
-import { insertEmail, listMailbox, saveDraft } from './mail-store';
-import { sendAndStore } from './outbox';
+import { insertEmail, listMailbox, listThreadMessages, saveDraft } from './mail-store';
+import { resolveReplyFromAddress, sendAndStore } from './outbox';
 import { resolveThreadId } from './threads';
 import { GET as getMailApi } from '../../routes/api/mail/+server';
+import { POST as replyMailApi } from '../../routes/api/mail/[id]/+server';
 import { handleCloudflareInbound } from './cloudflare-inbound';
 import { handleResendWebhook } from './inbound';
 import type { ResendClient } from './resend';
@@ -316,7 +317,7 @@ describe('0021 address identity', () => {
 		const client = {
 			async getReceivedEmail() {
 				return {
-					from: 'resend@outside.test',
+					from: 'Resend Sender <resend@outside.test>',
 					to: ['info@two.example'],
 					subject: 'Resend inbound',
 					text: 'Body',
@@ -339,10 +340,22 @@ describe('0021 address identity', () => {
 		);
 
 		assert.deepEqual(
-			db.db.query('SELECT subject,from_addr,address_id FROM emails ORDER BY subject').all(),
+			db.db
+				.query('SELECT subject,from_addr,from_name,address_id FROM emails ORDER BY subject')
+				.all(),
 			[
-				{ subject: 'Cloudflare inbound', from_addr: 'header@outside.test', address_id: 'a1' },
-				{ subject: 'Resend inbound', from_addr: 'resend@outside.test', address_id: 'a2' }
+				{
+					subject: 'Cloudflare inbound',
+					from_addr: 'header@outside.test',
+					from_name: 'Header Sender',
+					address_id: 'a1'
+				},
+				{
+					subject: 'Resend inbound',
+					from_addr: 'resend@outside.test',
+					from_name: 'Resend Sender',
+					address_id: 'a2'
+				}
 			]
 		);
 	});
@@ -379,7 +392,222 @@ describe('0021 address identity', () => {
 	});
 });
 
+describe('0022 inbound sender display names', () => {
+	test('stores the parsed name through list and detail while keeping the address as identity', async () => {
+		const db = new SqliteD1();
+		seedPrincipals(db);
+		const raw = new TextEncoder().encode(
+			[
+				'From: "Alice Example" <alice@outside.test>',
+				'To: info@one.example',
+				'Subject: Named sender',
+				'Message-ID: <named@outside.test>',
+				'',
+				'Body'
+			].join('\r\n')
+		);
+		await handleCloudflareInbound(
+			{
+				from: 'bounce@provider.test',
+				to: 'info@one.example',
+				headers: new Headers(),
+				raw: new Blob([raw]).stream(),
+				setReject() {}
+			},
+			{ DB: d1(db), ATTACHMENTS: emptyBucket }
+		);
+
+		const stored = db.db
+			.query("SELECT * FROM emails WHERE subject='Named sender'")
+			.get<{ id: string; from_addr: string; from_name: string | null }>()!;
+		assert.deepEqual(
+			{ from_addr: stored.from_addr, from_name: stored.from_name },
+			{ from_addr: 'alice@outside.test', from_name: 'Alice Example' }
+		);
+		const mailbox = await listMailbox(d1(db), 'u', { view: 'inbox' });
+		assert.deepEqual(mailbox.threads[0]?.participants[0], {
+			label: 'Alice Example',
+			address: 'alice@outside.test',
+			self: false
+		});
+		const detail = await listThreadMessages(
+			d1(db),
+			'u',
+			db.db.query('SELECT * FROM emails WHERE id=?').get(stored.id) as never
+		);
+		assert.equal(detail[0]?.from_name, 'Alice Example');
+	});
+
+	test('drops the name when malformed From falls back to the envelope sender', async () => {
+		const db = new SqliteD1();
+		seedPrincipals(db);
+		const raw = new TextEncoder().encode(
+			[
+				'From: Forged Name <not-an-address>',
+				'To: info@one.example',
+				'Subject: Envelope fallback',
+				'',
+				'Body'
+			].join('\r\n')
+		);
+		await handleCloudflareInbound(
+			{
+				from: 'bounce@provider.test',
+				to: 'info@one.example',
+				headers: new Headers(),
+				raw: new Blob([raw]).stream(),
+				setReject() {}
+			},
+			{ DB: d1(db), ATTACHMENTS: emptyBucket }
+		);
+		assert.deepEqual(
+			db.db.query("SELECT from_addr,from_name FROM emails WHERE subject='Envelope fallback'").get(),
+			{ from_addr: 'bounce@provider.test', from_name: null }
+		);
+	});
+});
+
 describe('domain-scoped thread resolution', () => {
+	test('same-domain replies preserve the thread and cross-domain identities fail before send', async () => {
+		const db = new SqliteD1();
+		seedPrincipals(db);
+		const originalId = await insertEmail(d1(db), {
+			userId: 'u',
+			direction: 'inbound',
+			from: 'alice@outside.test',
+			to: 'info@one.example',
+			subject: 'Reply boundary',
+			domainId: 'd1',
+			addressId: 'a1',
+			messageId: 'parent@outside.test'
+		});
+		const original = db.db.query('SELECT * FROM emails WHERE id=?').get(originalId) as never;
+		const sameDomain = await resolveReplyFromAddress(
+			d1(db),
+			{
+				id: 'u',
+				email: 'owner@example.test',
+				name: 'Owner',
+				is_admin: false,
+				created_at: ''
+			},
+			original
+		);
+		assert.equal(sameDomain?.id, 'a1');
+
+		let providerCalls = 0;
+		const provider: EmailProvider = {
+			kind: 'resend',
+			async send() {
+				providerCalls += 1;
+				return { providerId: 'reply-provider' };
+			},
+			async listDomains() {
+				return [];
+			},
+			async getDomain() {
+				throw new Error('unused');
+			}
+		};
+		const sent = await sendAndStore(
+			{ DB: d1(db), ATTACHMENTS: emptyBucket },
+			provider,
+			{ id: 'u', email: 'owner@example.test', name: 'Owner', is_admin: false, created_at: '' },
+			{
+				fromAddress: sameDomain,
+				to: 'alice@outside.test',
+				subject: 'Re: Reply boundary',
+				text: 'Reply',
+				replyToEmailId: originalId,
+				inReplyTo: 'parent@outside.test'
+			}
+		);
+		assert.equal(providerCalls, 1);
+		assert.equal(
+			db.db
+				.query('SELECT thread_id FROM emails WHERE id=?')
+				.get<{ thread_id: string }>(sent.emailId)!.thread_id,
+			originalId
+		);
+
+		const crossDomain = await resolveReplyFromAddress(
+			d1(db),
+			{ id: 'u', email: 'owner@example.test', name: 'Owner', is_admin: false, created_at: '' },
+			original,
+			'a2'
+		);
+		assert.equal(crossDomain, null);
+		assert.equal(providerCalls, 1);
+		assert.equal(
+			db.db.query('SELECT COUNT(*) AS count FROM emails').get<{ count: number }>()!.count,
+			2
+		);
+
+		const crossResponse = await replyMailApi({
+			params: { id: originalId },
+			request: new Request(`https://mail.example/api/mail/${originalId}`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ fromAddressId: 'a2', text: 'Blocked reply' })
+			}),
+			locals: {
+				user: {
+					id: 'u',
+					email: 'owner@example.test',
+					name: 'Owner',
+					is_admin: false,
+					created_at: ''
+				}
+			},
+			platform: { env: { DB: d1(db), ATTACHMENTS: emptyBucket } }
+		} as never);
+		assert.equal(crossResponse.status, 400);
+		assert.deepEqual(await crossResponse.json(), {
+			error: 'Reply must use a sending address on the same domain.'
+		});
+		assert.equal(
+			db.db.query('SELECT COUNT(*) AS count FROM emails').get<{ count: number }>()!.count,
+			2
+		);
+	});
+
+	test('receive-only thread does not fall through to another domain at the reply route', async () => {
+		const db = new SqliteD1();
+		seedPrincipals(db);
+		db.db.query("UPDATE domains SET sending_enabled=0 WHERE id='d1'").run();
+		const originalId = await insertEmail(d1(db), {
+			userId: 'u',
+			direction: 'inbound',
+			from: 'alice@outside.test',
+			to: 'info@one.example',
+			subject: 'Receive only',
+			domainId: 'd1',
+			addressId: 'a1'
+		});
+		const response = await replyMailApi({
+			params: { id: originalId },
+			request: new Request(`https://mail.example/api/mail/${originalId}`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ text: 'Blocked reply' })
+			}),
+			locals: {
+				user: {
+					id: 'u',
+					email: 'owner@example.test',
+					name: 'Owner',
+					is_admin: false,
+					created_at: ''
+				}
+			},
+			platform: { env: { DB: d1(db), ATTACHMENTS: emptyBucket } }
+		} as never);
+		assert.equal(response.status, 400);
+		assert.equal(
+			db.db.query('SELECT COUNT(*) AS count FROM emails').get<{ count: number }>()!.count,
+			1
+		);
+	});
 	test('keeps explicit parents, Message-IDs, subjects and NULL domains inside their bucket', async () => {
 		const db = new SqliteD1();
 		seedPrincipals(db);

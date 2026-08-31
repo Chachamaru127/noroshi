@@ -137,17 +137,22 @@ export const POST: RequestHandler = async ({ params, request, locals, platform }
 
 	// Reply from the mailbox that received the original. Catch-all mail uses
 	// that exact recipient when the user can send on the domain.
-	const fromAddress = body.fromAddressId
-		? undefined
-		: await resolveReplyFromAddress(db, locals.user, original);
-	if (!body.fromAddressId && !fromAddress) {
-		return json({ error: 'This address is receive-only. Replies are disabled.' }, { status: 400 });
+	const fromAddress = await resolveReplyFromAddress(
+		db,
+		locals.user,
+		original,
+		body.fromAddressId
+	);
+	if (!fromAddress) {
+		return json(
+			{ error: 'Reply must use a sending address on the same domain.' },
+			{ status: 400 }
+		);
 	}
 
 	try {
 		const provider = getEmailProvider(platform);
 		const { emailId } = await sendAndStore({ DB: db, ATTACHMENTS: bucket }, provider, locals.user, {
-			fromAddressId: body.fromAddressId,
 			fromAddress,
 			to,
 			subject,

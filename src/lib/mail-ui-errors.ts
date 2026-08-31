@@ -14,6 +14,8 @@ const KNOWN_ERRORS: Record<string, string> = {
 	'Failed to send': 'メールを送信できませんでした。',
 	'Failed to send email': 'メールを送信できませんでした。',
 	'Failed to send reply': '返信を送信できませんでした。',
+	'Reply must use a sending address on the same domain.':
+		'このメールと同じドメインの送信元アドレスを選択してください。',
 	'Could not save draft': '下書きを保存できませんでした。',
 	'No sending address configured. Add one in Settings first.':
 		'送信元アドレスが設定されていません。設定から追加してください。',

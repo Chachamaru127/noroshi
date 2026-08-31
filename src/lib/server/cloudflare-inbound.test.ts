@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
 	cloudflareProviderId,
+	inboundSenderIdentity,
 	inboundSender,
 	isAllowedCloudflareRecipient
 } from './cloudflare-inbound';
@@ -55,4 +56,21 @@ test('falls back to the envelope when From is absent or invalid', () => {
 	assert.equal(inboundSender('@b', 'sender@example.test'), 'sender@example.test');
 	assert.equal(inboundSender('a@@b', 'sender@example.test'), 'sender@example.test');
 	assert.equal(inboundSender(undefined, undefined), '');
+});
+
+test('keeps a parsed RFC From display name only with its valid mailbox', () => {
+	assert.deepEqual(
+		inboundSenderIdentity(
+			{ name: 'Alice Example', address: 'Alice@Example.test' },
+			'bounce@provider.example'
+		),
+		{ address: 'alice@example.test', name: 'Alice Example' }
+	);
+	assert.deepEqual(
+		inboundSenderIdentity(
+			{ name: 'Forged Name', address: 'not-an-address' },
+			'bounce@provider.example'
+		),
+		{ address: 'bounce@provider.example', name: null }
+	);
 });

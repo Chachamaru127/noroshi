@@ -3,7 +3,12 @@ import PostalMime, { type Address, type Attachment } from 'postal-mime';
 import { insertAttachmentBytes } from './attachments';
 import { MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS_PER_EMAIL } from './constants';
 import { recordUnroutedEmail, resolveInboundRoute } from './domains';
-import { collectInboundRecipients, parseEmailAddress } from './email-address';
+import {
+	collectInboundRecipients,
+	isUsableEmailAddress,
+	parseEmailAddress,
+	type EmailIdentity
+} from './email-address';
 import { parseMailDomains } from './email-provider';
 import {
 	emailExistsByProviderId,
@@ -61,7 +66,8 @@ export async function handleCloudflareInbound(
 		? collectInboundRecipients({ received_for: [envelopeTo] })
 		: [];
 
-	const from = inboundSender(mailboxAddresses(parsed.from)[0], message.from);
+	const sender = inboundSenderIdentity(parsed.from, message.from);
+	const from = sender.address;
 	const subject = parsed.subject?.trim() || message.headers.get('subject')?.trim() || '(no subject)';
 	const messageId =
 		normalizeMessageId(parsed.messageId ?? message.headers.get('message-id')) ?? null;
@@ -93,6 +99,7 @@ export async function handleCloudflareInbound(
 			userId: route.userId,
 			direction: 'inbound',
 			from,
+			fromName: sender.name,
 			to: route.address,
 			cc: mailboxAddresses(parsed.cc).join(', ') || null,
 			subject,
@@ -124,7 +131,7 @@ export async function handleCloudflareInbound(
 	await scheduleNewMailNotification(env, {
 		emailId,
 		userId: route.userId,
-		from,
+		from: sender.name || from,
 		subject
 	});
 }
@@ -135,15 +142,33 @@ export function inboundSender(
 	envelopeFrom: string | undefined
 ): string {
 	const parsedHeader = parseEmailAddress(headerFrom ?? '');
-	if (isUsableMailbox(parsedHeader)) return parsedHeader;
+	if (isUsableEmailAddress(parsedHeader)) return parsedHeader;
 	const parsedEnvelope = parseEmailAddress(envelopeFrom ?? '');
-	return isUsableMailbox(parsedEnvelope) ? parsedEnvelope : '';
+	return isUsableEmailAddress(parsedEnvelope) ? parsedEnvelope : '';
 }
 
-function isUsableMailbox(value: string): boolean {
-	if (/[\s\u0000-\u001f\u007f]/u.test(value)) return false;
-	const separator = value.indexOf('@');
-	return separator > 0 && separator === value.lastIndexOf('@') && separator < value.length - 1;
+/** Preserve a display name only when PostalMime paired it with a valid From address. */
+export function inboundSenderIdentity(
+	headerFrom: Address | Address[] | undefined,
+	envelopeFrom: string | undefined
+): EmailIdentity {
+	const parsedHeader = firstMailboxIdentity(headerFrom);
+	if (parsedHeader) return parsedHeader;
+	return { address: inboundSender(undefined, envelopeFrom), name: null };
+}
+
+function firstMailboxIdentity(value: Address | Address[] | undefined): EmailIdentity | null {
+	if (!value) return null;
+	const list = Array.isArray(value) ? value : [value];
+	for (const item of list) {
+		const address = parseEmailAddress(item.address ?? '');
+		if (isUsableEmailAddress(address)) {
+			return { address, name: item.name?.trim() || null };
+		}
+		const grouped = firstMailboxIdentity(item.group);
+		if (grouped) return grouped;
+	}
+	return null;
 }
 
 async function storeInboundAttachments(

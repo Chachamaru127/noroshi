@@ -26,6 +26,10 @@ describe('mail UI error translation', () => {
 			'返信を送信できませんでした。'
 		);
 		assert.equal(
+			translateMailError('Reply must use a sending address on the same domain.', 'reply'),
+			'このメールと同じドメインの送信元アドレスを選択してください。'
+		);
+		assert.equal(
 			translateMailError('Could not save draft', 'draft'),
 			'下書きを保存できませんでした。'
 		);

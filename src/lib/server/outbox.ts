@@ -68,15 +68,30 @@ export async function resolveFromAddress(
 export async function resolveReplyFromAddress(
 	db: D1Database,
 	user: User,
-	original: { direction: 'inbound' | 'outbound'; to_addr: string; from_addr: string }
+	original: {
+		direction: 'inbound' | 'outbound';
+		to_addr: string;
+		from_addr: string;
+		domain_id: string | null;
+	},
+	requestedAddressId?: string | null
 ): Promise<MailAddress | null> {
+	if (!original.domain_id) return null;
+
+	if (requestedAddressId) {
+		const selected = await getAddressForUser(db, user.id, requestedAddressId);
+		return selected?.domain_id === original.domain_id && selected.can_send !== false ? selected : null;
+	}
+
 	const mailbox = parseEmailAddress(
 		original.direction === 'inbound' ? original.to_addr : original.from_addr
 	);
 
 	const owned = await listAddressesForUser(db, user.id);
 	const exact = owned.find((address) => address.address.toLowerCase() === mailbox);
-	if (exact) return exact.can_send === false ? null : exact;
+	if (exact) {
+		return exact.domain_id === original.domain_id && exact.can_send !== false ? exact : null;
+	}
 
 	const domainName = mailbox.split('@')[1];
 	const domain = domainName ? await getDomainByName(db, domainName) : null;
@@ -85,7 +100,7 @@ export async function resolveReplyFromAddress(
 		(domain.catchall_user_id === user.id ||
 			owned.some((address) => address.domain_id === domain.id));
 
-	if (domain && canSendOnDomain && mailbox.includes('@')) {
+	if (domain?.id === original.domain_id && canSendOnDomain && mailbox.includes('@')) {
 		return {
 			id: `reply:${mailbox}`,
 			user_id: user.id,
@@ -99,11 +114,7 @@ export async function resolveReplyFromAddress(
 		};
 	}
 
-	return (
-		owned.find((address) => address.is_default && address.can_send !== false) ??
-		owned.find((address) => address.can_send !== false) ??
-		null
-	);
+	return null;
 }
 
 /** Send through the configured provider, then record it in the Sent folder. */

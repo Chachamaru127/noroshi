@@ -18,6 +18,7 @@ const sourceEmail: EmailRow = {
 	user_id: 'user-1',
 	direction: 'inbound',
 	from_addr: 'Sender <sender@example.net>\r\nBcc: hidden@example.net',
+	from_name: null,
 	to_addr: 'info@example.com',
 	cc_addr: null,
 	bcc_addr: 'secret@example.net',

@@ -2,7 +2,12 @@ import type { D1Database, R2Bucket } from '@cloudflare/workers-types';
 import type { DeliveryStatus } from '$lib/types';
 import { insertAttachmentBytes } from './attachments';
 import { MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS_PER_EMAIL, MAX_BODY_BYTES } from './constants';
-import { collectInboundRecipients, parseEmailAddress } from './email-address';
+import {
+	collectInboundRecipients,
+	isUsableEmailAddress,
+	parseEmailAddress,
+	parseEmailIdentity
+} from './email-address';
 import { recordUnroutedEmail, resolveInboundRoute } from './domains';
 import {
 	emailExistsByProviderId,
@@ -127,7 +132,14 @@ async function handleInboundEmail(
 		bcc: received.bcc
 	});
 
-	const from = parseEmailAddress(received.from ?? '');
+	const parsedSender = parseEmailIdentity(received.headers?.['from'] ?? received.from ?? '');
+	const fallbackFrom = parseEmailAddress(received.from ?? '');
+	const from = isUsableEmailAddress(parsedSender.address)
+		? parsedSender.address
+		: isUsableEmailAddress(fallbackFrom)
+			? fallbackFrom
+			: '';
+	const fromName = from === parsedSender.address ? parsedSender.name : null;
 	const subject = received.subject?.trim() || '(no subject)';
 	const route = await resolveInboundRoute(env.DB, recipients);
 
@@ -151,6 +163,7 @@ async function handleInboundEmail(
 			userId: route.userId,
 			direction: 'inbound',
 			from,
+			fromName,
 			to: route.address,
 			cc: received.cc?.join(', ') || null,
 			subject,
@@ -187,7 +200,7 @@ async function handleInboundEmail(
 	await scheduleNewMailNotification(env, {
 		emailId,
 		userId: route.userId,
-		from,
+		from: fromName || from,
 		subject
 	});
 

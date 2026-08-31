@@ -1,3 +1,24 @@
+export type EmailIdentity = {
+	name: string | null;
+	address: string;
+};
+
+/** Parse one RFC-style mailbox without treating its display name as identity. */
+export function parseEmailIdentity(value: string): EmailIdentity {
+	const trimmed = value.trim();
+	const bracketMatch = trimmed.match(/^(.*?)<([^>]+)>$/);
+	const address = parseEmailAddress(bracketMatch?.[2] ?? trimmed);
+	if (!isUsableEmailAddress(address)) return { name: null, address };
+	if (!bracketMatch) return { name: null, address };
+
+	const rawName = bracketMatch[1].trim();
+	const name =
+		rawName.startsWith('"') && rawName.endsWith('"')
+			? rawName.slice(1, -1).replace(/\\(.)/g, '$1').trim()
+			: rawName;
+	return { name: name || null, address };
+}
+
 export function parseEmailAddress(value: string): string {
 	const trimmed = value.trim();
 	const bracketMatch = trimmed.match(/<([^>]+)>/);
@@ -7,6 +28,12 @@ export function parseEmailAddress(value: string): string {
 
 	const emailMatch = trimmed.match(/[^\s<>]+@[^\s<>]+/);
 	return (emailMatch?.[0] ?? trimmed).toLowerCase().trim();
+}
+
+export function isUsableEmailAddress(value: string): boolean {
+	if (/[\s\u0000-\u001f\u007f]/u.test(value)) return false;
+	const separator = value.indexOf('@');
+	return separator > 0 && separator === value.lastIndexOf('@') && separator < value.length - 1;
 }
 
 export function parseEmailAddresses(

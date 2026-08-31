@@ -40,6 +40,8 @@ export async function insertEmail(
 		userId: string;
 		direction: 'inbound' | 'outbound';
 		from: string;
+		/** RFC From display name; stored separately from the mailbox identity. */
+		fromName?: string | null;
 		to: string;
 		cc?: string | null;
 		bcc?: string | null;
@@ -91,19 +93,20 @@ export async function insertEmail(
 	const inserted = await db
 		.prepare(
 			`INSERT INTO emails (
-				id, user_id, direction, from_addr, to_addr, cc_addr, bcc_addr, subject,
+				id, user_id, direction, from_addr, from_name, to_addr, cc_addr, bcc_addr, subject,
 				sort_sender_key, sort_subject_key,
 				body_text, body_html, message_id, in_reply_to, references_header,
 				reply_to_email_id, thread_id, thread_key,
 				domain_id, address_id, provider_id, status, forwarding_hop, attachments_ready, status_at, is_read,
 				created_at
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?, ?)`
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?, ?)`
 		)
 		.bind(
 			id,
 			input.userId,
 			input.direction,
 			input.from,
+			input.fromName?.trim() || null,
 			input.to,
 			input.cc ?? null,
 			input.bcc ?? null,
@@ -240,6 +243,7 @@ type ThreadMessageRow = {
 	thread_id: string;
 	direction: 'inbound' | 'outbound';
 	from_addr: string;
+	from_name: string | null;
 	to_addr: string;
 	subject: string;
 	body_head: string | null;
@@ -360,7 +364,7 @@ export async function listMailbox(
 	const placeholders = threadIds.map(() => '?').join(', ');
 	const { results: messages } = await db
 		.prepare(
-			`SELECT m.id, COALESCE(m.thread_id, m.id) AS thread_id, m.direction, m.from_addr, m.to_addr,
+			`SELECT m.id, COALESCE(m.thread_id, m.id) AS thread_id, m.direction, m.from_addr, m.from_name, m.to_addr,
 			        m.subject, m.is_read, m.is_starred, m.created_at, m.domain_id, m.address_id, m.status,
 			        substr(COALESCE(m.body_text, ''), 1, 4000) AS body_head,
 			        EXISTS(SELECT 1 FROM email_attachments a WHERE a.email_id = m.id) AS has_attachments
@@ -408,7 +412,11 @@ function toThreadSummary(messages: ThreadMessageRow[]): ThreadSummary {
 		);
 		if (seen) continue;
 
-		participants.push({ label: displayNameFor(address), address, self: false });
+		participants.push({
+			label: message.from_name || displayNameFor(address),
+			address,
+			self: false
+		});
 	}
 
 	return {
@@ -463,7 +471,7 @@ export async function listEmails(
 
 	const { results } = await db
 		.prepare(
-			`SELECT e.id, e.direction, e.from_addr, e.to_addr, e.subject, e.is_read, e.is_starred,
+			`SELECT e.id, e.direction, e.from_addr, e.from_name, e.to_addr, e.subject, e.is_read, e.is_starred,
 			        e.created_at, e.domain_id, e.address_id, e.status,
 			        substr(COALESCE(e.body_text, ''), 1, 4000) AS body_head,
 			        EXISTS(SELECT 1 FROM email_attachments a WHERE a.email_id = e.id) AS has_attachments
@@ -479,6 +487,7 @@ export async function listEmails(
 		id: row.id,
 		direction: row.direction,
 		from_addr: row.from_addr,
+		from_name: row.from_name,
 		to_addr: row.to_addr,
 		subject: row.subject,
 		preview: buildPreview(row.body_head),
@@ -966,7 +975,7 @@ export async function listThreadMessages(
 
 	const { results } = await db
 		.prepare(
-			`SELECT e.id, e.direction, e.from_addr, e.to_addr, e.cc_addr, e.subject,
+			`SELECT e.id, e.direction, e.from_addr, e.from_name, e.to_addr, e.domain_id, e.cc_addr, e.subject,
 			        e.body_text, e.body_html, e.message_id, e.references_header,
 			        e.status, e.status_detail, e.is_read, e.is_starred, e.deleted_at, e.created_at
 			 FROM emails e

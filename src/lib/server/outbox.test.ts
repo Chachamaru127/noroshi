@@ -53,6 +53,12 @@ function mockDb(input: { addresses: AddressRow[]; domains: DomainRow[] }): D1Dat
 							return { results: [] };
 						},
 						async first() {
+							if (sql.includes('FROM addresses')) {
+								const [id, userId] = args;
+								return (
+									input.addresses.find((row) => row.id === id && row.user_id === userId) ?? null
+								);
+							}
 							if (sql.includes('FROM domains')) {
 								const name = String(args[0] ?? '').toLowerCase();
 								return input.domains.find((row) => row.name === name) ?? null;
@@ -83,7 +89,8 @@ const defaultAddress: AddressRow = {
 const inbound = {
 	direction: 'inbound' as const,
 	to_addr: 'Ada <hello@example.com>',
-	from_addr: 'Sam <sam@other.test>'
+	from_addr: 'Sam <sam@other.test>',
+	domain_id: 'dom-1'
 };
 
 describe('resolveReplyFromAddress', () => {
@@ -174,7 +181,7 @@ describe('resolveReplyFromAddress', () => {
 		assert.equal(identity?.address, 'hello@example.com');
 	});
 
-	test('falls back to the default address when the mailbox cannot send', async () => {
+	test('does not fall back to a default identity on another domain', async () => {
 		const identity = await resolveReplyFromAddress(
 			mockDb({
 				addresses: [defaultAddress],
@@ -196,11 +203,50 @@ describe('resolveReplyFromAddress', () => {
 			{
 				direction: 'inbound',
 				to_addr: 'unknown@other.test',
-				from_addr: 'sam@other.test'
+				from_addr: 'sam@other.test',
+				domain_id: 'dom-1'
 			}
 		);
-		assert.equal(identity?.address, 'ada@example.com');
-		assert.equal(identity?.label, 'Office');
+		assert.equal(identity, null);
+	});
+
+	test('rejects an explicitly selected identity on another domain', async () => {
+		const identity = await resolveReplyFromAddress(
+			mockDb({
+				addresses: [
+					defaultAddress,
+					{
+						...defaultAddress,
+						id: 'addr-two',
+						domain_id: 'dom-2',
+						domain_name: 'two.example',
+						address: 'info@two.example',
+						is_default: 0
+					}
+				],
+				domains: []
+			}),
+			user,
+			inbound,
+			'addr-two'
+		);
+		assert.equal(identity, null);
+	});
+
+	test('accepts an explicitly selected sending identity on the thread domain', async () => {
+		const sameDomain = {
+			...defaultAddress,
+			id: 'addr-support',
+			address: 'support@example.com',
+			is_default: 0
+		};
+		const identity = await resolveReplyFromAddress(
+			mockDb({ addresses: [defaultAddress, sameDomain], domains: [] }),
+			user,
+			inbound,
+			'addr-support'
+		);
+		assert.equal(identity?.id, 'addr-support');
 	});
 
 	test('returns null when the user has no sending identity', async () => {
