@@ -31,6 +31,53 @@ test('treats only thread and compose as stacked screens', () => {
 	assert.equal(isStackedPath('/admin'), false);
 });
 
+test('keeps compose full-width on desktop while retaining the stacked phone screen', () => {
+	const layout = readFileSync(join(root, 'src/routes/+layout.svelte'), 'utf8');
+	const compose = readFileSync(join(root, 'src/routes/compose/+page.svelte'), 'utf8');
+	const editor = readFileSync(join(root, 'src/lib/components/RichTextEditor.svelte'), 'utf8');
+	const swipeBack = readFileSync(join(root, 'src/lib/components/SwipeBack.svelte'), 'utf8');
+
+	assert.match(layout, /const NARROW = \['\/mail', '\/settings'\]/);
+	assert.doesNotMatch(layout, /const NARROW = \[[^\]]*'\/compose'/);
+	assert.match(compose, /\.compose-page\s*\{[\s\S]*?width:\s*100%/);
+	assert.match(compose, /<RichTextEditor[\s\S]*?minHeight=\{320\}/);
+	assert.match(
+		compose,
+		/@media \(max-width: 900px\)[\s\S]*?\.compose-page\s*\{[\s\S]*?height:\s*100%/
+	);
+	const desktopEditorCss = (editor.split('<style>')[1] ?? '').split('@media (max-width: 900px)')[0];
+	assert.doesNotMatch(desktopEditorCss, /\.editor-shell-fill\s*\{/);
+	assert.match(editor, /@media \(max-width: 900px\)[\s\S]*?\.editor-shell-fill\s*\{/);
+	assert.match(swipeBack, /@media \(min-width: 901px\)[\s\S]*?display:\s*contents/);
+});
+
+test('offers an accessible Japanese logout action in the mobile More sheet', () => {
+	const layout = readFileSync(join(root, 'src/routes/+layout.svelte'), 'utf8');
+	const mobile = readFileSync(join(root, 'src/lib/components/MobileChrome.svelte'), 'utf8');
+
+	assert.match(layout, /<MobileChrome[\s\S]*?onLogout=\{logout\}/);
+	assert.match(mobile, /onLogout:\s*\(\) => void/);
+	assert.match(
+		mobile,
+		/<button[^>]*class="sheet-link sheet-logout"[^>]*onclick=\{onLogout\}[\s\S]*?<span>ログアウト<\/span>/
+	);
+	assert.match(mobile, /max-height:/);
+	assert.match(mobile, /overflow-y:\s*auto/);
+});
+
+test('preserves stored address display names in compose, reply, and mailbox rows', () => {
+	const compose = readFileSync(join(root, 'src/routes/compose/+page.svelte'), 'utf8');
+	const mail = readFileSync(join(root, 'src/routes/mail/[id]/+page.svelte'), 'utf8');
+	const mailbox = readFileSync(join(root, 'src/lib/components/MailboxView.svelte'), 'utf8');
+
+	assert.match(compose, /address\.label \? `\$\{address\.label\} · \$\{address\.address\}`/);
+	assert.match(compose, /addresses\[0\]\?\.label/);
+	assert.match(mail, /\{#if data\.replyFromName\}\{data\.replyFromName\} ·/);
+	assert.match(mailbox, /filter\(\(participant\) => !participant\.self\)/);
+	assert.match(mailbox, /participant\.label \|\| participant\.address/);
+	assert.match(mailbox, /\(participant\?\.label \|\| participant\?\.address \|\| '\?'\)\[0\]/);
+});
+
 test('marks inbox, starred, and sent as primary tabs', () => {
 	assert.equal(isPrimaryTab('/inbox'), true);
 	assert.equal(isPrimaryTab('/sent'), true);

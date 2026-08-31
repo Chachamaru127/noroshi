@@ -91,18 +91,22 @@
 		}
 
 		return thread.participants
-			.map((participant) => (participant.self ? '自分' : participant.label))
+			.filter((participant) => !participant.self)
+			.map((participant) => participant.label || participant.address)
 			.join(', ');
 	}
 
 	function recipientOf(thread: ThreadSummary): string {
-		const [first] = thread.participants;
-		return first?.address ? first.address.split('@')[0].replace(/[._-]+/g, ' ') : '';
+		return thread.participants
+			.filter((participant) => !participant.self)
+			.map((participant) => participant.label || participant.address)
+			.join(', ');
 	}
 
 	function initial(thread: ThreadSummary): string {
 		const external = thread.participants.find((participant) => !participant.self);
-		return ((external ?? thread.participants[0])?.address[0] ?? '?').toUpperCase();
+		const participant = external ?? thread.participants[0];
+		return (participant?.label || participant?.address || '?')[0].toUpperCase();
 	}
 
 	/** Rows carry the newest message; opening it opens the whole conversation. */

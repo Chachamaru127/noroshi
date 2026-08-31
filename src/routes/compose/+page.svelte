@@ -340,7 +340,7 @@
 		<RichTextEditor
 			bind:html
 			fill
-			minHeight={160}
+			minHeight={320}
 			placeholder={forwarding ? '転送するメールの上にメッセージを入力…' : 'メール本文を入力…'}
 		>
 			{#snippet toolbarEnd()}
@@ -384,6 +384,10 @@
 </form>
 
 <style>
+	.compose-page {
+		width: 100%;
+	}
+
 	.compose-header {
 		display: flex;
 		align-items: center;

@@ -11,13 +11,15 @@
 		folders,
 		domains,
 		activeDomainId,
-		isAdmin
+		isAdmin,
+		onLogout
 	}: {
 		counts: MailboxCounts;
 		folders: MailFolder[];
 		domains: Domain[];
 		activeDomainId: string | null;
 		isAdmin: boolean;
+		onLogout: () => void;
 	} = $props();
 
 	let moreOpen = $state(false);
@@ -224,6 +226,13 @@
 				<DomainSwitcher {domains} {activeDomainId} block />
 			</div>
 		{/if}
+
+		<div class="sheet-section">
+			<button type="button" class="sheet-link sheet-logout" onclick={onLogout}>
+				<Icon name="logout-box-r-line" size={20} />
+				<span>ログアウト</span>
+			</button>
+		</div>
 		</div>
 	</div>
 {/if}
@@ -393,6 +402,15 @@
 			background: var(--color-surface-hover);
 			color: var(--color-text);
 			font-weight: 500;
+		}
+
+		.sheet-logout {
+			width: 100%;
+			border: 0;
+			background: transparent;
+			font: inherit;
+			text-align: left;
+			cursor: pointer;
 		}
 
 		.sheet-count {

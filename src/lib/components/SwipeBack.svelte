@@ -155,14 +155,10 @@
 	}
 
 	@media (min-width: 901px) {
+		/* This wrapper is phone navigation chrome. A desktop box would constrain
+		   full-pane screens such as compose. */
 		.swipe-back {
-			touch-action: auto;
-		}
-
-		.swipe-back.dragging,
-		.swipe-back:not(.dragging) {
-			transform: none;
-			transition: none;
+			display: contents;
 		}
 	}
 
