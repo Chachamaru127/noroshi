@@ -179,8 +179,14 @@ describe('Noroshi public identity', () => {
 		expect(logo).toContain('data-brand-element="smoke-signal"');
 		expect((logo.match(/data-brand-element="smoke-signal"/g) ?? []).length).toBe(1);
 		const iconGenerator = read('scripts/generate-pwa-icons.mjs');
-		expect(iconGenerator).toContain('function smokeSignalInk');
-		expect(iconGenerator).toContain('envelopeInk(nx, ny) || smokeSignalInk(nx, ny)');
+		expect(iconGenerator).toContain('function smokeSignalCoverage');
+		expect(iconGenerator).toContain('cubicPoint');
+		expect(iconGenerator).not.toContain('const points = [');
+		expect(iconGenerator).toContain('blend(SAGE, INK, smokeSignalCoverage');
+		const envelopeEdge = Number(iconGenerator.match(/ENVELOPE_RIGHT_INNER_EDGE = ([\d.]+)/u)?.[1]);
+		const smokeLimit = Number(iconGenerator.match(/SMOKE_RIGHT_LIMIT = ([\d.]+)/u)?.[1]);
+		const smokeHalfWidth = Number(iconGenerator.match(/SMOKE_STROKE_HALF_WIDTH = ([\d.]+)/u)?.[1]);
+		expect(smokeLimit + smokeHalfWidth).toBeLessThan(envelopeEdge);
 	});
 
 	test('uses neutral Noroshi demo addresses and keeps the brand story focused on mail', () => {

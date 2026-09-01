@@ -6,6 +6,9 @@ import { fileURLToPath } from 'node:url';
 const SAGE = [144, 172, 154, 255];
 const INK = [54, 54, 54, 255];
 const CLEAR = [0, 0, 0, 0];
+const ENVELOPE_RIGHT_INNER_EDGE = 0.78;
+const SMOKE_RIGHT_LIMIT = 0.735;
+const SMOKE_STROKE_HALF_WIDTH = 0.021;
 
 const crcTable = (() => {
 	const table = new Uint32Array(256);
@@ -80,7 +83,7 @@ function envelopeInk(nx, ny) {
 		(ny >= 0.22 && ny <= 0.26 && nx >= 0.18 && nx <= 0.82) ||
 		(ny >= 0.7 && ny <= 0.74 && nx >= 0.18 && nx <= 0.82) ||
 		(nx >= 0.18 && nx <= 0.22 && ny >= 0.22 && ny <= 0.74) ||
-		(nx >= 0.78 && nx <= 0.82 && ny >= 0.22 && ny <= 0.74);
+		(nx >= ENVELOPE_RIGHT_INNER_EDGE && nx <= 0.82 && ny >= 0.22 && ny <= 0.74);
 
 	const flap = Math.abs(ny - (0.24 + 0.28 * (1 - Math.abs((nx - 0.5) * 2.2)))) < 0.035;
 	const inFlapBand = ny >= 0.24 && ny <= 0.54 && nx >= 0.2 && nx <= 0.8;
@@ -96,19 +99,58 @@ function segmentDistance(px, py, ax, ay, bx, by) {
 	return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
 }
 
-function smokeSignalInk(nx, ny) {
-	const points = [
-		[0.66, 0.72],
-		[0.8, 0.67],
-		[0.74, 0.56],
-		[0.87, 0.49],
-		[0.82, 0.38],
-		[0.88, 0.3]
+function cubicPoint(start, controlA, controlB, end, t) {
+	const inverse = 1 - t;
+	return [
+		inverse ** 3 * start[0] +
+			3 * inverse ** 2 * t * controlA[0] +
+			3 * inverse * t ** 2 * controlB[0] +
+			t ** 3 * end[0],
+		inverse ** 3 * start[1] +
+			3 * inverse ** 2 * t * controlA[1] +
+			3 * inverse * t ** 2 * controlB[1] +
+			t ** 3 * end[1]
 	];
-	return points.slice(1).some((point, index) => {
-		const previous = points[index];
-		return segmentDistance(nx, ny, previous[0], previous[1], point[0], point[1]) < 0.024;
-	});
+}
+
+function smokeSignalCoverage(nx, ny, size) {
+	const curves = [
+		[
+			[0.61, 0.7],
+			[0.72, 0.67],
+			[0.64, 0.57],
+			[0.71, 0.52]
+		],
+		[
+			[0.71, 0.52],
+			[SMOKE_RIGHT_LIMIT, 0.47],
+			[0.65, 0.39],
+			[0.72, 0.3]
+		]
+	];
+	let distance = Number.POSITIVE_INFINITY;
+	for (const curve of curves) {
+		let previous = curve[0];
+		for (let step = 1; step <= 32; step += 1) {
+			const point = cubicPoint(curve[0], curve[1], curve[2], curve[3], step / 32);
+			distance = Math.min(
+				distance,
+				segmentDistance(nx, ny, previous[0], previous[1], point[0], point[1])
+			);
+			previous = point;
+		}
+	}
+	const antialias = 1.25 / size;
+	return Math.max(
+		0,
+		Math.min(1, (SMOKE_STROKE_HALF_WIDTH + antialias - distance) / (2 * antialias))
+	);
+}
+
+function blend(background, foreground, coverage) {
+	return background.map((channel, index) =>
+		index === 3 ? 255 : Math.round(channel * (1 - coverage) + foreground[index] * coverage)
+	);
 }
 
 function paintAppIcon(x, y, size) {
@@ -121,7 +163,8 @@ function paintAppIcon(x, y, size) {
 	}
 	const nx = x / (size - 1);
 	const ny = y / (size - 1);
-	return envelopeInk(nx, ny) || smokeSignalInk(nx, ny) ? INK : SAGE;
+	if (envelopeInk(nx, ny)) return INK;
+	return blend(SAGE, INK, smokeSignalCoverage(nx, ny, size));
 }
 
 function paintMaskable(x, y, size) {
@@ -129,7 +172,8 @@ function paintMaskable(x, y, size) {
 	const nx = (x / (size - 1) - pad) / (1 - pad * 2);
 	const ny = (y / (size - 1) - pad) / (1 - pad * 2);
 	if (nx < 0 || nx > 1 || ny < 0 || ny > 1) return SAGE;
-	return envelopeInk(nx, ny) || smokeSignalInk(nx, ny) ? INK : SAGE;
+	if (envelopeInk(nx, ny)) return INK;
+	return blend(SAGE, INK, smokeSignalCoverage(nx, ny, size * (1 - pad * 2)));
 }
 
 const outDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'static', 'icons');
