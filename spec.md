@@ -1,8 +1,17 @@
-# QuickMail-ja Product Contract
+# Noroshi Product Contract
 
 ## Product
 
-QuickMail-ja is a Japanese-first, self-hosted webmail for custom domains. It runs on Cloudflare Workers, D1, and R2.
+Noroshi is a Japanese-first, self-hosted webmail for custom domains. It runs on Cloudflare Workers, D1, and R2.
+
+## Product naming and migration contract
+
+- The public product name is `Noroshi`. Its name refers to a smoke signal used to carry a message over distance; ninja imagery may inform a restrained visual accent, but must not obscure that this is an email product or imply delivery, security, or secrecy guarantees.
+- The canonical repository and search slug is `noroshi-mail`, because the unqualified `Noroshi` name is already used by unrelated software. Public descriptions pair the name with `日本語で使える、Cloudflare上のセルフホスト型メール` and searchable mail terms.
+- Public UI, PWA metadata, current documentation, setup guidance, plugin descriptions, and newly generated package names use `Noroshi`. Migration notes may say `Noroshi, formerly QuickMail-ja` for one major release.
+- Existing technical identities remain compatible. Do not rewrite migration history, git history, upstream attribution, stored database values, `QUICKMAIL_*` environment variables, `X-QuickMail-Forwarded`, or existing idempotency prefixes only to complete the rebrand.
+- The canonical CLI command is `noroshi`; the existing `quickmail` command remains a compatibility alias for at least one major release. Existing Cloudflare Worker, D1, and R2 resources and the current template defaults are not renamed in this rebrand. A future resource-name change requires a separate migration contract and approval.
+- Preserve the original MIT license and attribution to `DivinPrince/quickmail`. A rebrand is not a claim of independent origin.
 
 The default supported mail topology is:
 
