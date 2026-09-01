@@ -52,10 +52,22 @@ export function normalizeUrl(url: string): string {
 }
 
 export async function loadConfig(): Promise<CliConfig> {
-	const envUrl = process.env.NOROSHI_URL ?? process.env.QUICKMAIL_URL;
-	const envToken = process.env.NOROSHI_TOKEN ?? process.env.QUICKMAIL_TOKEN;
-	if (envUrl && envToken) {
-		return { url: normalizeUrl(envUrl), token: envToken };
+	const canonicalUrl = process.env.NOROSHI_URL;
+	const canonicalToken = process.env.NOROSHI_TOKEN;
+	if (canonicalUrl !== undefined || canonicalToken !== undefined) {
+		if (!canonicalUrl || !canonicalToken) {
+			throw new Error('NOROSHI_URL and NOROSHI_TOKEN must be set together.');
+		}
+		return { url: normalizeUrl(canonicalUrl), token: canonicalToken };
+	}
+
+	const legacyUrl = process.env.QUICKMAIL_URL;
+	const legacyToken = process.env.QUICKMAIL_TOKEN;
+	if (legacyUrl !== undefined || legacyToken !== undefined) {
+		if (!legacyUrl || !legacyToken) {
+			throw new Error('QUICKMAIL_URL and QUICKMAIL_TOKEN must be set together.');
+		}
+		return { url: normalizeUrl(legacyUrl), token: legacyToken };
 	}
 
 	let raw: Partial<CliConfig>;
@@ -74,8 +86,8 @@ export async function loadConfig(): Promise<CliConfig> {
 		);
 	}
 
-	const url = envUrl ?? raw.url;
-	const token = envToken ?? raw.token;
+	const url = raw.url;
+	const token = raw.token;
 	if (!url || !token) {
 		throw new Error(
 			'Not logged in. Run `noroshi login --url <instance> --token <key>` or set NOROSHI_URL and NOROSHI_TOKEN. QUICKMAIL_URL and QUICKMAIL_TOKEN remain supported aliases.'

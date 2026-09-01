@@ -39,6 +39,7 @@ describe('Noroshi public identity', () => {
 		expect(manifest.short_name).toBe('Noroshi');
 		expect(JSON.parse(read('package.json')).name).toBe('noroshi-mail');
 		expect(JSON.parse(read('cli/package.json')).name).toBe('noroshi-cli');
+		expect(read('bun.lock')).toMatch(/""\s*:\s*\{\s*"name"\s*:\s*"noroshi-mail"/u);
 	});
 
 	test('makes noroshi canonical while keeping the quickmail CLI and configuration aliases', () => {
@@ -69,6 +70,14 @@ describe('Noroshi public identity', () => {
 			encoding: 'utf8'
 		});
 		expect(directHelp).toContain('noroshi — operate a Noroshi instance');
+		const unknown = Bun.spawnSync([join(root, 'bin/noroshi.mjs'), 'not-a-command'], {
+			cwd: root,
+			env: cleanCliEnv({})
+		});
+		expect(unknown.exitCode).toBe(1);
+		const unknownError = new TextDecoder().decode(unknown.stderr);
+		expect(unknownError).toContain('Run noroshi --help.');
+		expect(unknownError).not.toContain('Run quickmail --help.');
 		expect(read('src/routes/settings/+page.svelte')).toContain('bun run noroshi');
 		expect(read('src/routes/settings/+page.svelte')).toContain('quickmail');
 	});
@@ -117,6 +126,24 @@ describe('Noroshi public identity', () => {
 		);
 		expect(result.exitCode).toBe(0);
 		expect(new TextDecoder().decode(result.stdout).trim()).toBe('legacy-token');
+	});
+
+	test('rejects mixed canonical and legacy environment credentials in both directions', () => {
+		for (const mixed of [
+			{ NOROSHI_URL: 'https://new.example.invalid', QUICKMAIL_TOKEN: 'legacy-token' },
+			{ QUICKMAIL_URL: 'https://legacy.example.invalid', NOROSHI_TOKEN: 'new-token' }
+		]) {
+			const result = Bun.spawnSync(
+				[
+					'bun',
+					'-e',
+					`import { loadConfig } from ${JSON.stringify(join(root, 'cli/config.ts'))}; try { const config = await loadConfig(); console.log('LOADED:' + config.url + ':' + config.token); } catch (error) { console.log('REJECTED:' + error.message); }`
+				],
+				{ cwd: root, env: cleanCliEnv(mixed) }
+			);
+			expect(result.exitCode).toBe(0);
+			expect(new TextDecoder().decode(result.stdout)).toContain('REJECTED:');
+		}
 	});
 
 	test('keeps compatibility and attribution identifiers exact', () => {

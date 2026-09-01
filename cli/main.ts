@@ -361,7 +361,7 @@ async function run(argv: string[]): Promise<number> {
 			return 0;
 		}
 		default:
-			throw new Error(`Unknown command "${head}". Run quickmail --help.`);
+			throw new Error(`Unknown command "${head}". Run noroshi --help.`);
 	}
 }
 
