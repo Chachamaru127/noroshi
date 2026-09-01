@@ -3,6 +3,13 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import {
+	ENVELOPE_STROKE_HALF_WIDTH,
+	SMOKE_CURVES,
+	SMOKE_STROKE_HALF_WIDTH,
+	cubicPoint,
+	distanceToEnvelopeCenterline
+} from './pwa-icon-geometry.mjs';
 
 const root = join(import.meta.dir, '..');
 const read = (path) => readFileSync(join(root, path), 'utf8');
@@ -183,10 +190,14 @@ describe('Noroshi public identity', () => {
 		expect(iconGenerator).toContain('cubicPoint');
 		expect(iconGenerator).not.toContain('const points = [');
 		expect(iconGenerator).toContain('blend(SAGE, INK, smokeSignalCoverage');
-		const envelopeEdge = Number(iconGenerator.match(/ENVELOPE_RIGHT_INNER_EDGE = ([\d.]+)/u)?.[1]);
-		const smokeLimit = Number(iconGenerator.match(/SMOKE_RIGHT_LIMIT = ([\d.]+)/u)?.[1]);
-		const smokeHalfWidth = Number(iconGenerator.match(/SMOKE_STROKE_HALF_WIDTH = ([\d.]+)/u)?.[1]);
-		expect(smokeLimit + smokeHalfWidth).toBeLessThan(envelopeEdge);
+		let minimumClearance = Number.POSITIVE_INFINITY;
+		for (const curve of SMOKE_CURVES) {
+			for (let step = 0; step <= 512; step += 1) {
+				const [x, y] = cubicPoint(curve[0], curve[1], curve[2], curve[3], step / 512);
+				minimumClearance = Math.min(minimumClearance, distanceToEnvelopeCenterline(x, y));
+			}
+		}
+		expect(minimumClearance).toBeGreaterThan(ENVELOPE_STROKE_HALF_WIDTH + SMOKE_STROKE_HALF_WIDTH);
 	});
 
 	test('uses neutral Noroshi demo addresses and keeps the brand story focused on mail', () => {
