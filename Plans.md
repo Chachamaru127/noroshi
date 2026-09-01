@@ -563,7 +563,7 @@ Binary DoD:
 
 Priority: Required
 Depends on: none for local work; public rename remains gated by QMJ-16
-Status: NOR-1A completed locally; NOR-1B is under independent re-review; NOR-1C remains an external release gate
+Status: NOR-1A and NOR-1B completed locally with independent APPROVE; NOR-1C remains an external release gate
 
 Spec delta:
 
@@ -574,7 +574,7 @@ Spec delta:
 | Task | 内容 | DoD | Depends | Status |
 | --- | --- | --- | --- | --- |
 | NOR-1A | `[lane:gate] [stage:tdd-implementation]` Rename public UI, PWA metadata, current docs, setup descriptions, root package identity, and CLI display/command. Keep plugin/Skill/MCP IDs, Cloudflare resource defaults, historical identifiers, and protocol identifiers on an explicit compatibility allowlist. | Product-facing checks observe `Noroshi`; `noroshi` CLI and legacy `quickmail` alias both work; migrations, setup schemas, plugin IDs, protocol headers, idempotency prefixes, Cloudflare resource defaults, upstream attribution, and existing-resource safety remain unchanged; product-guide untracked files are untouched. | none | cc:COMPLETE (local) |
-| NOR-1B | `[lane:gate] [stage:verification]` Add rename/distribution contracts and run full local validation plus independent product, compatibility, security, and QA review. | Full tests, D1 race, check, build, format, archive/privacy, plugin/adapter packages, and diff checks pass; independent review has no unresolved P0/P1. | NOR-1A | cc:WIP (independent re-review pending) |
+| NOR-1B | `[lane:gate] [stage:verification]` Add rename/distribution contracts and run full local validation plus independent product, compatibility, security, and QA review. | Full tests, D1 race, check, build, format, archive/privacy, plugin/adapter packages, and diff checks pass; independent review has no unresolved P0/P1. | NOR-1A | cc:COMPLETE (local, independent APPROVE) |
 | NOR-1C | `[lane:release] [stage:pr-closeout]` Rename the GitHub repository to `noroshi-mail`, update the local directory/remote, push the approved revision, and create a new Noroshi preview only under separate exact external approvals. | GitHub and local readback show the new repository identity; old links redirect where the provider supports it; any preview URL serves the approved revision; no production mail Worker, D1, R2, DNS, or email flow changes. | NOR-1B, QMJ-16 approval | cc:TODO |
 
 Planning classification:
