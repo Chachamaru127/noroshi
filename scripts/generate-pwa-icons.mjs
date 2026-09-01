@@ -88,6 +88,29 @@ function envelopeInk(nx, ny) {
 	return onBorder || (flap && inFlapBand);
 }
 
+function segmentDistance(px, py, ax, ay, bx, by) {
+	const dx = bx - ax;
+	const dy = by - ay;
+	const lengthSquared = dx * dx + dy * dy;
+	const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lengthSquared));
+	return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+}
+
+function smokeSignalInk(nx, ny) {
+	const points = [
+		[0.66, 0.72],
+		[0.8, 0.67],
+		[0.74, 0.56],
+		[0.87, 0.49],
+		[0.82, 0.38],
+		[0.88, 0.3]
+	];
+	return points.slice(1).some((point, index) => {
+		const previous = points[index];
+		return segmentDistance(nx, ny, previous[0], previous[1], point[0], point[1]) < 0.024;
+	});
+}
+
 function paintAppIcon(x, y, size) {
 	const radius = size * 0.26;
 	const outside = distToRoundedRect(x + 0.5, y + 0.5, size, radius);
@@ -98,7 +121,7 @@ function paintAppIcon(x, y, size) {
 	}
 	const nx = x / (size - 1);
 	const ny = y / (size - 1);
-	return envelopeInk(nx, ny) ? INK : SAGE;
+	return envelopeInk(nx, ny) || smokeSignalInk(nx, ny) ? INK : SAGE;
 }
 
 function paintMaskable(x, y, size) {
@@ -106,7 +129,7 @@ function paintMaskable(x, y, size) {
 	const nx = (x / (size - 1) - pad) / (1 - pad * 2);
 	const ny = (y / (size - 1) - pad) / (1 - pad * 2);
 	if (nx < 0 || nx > 1 || ny < 0 || ny > 1) return SAGE;
-	return envelopeInk(nx, ny) ? INK : SAGE;
+	return envelopeInk(nx, ny) || smokeSignalInk(nx, ny) ? INK : SAGE;
 }
 
 const outDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'static', 'icons');

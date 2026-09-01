@@ -224,7 +224,7 @@ try {
   await page.click('.demo-profile-switcher [data-action="profile"][data-profile="command"]');
   await page.click('.mail-row[data-message-id="m2"] .mail-open');
   await page.click('[data-action="compose-new"]');
-  await page.selectOption('[data-compose="from"]',"support@quickmail.invalid");
+  await page.selectOption('[data-compose="from"]',"support@noroshi.invalid");
   await page.fill('[data-compose="to"]',"person@recipient.invalid");
   await page.fill('[data-compose="cc"]',"copy@recipient.invalid");
   await page.fill('[data-compose="bcc"]',"hidden@recipient.invalid");
@@ -246,7 +246,7 @@ try {
     profile:"classic",
     view:"compose",
     mailboxContext:{view:"folder",folderId:"archive"},
-    compose:{mode:"new",from:"support@quickmail.invalid",to:"person@recipient.invalid",cc:"copy@recipient.invalid",bcc:"hidden@recipient.invalid",subject:"切替保持テスト",body:"本文も保持します",attachments:[{id:"demo-attachment",name:"参考資料.pdf",size:128000,type:"application/pdf"}],draftId:null},
+    compose:{mode:"new",from:"support@noroshi.invalid",to:"person@recipient.invalid",cc:"copy@recipient.invalid",bcc:"hidden@recipient.invalid",subject:"切替保持テスト",body:"本文も保持します",attachments:[{id:"demo-attachment",name:"参考資料.pdf",size:128000,type:"application/pdf"}],draftId:null},
     search:"資料",
     previousView:"folder",
     selectedMessageId:"m2",

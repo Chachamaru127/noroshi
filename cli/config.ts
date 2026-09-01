@@ -60,11 +60,14 @@ export async function loadConfig(): Promise<CliConfig> {
 
 	let raw: Partial<CliConfig>;
 	try {
+		let serialized: string;
 		try {
-			raw = JSON.parse(await readFile(configPath(), 'utf8')) as Partial<CliConfig>;
-		} catch {
-			raw = JSON.parse(await readFile(legacyConfigPath(), 'utf8')) as Partial<CliConfig>;
+			serialized = await readFile(configPath(), 'utf8');
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+			serialized = await readFile(legacyConfigPath(), 'utf8');
 		}
+		raw = JSON.parse(serialized) as Partial<CliConfig>;
 	} catch {
 		throw new Error(
 			'Not logged in. Run `noroshi login --url <instance> --token <key>` or set NOROSHI_URL and NOROSHI_TOKEN. QUICKMAIL_URL and QUICKMAIL_TOKEN remain supported aliases.'

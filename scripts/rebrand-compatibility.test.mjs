@@ -1,10 +1,25 @@
 import { describe, expect, test } from 'bun:test';
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const root = join(import.meta.dir, '..');
 const read = (path) => readFileSync(join(root, path), 'utf8');
+const cleanCliEnv = (overrides) => {
+	const env = { ...process.env };
+	for (const key of [
+		'NOROSHI_CONFIG',
+		'QUICKMAIL_CONFIG',
+		'NOROSHI_URL',
+		'NOROSHI_TOKEN',
+		'QUICKMAIL_URL',
+		'QUICKMAIL_TOKEN'
+	]) {
+		delete env[key];
+	}
+	return { ...env, ...overrides };
+};
 
 describe('Noroshi public identity', () => {
 	test('uses Noroshi in the public UI, PWA metadata, documentation, and package identity', () => {
@@ -48,6 +63,60 @@ describe('Noroshi public identity', () => {
 			});
 			expect(help, entrypoint).toContain('noroshi — operate a Noroshi instance');
 		}
+		expect(statSync(join(root, 'bin/noroshi.mjs')).mode & 0o111).not.toBe(0);
+		const directHelp = execFileSync(join(root, 'bin/noroshi.mjs'), ['--help'], {
+			cwd: root,
+			encoding: 'utf8'
+		});
+		expect(directHelp).toContain('noroshi — operate a Noroshi instance');
+		expect(read('src/routes/settings/+page.svelte')).toContain('bun run noroshi');
+		expect(read('src/routes/settings/+page.svelte')).toContain('quickmail');
+	});
+
+	test('does not fall back to legacy config when the canonical config is malformed', () => {
+		const configRoot = mkdtempSync(join(tmpdir(), 'noroshi-config-'));
+		mkdirSync(join(configRoot, 'noroshi'), { recursive: true });
+		mkdirSync(join(configRoot, 'quickmail'), { recursive: true });
+		writeFileSync(join(configRoot, 'noroshi', 'config.json'), '{ malformed');
+		writeFileSync(
+			join(configRoot, 'quickmail', 'config.json'),
+			JSON.stringify({ url: 'https://legacy.example.invalid', token: 'legacy-token' })
+		);
+		const result = Bun.spawnSync(
+			[
+				'bun',
+				'-e',
+				`import { loadConfig } from ${JSON.stringify(join(root, 'cli/config.ts'))}; try { const config = await loadConfig(); console.log('LOADED:' + config.token); } catch { console.log('REJECTED'); }`
+			],
+			{
+				cwd: root,
+				env: cleanCliEnv({ XDG_CONFIG_HOME: configRoot })
+			}
+		);
+		expect(result.exitCode).toBe(0);
+		expect(new TextDecoder().decode(result.stdout).trim()).toBe('REJECTED');
+	});
+
+	test('falls back to legacy config only when the canonical config is absent', () => {
+		const configRoot = mkdtempSync(join(tmpdir(), 'noroshi-legacy-config-'));
+		mkdirSync(join(configRoot, 'quickmail'), { recursive: true });
+		writeFileSync(
+			join(configRoot, 'quickmail', 'config.json'),
+			JSON.stringify({ url: 'https://legacy.example.invalid', token: 'legacy-token' })
+		);
+		const result = Bun.spawnSync(
+			[
+				'bun',
+				'-e',
+				`import { loadConfig } from ${JSON.stringify(join(root, 'cli/config.ts'))}; const config = await loadConfig(); console.log(config.token);`
+			],
+			{
+				cwd: root,
+				env: cleanCliEnv({ XDG_CONFIG_HOME: configRoot })
+			}
+		);
+		expect(result.exitCode).toBe(0);
+		expect(new TextDecoder().decode(result.stdout).trim()).toBe('legacy-token');
 	});
 
 	test('keeps compatibility and attribution identifiers exact', () => {
@@ -62,6 +131,7 @@ describe('Noroshi public identity', () => {
 		expect(read('wrangler.jsonc')).toMatch(/^\s*"name"\s*:\s*"quickmail-ja"/m);
 		expect(read('wrangler.jsonc')).toContain('"bucket_name": "quickmail-ja-attachments"');
 		expect(read('README.md')).toContain('DivinPrince/quickmail');
+		expect(read('cli/mcp.ts')).toContain("new McpServer({ name: 'quickmail'");
 	});
 
 	test('uses Noroshi prose without renaming plugin, Skill, or MCP ids', () => {
@@ -81,6 +151,16 @@ describe('Noroshi public identity', () => {
 		expect(logo).toContain('data-brand-element="envelope"');
 		expect(logo).toContain('data-brand-element="smoke-signal"');
 		expect((logo.match(/data-brand-element="smoke-signal"/g) ?? []).length).toBe(1);
+		const iconGenerator = read('scripts/generate-pwa-icons.mjs');
+		expect(iconGenerator).toContain('function smokeSignalInk');
+		expect(iconGenerator).toContain('envelopeInk(nx, ny) || smokeSignalInk(nx, ny)');
+	});
+
+	test('uses neutral Noroshi demo addresses and keeps the brand story focused on mail', () => {
+		expect(read('prototype/quickmail-ja-live-demo/index.html')).not.toContain('quickmail.invalid');
+		expect(read('prototype/quickmail-ja-live-demo/test.mjs')).not.toContain('quickmail.invalid');
+		expect(read('README.md')).not.toContain('忍者');
+		expect(read('README.md')).toContain('狼煙');
 	});
 
 	test('allows the former public name only at documented compatibility and history boundaries', () => {

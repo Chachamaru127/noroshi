@@ -24,7 +24,7 @@ export async function startMcpServer(): Promise<void> {
 	const config = await loadConfig();
 	const client = new QuickMailClient(config.url, config.token);
 
-	const server = new McpServer({ name: 'noroshi', version: '1.0.0' });
+	const server = new McpServer({ name: 'quickmail', version: '1.0.0' });
 
 	server.registerTool(
 		'list_threads',
