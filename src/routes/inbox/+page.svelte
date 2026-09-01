@@ -6,7 +6,7 @@
 </script>
 
 <svelte:head>
-	<title>受信トレイ — QuickMail-ja</title>
+	<title>受信トレイ — Noroshi</title>
 </svelte:head>
 
 <MailboxView

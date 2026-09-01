@@ -13,8 +13,8 @@ export type AiSupportProvider = (typeof AI_SUPPORT_PROVIDERS)[number]['id'];
 export const AI_SUPPORT_QUESTION_MAX_LENGTH = 160;
 const AI_SUPPORT_PROMPT_MAX_LENGTH = 2_000;
 const AI_SUPPORT_URL_MAX_LENGTH = 7_000;
-const PROMPT_START = '[QuickMail-ja Support v2]';
-const PROMPT_END = '[/QuickMail-ja Support]';
+const PROMPT_START = '[Noroshi Support v2]';
+const PROMPT_END = '[/Noroshi Support]';
 
 export type AiSupportDestination = {
 	provider: AiSupportProvider;
@@ -45,10 +45,10 @@ export class AiSupportInputError extends Error {
 }
 
 const STAGE_COPY: Record<AiSupportStage, string> = {
-	deploy: 'CloudflareへQuickMail-jaをデプロイする前の準備',
+	deploy: 'CloudflareへNoroshiをデプロイする前の準備',
 	'email-routing': 'Cloudflare Email Routingの受信設定',
 	resend: 'Resendの送信ドメイン設定',
-	'first-admin': 'QuickMail-jaの最初の管理者作成'
+	'first-admin': 'Noroshiの最初の管理者作成'
 };
 
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f]/u;
@@ -121,10 +121,10 @@ function promptPrefix(stage: AiSupportStage, today: string): string {
 		: `公式ドキュメント候補:\n- ${EXPIRED_KNOWLEDGE_MESSAGE}`;
 	return [
 		PROMPT_START,
-		'この文章はQuickMail-jaが画面に表示した内容です。AIの公式サポートではありません。',
+		'この文章はNoroshiが画面に表示した内容です。AIの公式サポートではありません。',
 		`手順ID: ${stage}`,
 		`現在の手順: ${STAGE_COPY[stage]}`,
-		'BYOK前提: Cloudflare、Resend、将来のGmail連携で使うGoogle Cloudは、利用者自身のアカウントと認証情報を使います。QuickMail-ja共通のAPIキーやOAuth認証情報は使いません。',
+		'BYOK前提: Cloudflare、Resend、将来のGmail連携で使うGoogle Cloudは、利用者自身のアカウントと認証情報を使います。Noroshi共通のAPIキーやOAuth認証情報は使いません。',
 		'前提: 受信はCloudflare Email Routing、送信はResendです。Resend Receivingやapexの受信用MXは使いません。',
 		'回答前に、下記の公式ドキュメントを実際に開いて最新内容を確認してください。AIの記憶や検索結果の要約だけで回答しないでください。',
 		sourceStatus,

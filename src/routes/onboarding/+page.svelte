@@ -104,7 +104,7 @@
 </script>
 
 <svelte:head>
-		<title>初期設定 — QuickMail-ja</title>
+		<title>初期設定 — Noroshi</title>
 </svelte:head>
 
 <WizardShell
@@ -114,7 +114,7 @@
 		: '送受信に使うアドレスを選択してください。'}
 	partner={needsDomain}
 	partnerKind={data.providerKind}
-	partnerCaption={`QuickMail-ja + ${providerName(data.providerKind)}`}
+	partnerCaption={`Noroshi + ${providerName(data.providerKind)}`}
 >
 	{#if needsDomain}
 		{#if !data.isAdmin}

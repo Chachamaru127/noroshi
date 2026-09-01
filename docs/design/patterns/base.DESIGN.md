@@ -1,4 +1,4 @@
-# QuickMail-ja 共通semantic theme contract
+# Noroshi 共通semantic theme contract
 
 - 検証日: 2026-08-27
 - 適用先: `calm`、`command`、`classic`の比較デモ全体

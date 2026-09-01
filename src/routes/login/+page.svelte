@@ -52,7 +52,7 @@
 </script>
 
 <svelte:head>
-	<title>ログイン — QuickMail-ja</title>
+	<title>ログイン — Noroshi</title>
 </svelte:head>
 
 <div class="auth-shell">

@@ -2,7 +2,7 @@
 
 ## 所有関係
 
-| 対象                                      | 所有者 | QuickMail-jaが提供するもの                |
+| 対象                                      | 所有者 | Noroshiが提供するもの                |
 | ----------------------------------------- | ------ | ----------------------------------------- |
 | Cloudflareアカウント、Worker、D1、R2、DNS | 利用者 | 必要構成と確認方法                        |
 | Resendアカウント、送信ドメイン、APIキー   | 利用者 | 送信連携と状態表示                        |
@@ -16,7 +16,7 @@ BYOKは「秘密値をAIへ渡す」方式ではない。利用者自身のア�
 - Cloudflare: `https://dash.cloudflare.com`, `https://developers.cloudflare.com`
 - Resend: `https://resend.com`
 - Google Cloud / Gmail: `https://console.cloud.google.com`, `https://developers.google.com`, `https://support.google.com`
-- QuickMail-ja: 利用者が対象として確認したデプロイoriginだけ
+- Noroshi: 利用者が対象として確認したデプロイoriginだけ
 
 短縮URL、広告、検索結果のスポンサーリンク、似た綴りのドメインは開かない。予期しないoriginへ移動したら停止する。
 
@@ -60,7 +60,7 @@ Computer UseはAIホスト側の能力であり、このSkillが追加するも�
 4. 再開時は現在のoriginとアカウント、ゾーン、ドメインをすべて読み直す。欠落または期待値との差があれば既存承認を台帳から失効させ、明示的な再承認を待つ。
 5. originと本人性の完全一致を確認した後にだけ、クリップボードの代替経路へ進む。ブラウザとOSのクリップボードが分離した場合は秘密値を再表示せず、利用者の直接入力または秘密入力brokerを使う。
 
-疎通完了はprovider画面1か所で判定しない。メール証拠は同じ非秘密canaryをCloudflare Email Routing Activity、Worker/D1、Resend、QuickMail-ja UIで照合する。canary tokenは`canary-`で始まる12〜72文字の小文字英数字とハイフンだけを使い、秘密値に見える文字列は証拠へ取り込まない。DNS証拠はメールcanaryと分離し、同じドメイン、configuration fingerprint、MX、TXTを権威DNSと公開DNSリゾルバで照合する。
+疎通完了はprovider画面1か所で判定しない。メール証拠は同じ非秘密canaryをCloudflare Email Routing Activity、Worker/D1、Resend、Noroshi UIで照合する。canary tokenは`canary-`で始まる12〜72文字の小文字英数字とハイフンだけを使い、秘密値に見える文字列は証拠へ取り込まない。DNS証拠はメールcanaryと分離し、同じドメイン、configuration fingerprint、MX、TXTを権威DNSと公開DNSリゾルバで照合する。
 
 ## 画面が一致しない場合
 

@@ -207,7 +207,7 @@
 </script>
 
 <svelte:head>
-		<title>管理 — QuickMail-ja</title>
+		<title>管理 — Noroshi</title>
 </svelte:head>
 
 <div class="admin-page">

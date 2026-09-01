@@ -136,7 +136,7 @@
 </script>
 
 <svelte:head>
-	<title>{displayedSubject} — QuickMail-ja</title>
+	<title>{displayedSubject} — Noroshi</title>
 </svelte:head>
 
 <div class="mail-page">

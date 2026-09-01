@@ -31,7 +31,7 @@ function verificationMessage(input: {
 	link.searchParams.set('token', input.token);
 	const escapedLink = escapeHtml(link.toString());
 	const text = [
-		'QuickMail-ja 自動転送先の確認',
+		'Noroshi 自動転送先の確認',
 		'',
 		`転送元: ${input.source}`,
 		`転送先: ${input.destination}`,
@@ -42,7 +42,7 @@ function verificationMessage(input: {
 		'このリンクの有効期限は24時間で、1回だけ使用できます。'
 	].join('\n');
 	const html = buildHtmlEmail(
-		`<p>QuickMail-jaの自動転送先を確認してください。</p>` +
+		`<p>Noroshiの自動転送先を確認してください。</p>` +
 			`<p>転送元: <strong>${escapeHtml(input.source)}</strong><br>` +
 			`転送先: <strong>${escapeHtml(input.destination)}</strong></p>` +
 			`<p><a href="${escapedLink}">転送先を確認する</a></p>` +
@@ -74,7 +74,7 @@ async function sendVerificationEmail(
 		from: input.source,
 		senderName: input.userName,
 		to: [input.destination],
-		subject: '【QuickMail-ja】自動転送先を確認してください',
+		subject: '【Noroshi】自動転送先を確認してください',
 		text: message.text,
 		html: message.html,
 		idempotencyKey: input.idempotencyKey

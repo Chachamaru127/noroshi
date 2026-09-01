@@ -1,12 +1,12 @@
 {
 	"name": "quickmail-ja-setup",
 	"version": "1.0.0",
-	"description": "QuickMail-jaのBYOK導入を、固定されたセットアップ契約に沿って案内・検証するプラグイン。",
+	"description": "NoroshiのBYOK導入を、固定されたセットアップ契約に沿って案内・検証するプラグイン。",
 	"author": {
-		"name": "QuickMail-ja"
+		"name": "Noroshi"
 	},
 	"license": "MIT",
-	"keywords": ["quickmail-ja", "setup", "byok", "cloudflare", "resend", "japanese"],
+	"keywords": ["noroshi", "noroshi-mail", "quickmail-ja", "setup", "byok", "cloudflare", "resend", "japanese"],
 	"skills": "./skills/",
 	"mcpServers": "./.mcp.json"
 }

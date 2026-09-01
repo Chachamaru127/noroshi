@@ -1,8 +1,8 @@
 {
 	"id": "/",
-	"name": "QuickMail-ja",
-	"short_name": "QuickMail-ja",
-	"description": "独自ドメインのメールを日本語で管理します。",
+	"name": "Noroshi",
+	"short_name": "Noroshi",
+	"description": "日本語で使える、Cloudflare上のセルフホスト型メール。",
 	"start_url": "/inbox",
 	"scope": "/",
 	"display": "standalone",

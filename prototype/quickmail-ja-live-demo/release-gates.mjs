@@ -199,5 +199,5 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
 		process.argv[3] || path.join(approvalsDirectory, 'voiceover-review-receipt.json');
 	validateBaselineReceipt(readCommittedReceipt(baselinePath));
 	validateVoiceOverReceipt(readCommittedReceipt(voiceOverPath));
-	console.log('QuickMail-ja human release gates: APPROVE');
+	console.log('Noroshi human release gates: APPROVE');
 }

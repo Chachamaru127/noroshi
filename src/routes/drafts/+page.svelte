@@ -6,7 +6,7 @@
 </script>
 
 <svelte:head>
-	<title>下書き — QuickMail-ja</title>
+	<title>下書き — Noroshi</title>
 </svelte:head>
 
 <MailboxView

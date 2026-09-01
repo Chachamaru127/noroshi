@@ -51,9 +51,9 @@
 
 <aside class="sidebar" class:collapsed>
 	<div class="sidebar-top">
-		<a href="/inbox" class="brand" title="QuickMail-ja">
+		<a href="/inbox" class="brand" title="Noroshi">
 			<Logo size={30} />
-			{#if !collapsed}<span class="brand-name">QuickMail-ja</span>{/if}
+			{#if !collapsed}<span class="brand-name">Noroshi</span>{/if}
 		</a>
 	</div>
 

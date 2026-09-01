@@ -6,7 +6,7 @@
 </script>
 
 <svelte:head>
-	<title>{data.folder.name} — QuickMail-ja</title>
+	<title>{data.folder.name} — Noroshi</title>
 </svelte:head>
 
 <MailboxView

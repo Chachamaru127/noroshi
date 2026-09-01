@@ -156,7 +156,7 @@
 </script>
 
 <svelte:head>
-	<title>{forwarding ? '転送' : draftId ? '下書き' : '作成'} — QuickMail-ja</title>
+	<title>{forwarding ? '転送' : draftId ? '下書き' : '作成'} — Noroshi</title>
 </svelte:head>
 
 <form class="compose-page" onsubmit={submit}>

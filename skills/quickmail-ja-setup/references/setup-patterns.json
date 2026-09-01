@@ -13,7 +13,7 @@
 			"Cloudflare Email RoutingのActivity",
 			"WorkerとD1の保存結果",
 			"Resendの配信状態",
-			"QuickMail-ja UIの受信・送信表示"
+			"Noroshi UIの受信・送信表示"
 		],
 		"dns_evidence": "DNSはメールcanaryと分離し、権威DNSと公開DNSリゾルバで同じドメイン、configuration fingerprint、MX、TXTを照合します。",
 		"stages": [
@@ -191,7 +191,7 @@
 					"scope": "宛先と内容が固定された外部メールを1通送る前"
 				},
 				"completion_evidence": [
-					"QuickMail-ja、D1、Resendで同じcanaryとidempotency keyが1件だけ記録されています。"
+					"Noroshi、D1、Resendで同じcanaryとidempotency keyが1件だけ記録されています。"
 				],
 				"rollback_to": [
 					"不確実な送信結果を再送せず、providerとD1のreadbackへ戻ります。"
@@ -201,7 +201,7 @@
 				"id": "reply_receive",
 				"title_ja": "返信受信",
 				"ai_reads": [
-					"Cloudflare Activity、Worker、D1、QuickMail-ja UIの同じcanaryを読みます。"
+					"Cloudflare Activity、Worker、D1、Noroshi UIの同じcanaryを読みます。"
 				],
 				"human_action": [
 					"テスターが受信した制御済みメールへ返信します。"
@@ -211,7 +211,7 @@
 					"scope": "返信元、返信先、canaryが固定された1通の返信前"
 				},
 				"completion_evidence": [
-					"Cloudflare Email Routing Activity、Worker/D1、Resend、QuickMail-ja UIで返信canaryが1件だけ一致します。"
+					"Cloudflare Email Routing Activity、Worker/D1、Resend、Noroshi UIで返信canaryが1件だけ一致します。"
 				],
 				"rollback_to": [
 					"Routingを変更せず、Cloudflare ActivityとWorker/D1の失敗点へ戻ります。"
@@ -231,7 +231,7 @@
 					"scope": "Routing、DNS、deploy、secretを変更前状態へ戻す前"
 				},
 				"completion_evidence": [
-					"メール証拠はCloudflare Email Routing Activity、Worker/D1、Resend、QuickMail-ja UIで一致します。DNS証拠は権威DNSと公開リゾルバで同じドメイン、configuration fingerprint、MX、TXTが一致し、2回目の復旧操作はno-opです。"
+					"メール証拠はCloudflare Email Routing Activity、Worker/D1、Resend、Noroshi UIで一致します。DNS証拠は権威DNSと公開リゾルバで同じドメイン、configuration fingerprint、MX、TXTが一致し、2回目の復旧操作はno-opです。"
 				],
 				"rollback_to": [
 					"復旧結果が不一致なら追加変更せず、最後に確認できた状態へ停止します。"
@@ -259,7 +259,7 @@
 			"category": "deployment",
 			"stage": "Cloudflareへのデプロイ直後",
 			"applicability": [
-				"公開されたQuickMail-jaリポジトリからDeployボタンを使った場合",
+				"公開されたNoroshiリポジトリからDeployボタンを使った場合",
 				"Workerのビルド自体は完了している場合"
 			],
 			"diagnostic_questions": [
@@ -361,7 +361,7 @@
 			"stage": "受信設定",
 			"applicability": [
 				"対象ドメインのDNSをCloudflareで管理している場合",
-				"QuickMail-jaへ受信メールを保存する場合"
+				"Noroshiへ受信メールを保存する場合"
 			],
 			"diagnostic_questions": [
 				"Email Routingのドメイン状態は有効ですか。",
@@ -406,16 +406,16 @@
 		},
 		{
 			"id": "cloudflare.worker.route",
-			"title_ja": "受信ルールをQuickMail-ja Workerへ接続する",
+			"title_ja": "受信ルールをNoroshi Workerへ接続する",
 			"category": "cloudflare",
 			"stage": "受信ルール設定",
 			"applicability": [
 				"Email Routingのドメイン設定が完了している場合",
-				"受信をQuickMail-jaのemailハンドラーで処理する場合"
+				"受信をNoroshiのemailハンドラーで処理する場合"
 			],
 			"diagnostic_questions": [
 				"対象アドレスまたはCatch-allのActionはSend to a Workerですか。",
-				"選択されたWorkerは現在のQuickMail-ja Workerですか。",
+				"選択されたWorkerは現在のNoroshi Workerですか。",
 				"Service Bindingがある場合、serviceは対象Worker名と一致しますか。"
 			],
 			"safe_steps": [
@@ -465,7 +465,7 @@
 			],
 			"diagnostic_questions": [
 				"現在の権威DNSとapex MXを保存しましたか。",
-				"旧メールボックスの最終受信とQuickMail-jaの最初の受信を記録できますか。"
+				"旧メールボックスの最終受信とNoroshiの最初の受信を記録できますか。"
 			],
 			"safe_steps": [
 				"権威DNS、MX、TXT、Routing Rulesを変更前に保存します。",
@@ -566,7 +566,7 @@
 			"category": "resend",
 			"stage": "送信ドメイン認証",
 			"applicability": [
-				"QuickMail-jaからResendで送信する場合",
+				"NoroshiからResendで送信する場合",
 				"Resendのドメイン状態が未確認または失敗の場合"
 			],
 			"diagnostic_questions": [
@@ -634,7 +634,7 @@
 				"既存受信経路を止める変更は利用者が影響を確認して承認します。"
 			],
 			"prohibited": [
-				"Resend ReceivingをQuickMail-ja標準構成で有効にしません。",
+				"Resend ReceivingをNoroshi標準構成で有効にしません。",
 				"Resendの受信用MXをapexへ追加しません。",
 				"同優先度MXを二重配信として使いません。"
 			],
@@ -650,7 +650,7 @@
 				"apex MXはCloudflare受信用、Resend MXは送信用サブドメインに限定されています。"
 			],
 			"unsupported": [
-				"Resend ReceivingをQuickMail-jaの受信Providerとして使う構成は初回版の対象外です。"
+				"Resend ReceivingをNoroshiの受信Providerとして使う構成は初回版の対象外です。"
 			],
 			"source_refs": [
 				"resend-mx-conflicts",
@@ -717,11 +717,11 @@
 			"category": "resend",
 			"stage": "配信結果の設定",
 			"applicability": [
-				"QuickMail-jaの送信済みに配信状態を表示する場合",
+				"Noroshiの送信済みに配信状態を表示する場合",
 				"Webhookが届かず状態が更新されない場合"
 			],
 			"diagnostic_questions": [
-				"Webhook URLは現在のQuickMail-ja Workerですか。",
+				"Webhook URLは現在のNoroshi Workerですか。",
 				"必要な送信イベントを選択していますか。",
 				"Webhook署名シークレットはWorker secretに登録されていますか。"
 			],
@@ -810,7 +810,7 @@
 		},
 		{
 			"id": "delivery.inbound.missing",
-			"title_ja": "受信メールがQuickMail-jaに届かない",
+			"title_ja": "受信メールがNoroshiに届かない",
 			"category": "delivery",
 			"stage": "受信トラブル診断",
 			"applicability": [
@@ -820,7 +820,7 @@
 			"diagnostic_questions": [
 				"権威DNSのMXはCloudflare公式画面と一致しますか。",
 				"対象Routing RuleまたはCatch-allは有効ですか。",
-				"Actionは現在のQuickMail-ja Workerですか。",
+				"Actionは現在のNoroshi Workerですか。",
 				"Workerログに受信処理または保存エラーがありますか。"
 			],
 			"safe_steps": [
@@ -865,7 +865,7 @@
 			"category": "delivery",
 			"stage": "送信トラブル診断",
 			"applicability": [
-				"QuickMail-jaからResend送信が失敗する場合",
+				"NoroshiからResend送信が失敗する場合",
 				"送信済みの配信状態がfailed、bounced、delayedの場合"
 			],
 			"diagnostic_questions": [
@@ -895,7 +895,7 @@
 				"設定変更を行った場合は変更前のドメイン、キー、Webhook状態へ戻します。"
 			],
 			"expected_evidence": [
-				"ResendイベントとQuickMail-jaの配信状態が同じ送信識別子で対応します。"
+				"ResendイベントとNoroshiの配信状態が同じ送信識別子で対応します。"
 			],
 			"unsupported": [
 				"受信者側の迷惑メール判定や到達を保証しません。"

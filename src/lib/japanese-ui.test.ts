@@ -31,8 +31,8 @@ function userFacingSources(): Array<{ path: string; content: string }> {
 	}));
 }
 
-describe('QuickMail-ja Japanese UI contract', () => {
-	test('uses Japanese app metadata and QuickMail-ja branding', () => {
+describe('Noroshi Japanese UI contract', () => {
+	test('uses Japanese app metadata and Noroshi branding', () => {
 		const appHtml = source('src/app.html');
 		const manifest = JSON.parse(source('static/manifest.webmanifest')) as {
 			lang?: string;
@@ -41,10 +41,10 @@ describe('QuickMail-ja Japanese UI contract', () => {
 		};
 
 		assert.match(appHtml, /<html\s+lang="ja"/);
-		assert.match(appHtml, /application-name"\s+content="QuickMail-ja"/);
+		assert.match(appHtml, /application-name"\s+content="Noroshi"/);
 		assert.equal(manifest.lang, 'ja');
-		assert.equal(manifest.name, 'QuickMail-ja');
-		assert.equal(manifest.short_name, 'QuickMail-ja');
+		assert.equal(manifest.name, 'Noroshi');
+		assert.equal(manifest.short_name, 'Noroshi');
 	});
 
 	test('does not expose deployment-specific context in user-facing source', () => {
@@ -53,10 +53,10 @@ describe('QuickMail-ja Japanese UI contract', () => {
 		}
 	});
 
-	test('keeps representative QuickMail-ja labels in Japanese', () => {
+	test('keeps representative Noroshi labels in Japanese', () => {
 		const labels = [
 			['src/routes/login/+page.svelte', ['ログイン', 'メールアドレス', 'パスワード']],
-			['src/lib/components/Sidebar.svelte', ['QuickMail-ja', '受信トレイ', '新規メール', '設定']],
+			['src/lib/components/Sidebar.svelte', ['Noroshi', '受信トレイ', '新規メール', '設定']],
 			['src/routes/compose/+page.svelte', ['宛先', '件名', '送信']],
 			['src/routes/settings/+page.svelte', ['自動転送', 'APIキー', '署名']]
 		] as const;

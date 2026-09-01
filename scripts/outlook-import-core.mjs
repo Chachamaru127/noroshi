@@ -156,7 +156,7 @@ function assertAllowedStagingEntries(entries) {
 	const allowed = new Set([IMPORT_STAGING_MARKER, 'manifest.json']);
 	if (entries.some((entry) => !allowed.has(entry))) {
 		throw new Error(
-			'作業用ディレクトリは空、またはQuickMail-jaが作成した専用ディレクトリにしてください。'
+			'作業用ディレクトリは空、またはNoroshiが作成した専用ディレクトリにしてください。'
 		);
 	}
 }
@@ -168,7 +168,7 @@ async function validateOwnedStaging(stagingDir, expectedEntries) {
 	}
 	assertAllowedStagingEntries(firstEntries);
 	if (!firstEntries.includes(IMPORT_STAGING_MARKER)) {
-		throw new Error('空でない作業用ディレクトリにはQuickMail-jaの所有マーカーが必要です。');
+		throw new Error('空でない作業用ディレクトリにはNoroshiの所有マーカーが必要です。');
 	}
 
 	const markerPath = join(stagingDir, IMPORT_STAGING_MARKER);

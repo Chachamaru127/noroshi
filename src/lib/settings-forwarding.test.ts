@@ -189,8 +189,8 @@ describe('settings automatic forwarding helpers', () => {
 
 	test('maps known errors and redacts arbitrary provider details', () => {
 		assert.equal(
-			safeForwardingError('Destination must be outside QuickMail domains'),
-			'QuickMail-jaの管理ドメイン以外のアドレスを指定してください。'
+			safeForwardingError('Destination must be outside Noroshi domains'),
+			'Noroshiの管理ドメイン以外のアドレスを指定してください。'
 		);
 		assert.equal(
 			safeForwardingError('Verify the forwarding destination before enabling it'),

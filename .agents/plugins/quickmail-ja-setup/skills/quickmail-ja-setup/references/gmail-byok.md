@@ -2,11 +2,11 @@
 
 ## 機能ゲート
 
-最初に、利用中のQuickMail-jaがGmailコネクターを実装しているか、UIとリリースノートで確認する。READMEに「Gmailとの双方向同期はありません」とある版では、Google Cloud設定を開始しない。
+最初に、利用中のNoroshiがGmailコネクターを実装しているか、UIとリリースノートで確認する。READMEに「Gmailとの双方向同期はありません」とある版では、Google Cloud設定を開始しない。
 
 ## BYOK構成
 
-Gmailコネクター対応版では、利用者が自分のGoogle Cloudプロジェクトを作り、Gmail API、OAuth同意画面、OAuth Clientを管理する。QuickMail-ja公式の共通Client ID / Client Secretは配布しない。
+Gmailコネクター対応版では、利用者が自分のGoogle Cloudプロジェクトを作り、Gmail API、OAuth同意画面、OAuth Clientを管理する。Noroshi公式の共通Client ID / Client Secretは配布しない。
 
 確認時は次の公式資料を当日開く。
 
@@ -23,7 +23,7 @@ Gmailコネクター対応版では、利用者が自分のGoogle Cloudプロジ
 - OAuth公開状態がTestingの場合、Gmail権限を含む認可とrefresh tokenは通常7日で失効する。継続利用では公開状態と警告表示の意味を利用者が判断する。
 - Google Workspaceでは管理者のAPI controlsにより接続できない場合がある。組織管理者の承認を迂回しない。
 - `gmail.send`、`gmail.readonly`、`gmail.modify`の区分と必要性を説明し、実装が要求する最小scopeだけを選ぶ。広い`https://mail.google.com/`を便宜上選ばない。
-- Client Secretやrefresh tokenをチャットへ貼らせない。利用者がQuickMail-jaの秘密入力先へ直接登録する。
+- Client Secretやrefresh tokenをチャットへ貼らせない。利用者がNoroshiの秘密入力先へ直接登録する。
 
 ## ブラウザ案内の終点
 

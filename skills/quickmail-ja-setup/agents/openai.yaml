@@ -1,6 +1,6 @@
 interface:
-  display_name: "QuickMail-ja セットアップ"
+  display_name: "Noroshi セットアップ"
   short_description: "BYOKのクラウド設定を公式画面に沿って日本語案内"
-  default_prompt: "Use $quickmail-ja-setup to guide my QuickMail-ja BYOK setup in Japanese."
+  default_prompt: "Use $quickmail-ja-setup to guide my Noroshi BYOK setup in Japanese."
 policy:
   allow_implicit_invocation: true

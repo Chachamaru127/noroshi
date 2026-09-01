@@ -84,7 +84,7 @@ export const AI_SUPPORT_KNOWLEDGE: Readonly<Record<AiSupportStage, AiSupportKnow
 			],
 			[
 				'apex MXと送信用サブドメインのMXを別々に一覧化します。',
-				'Resend ReceivingをQuickMail-jaの受信Providerとして使う構成は初回版の対象外です。'
+				'Resend ReceivingをNoroshiの受信Providerとして使う構成は初回版の対象外です。'
 			]
 		),
 		'first-admin': reviewed(

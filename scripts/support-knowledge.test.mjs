@@ -231,7 +231,7 @@ test('setup knowledge is clean-room and records excluded Mailflare capabilities'
 		'Cloudflare Email RoutingのActivity',
 		'WorkerとD1の保存結果',
 		'Resendの配信状態',
-		'QuickMail-ja UIの受信・送信表示'
+		'Noroshi UIの受信・送信表示'
 	]);
 	assert.match(
 		knowledge.setup_runbook.dns_evidence,

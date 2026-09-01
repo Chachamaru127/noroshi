@@ -175,8 +175,8 @@ export function safeForwardingError(
 ): string {
 	if (typeof error !== 'string') return fallback;
 
-	if (error.includes('Destination must be outside QuickMail domains')) {
-		return 'QuickMail-jaの管理ドメイン以外のアドレスを指定してください。';
+	if (error.includes('Destination must be outside Noroshi domains')) {
+		return 'Noroshiの管理ドメイン以外のアドレスを指定してください。';
 	}
 	if (error.includes('Verify the forwarding destination before enabling it')) {
 		return '自動転送を有効にする前に、転送先メールアドレスを確認してください。';

@@ -112,7 +112,7 @@
 		<div>
 			<h2 id="ai-support-title">導入についてAIに質問</h2>
 			<p>
-				普段使っているAIへ、最新の公式ドキュメントを確認して回答するよう依頼します。QuickMail-jaの公式サポートではありません。
+				普段使っているAIへ、最新の公式ドキュメントを確認して回答するよう依頼します。Noroshiの公式サポートではありません。
 			</p>
 		</div>
 	</div>
@@ -120,7 +120,7 @@
 		<p class="byok-title">自分のアカウントで設定します（BYOK）</p>
 		<p>
 			CloudflareとResendは利用者自身のアカウントを使います。Gmail連携対応版では、Google
-			CloudのOAuth認証情報も利用者が用意します。QuickMail-ja共通の認証情報は配布しません。
+			CloudのOAuth認証情報も利用者が用意します。Noroshi共通の認証情報は配布しません。
 		</p>
 		<p>
 			ブラウザ操作に対応したChatGPT/CodexまたはClaudeでは、許可後に公式画面を開いて案内できます。ログイン、MFA、規約同意、秘密値入力、保存操作は利用者自身が行います。
@@ -188,7 +188,7 @@
 	</p>
 	<p class="disclosure">
 		ChatGPTとClaudeでは質問文がURLに含まれ、ブラウザ履歴やAI提供者側に残る可能性があります。Geminiを含む全社で質問文をクリップボードへコピーします。端末の関連付けによってアプリまたはブラウザで開きます。回答、記憶・データ保持、利用可否は各AIサービスのアカウント、契約、ポリシーに従います。
-		QuickMail-jaと各AIサービスは提携・公式サポート関係にありません。
+		Noroshiと各AIサービスは提携・公式サポート関係にありません。
 	</p>
 	<p class="copy-status" aria-live="polite" aria-atomic="true">{copyStatus}</p>
 </section>

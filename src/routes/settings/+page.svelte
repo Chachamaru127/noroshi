@@ -695,7 +695,7 @@
 </script>
 
 <svelte:head>
-	<title>設定 — QuickMail-ja</title>
+	<title>設定 — Noroshi</title>
 </svelte:head>
 
 <svelte:window onkeydown={handleWindowKeydown} />
@@ -766,8 +766,8 @@
 	<section class="surface-lg card forwarding-card" aria-labelledby="automatic-forwarding-title">
 		<h2 id="automatic-forwarding-title"><Icon name="arrow-left-right-line" size={18} /> 自動転送</h2>
 		<p class="card-hint">
-			新着メッセージと添付ファイルをQuickMail-jaの外部へ転送します。自分で管理できる転送先を指定してください。
-			QuickMail-jaのアドレスや、同じ管理ドメイン内の転送先は指定できません。
+			新着メッセージと添付ファイルをNoroshiの外部へ転送します。自分で管理できる転送先を指定してください。
+			Noroshiのアドレスや、同じ管理ドメイン内の転送先は指定できません。
 		</p>
 
 		{#if forwarding.length}
@@ -886,7 +886,7 @@
 							<p class="forwarding-warning">
 								<Icon name="alert-line" size={15} />
 								<span class="forwarding-warning-copy">
-									有効にすると、新着メッセージと添付ファイルをQuickMail-jaの外部にある
+									有効にすると、新着メッセージと添付ファイルをNoroshiの外部にある
 										<strong>{selectedForwarding.destination.destination_address}</strong>へ送信します。
 								</span>
 							</p>
@@ -1053,7 +1053,7 @@
 			</button>
 		</div>
 		<p class="card-hint">
-			APIキーは、外部システムや自動処理からQuickMail-jaを操作するための認証情報です。ログイン用パスワードとは別に発行します。
+			APIキーは、外部システムや自動処理からNoroshiを操作するための認証情報です。ログイン用パスワードとは別に発行します。
 			問い合わせフォームの受付完了メール、CRM・AIへの受信メール取り込み、定期処理からのメール送信などに使えます。
 			作成時に「送信」「読み取り」から必要な権限だけを選びます。管理者は、ドメイン・ユーザー・アドレス管理の権限も追加できます。
 		</p>

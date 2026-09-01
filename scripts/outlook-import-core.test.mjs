@@ -143,7 +143,7 @@ test('never clears a non-empty unowned staging directory', async () => {
 		await writeFile(sentinel, 'keep me');
 		await assert.rejects(
 			prepareOutlookImportDirectories({ backupDir: source, stagingDir: staging }),
-			/空、またはQuickMail-jaが作成した専用ディレクトリ/
+			/空、またはNoroshiが作成した専用ディレクトリ/
 		);
 		assert.equal(await readFile(sentinel, 'utf8'), 'keep me');
 	} finally {

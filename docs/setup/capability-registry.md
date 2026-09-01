@@ -9,7 +9,7 @@
 - `required_scopes` uses provider-native grant names. Cloudflare entries use permission-group names; Resend entries use `full_access` or `sending_access` because Resend does not expose per-domain-management scopes. It is not a provider token or a grant.
 - `scope_constraints` is an immutable exact-match list for every write. It binds identifiers plus all operation payload inputs, including resource names, migration IDs, secret broker destinations, deployment artifacts/bindings, DNS/routing payloads, webhook configuration, canary values, and cleanup ownership fingerprints.
 - `adapter_operations` is the endpoint-level allowlist. D1/R2 read grants can reach stored content, so those credentials are temporary broker inputs and the adapter permits metadata-list operations only. It cannot query D1 rows or fetch R2 objects.
-- `data_handled` names metadata that may cross the adapter boundary. Mailbox content, provider email content, attachment content, and QuickMail-ja user administration are prohibited.
+- `data_handled` names metadata that may cross the adapter boundary. Mailbox content, provider email content, attachment content, and Noroshi user administration are prohibited.
 - `confirmation_class` keeps resource creation, secret staging, remote migration, deployment, webhook creation, Email Routing, DNS changes, external sending, destructive cleanup, and billing separate.
 - `rollback` states the recovery boundary. It does not authorize rollback or cleanup.
 - `execution: human_only` means the setup assistant may explain the official screen but receives no provider tool for that action.

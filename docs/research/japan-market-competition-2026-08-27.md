@@ -1,10 +1,10 @@
-# QuickMail-ja 日本語圏・競合調査
+# Noroshi 日本語圏・競合調査
 
 確認日: 2026-08-27
 
 ## 結論
 
-`Cloudflare上で動くWebメール`には直接競合が複数ある。QuickMail-jaは、競合不在ではなく、次の組み合わせで差別化する。
+`Cloudflare上で動くWebメール`には直接競合が複数ある。Noroshiは、競合不在ではなく、次の組み合わせで差別化する。
 
 > 日本語利用者が、自分のCloudflareアカウント上に独自ドメインのメールを安全に構築・移行・復旧・運用できる、日本語ファーストのセルフホスト配布物
 
@@ -21,14 +21,14 @@
 
 ## 調査方法
 
-- QuickMail-jaの比較軸を`Cloudflare Email Routing -> Worker -> D1/R2`受信、Resend送信、日本語Webメールに固定した。
+- Noroshiの比較軸を`Cloudflare Email Routing -> Worker -> D1/R2`受信、Resend送信、日本語Webメールに固定した。
 - GitHub、公式製品ページ、公式ドキュメント、国内ホスティング各社の日本語ページを横断した。
 - `grok -p`は候補発見と反証に利用した。Grokの主張だけを事実根拠にはせず、表には一次情報URLを付けた。
 - `direct`は同じ購入・導入判断に入るCloudflare-nativeメール、`adjacent`は用途か基盤が一部異なるもの、`substitute`はスタックが異なるが利用目的を置き換えるものとした。
 
 ## Cloudflare-nativeの直接・近接競合
 
-| 製品                                                                    | 区分              | 受信・送信・保存                                                          | 日本語圏での位置                         | QuickMail-jaへの意味                                              |
+| 製品                                                                    | 区分              | 受信・送信・保存                                                          | 日本語圏での位置                         | Noroshiへの意味                                              |
 | ----------------------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------- | ---------------------------------------- | ----------------------------------------------------------------- |
 | [QuickMail](https://github.com/DivinPrince/quickmail)                   | upstream          | Workers/D1/R2。ResendまたはCloudflareを選択                               | 日本語ファーストの明記なし               | 上流であり、独立競合ではない。上流6コミットの継続監査が必要       |
 | [Cloudflare Agentic Inbox](https://github.com/cloudflare/agentic-inbox) | direct            | Email Routing、Durable Objects、R2、Email Service、Web UI、AI/MCP         | 日本語ファーストの明記なし               | Cloudflare公式の強い比較対象。AIでは正面競争しない                |
@@ -45,7 +45,7 @@
 
 ## 日本語で利用できる代替
 
-| 製品・構成                                                                                                           | 区分                  | 日本語             | QuickMail-jaとの違い                                       |
+| 製品・構成                                                                                                           | 区分                  | 日本語             | Noroshiとの違い                                       |
 | -------------------------------------------------------------------------------------------------------------------- | --------------------- | ------------------ | ---------------------------------------------------------- |
 | [Roundcube](https://roundcube.net/about/)                                                                            | substitute/webmail    | 公式`ja_JP`        | IMAP/SMTPサーバが別途必要。成熟した日本語UIは強い比較対象  |
 | [SnappyMail](https://github.com/the-djmaze/snappymail)                                                               | substitute/webmail    | 日本語ロケールあり | 軽量だが既存IMAP/SMTPが必要                                |
@@ -70,7 +70,7 @@
 
 ### 勝ち筋
 
-QuickMail-jaの優先順位は次の通りとする。
+Noroshiの優先順位は次の通りとする。
 
 1. 日本語での安全な導入、切替、移行、復旧
 2. Cloudflare受信とResend送信を混線させない構成

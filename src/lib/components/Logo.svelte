@@ -1,6 +1,6 @@
 <script lang="ts">
-	// The app mark: a sage tile with a mail-check glyph. Kept inline so it stays
-	// crisp at any size and can be dropped straight into a flex row.
+	// The envelope keeps the product recognizable as mail; one rising stroke is
+	// the restrained smoke-signal accent behind the Noroshi name.
 	let {
 		size = 30,
 		class: className = ''
@@ -17,10 +17,11 @@
 	viewBox="0 0 64 64"
 	xmlns="http://www.w3.org/2000/svg"
 	role="img"
-	aria-label="QuickMail-ja"
+	aria-label="Noroshi メール"
 >
 	<rect width="64" height="64" rx="16.5" fill="#90ac9a" />
 	<g
+		data-brand-element="envelope"
 		transform="translate(9.7 9.7) scale(1.858)"
 		fill="none"
 		stroke="#363636"
@@ -30,6 +31,13 @@
 	>
 		<path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h8" />
 		<path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-		<path d="m16 19 2 2 4-4" />
 	</g>
+	<path
+		data-brand-element="smoke-signal"
+		d="M43 45c7-2 2-8 8-11 5-3 1-7 4-10"
+		fill="none"
+		stroke="#363636"
+		stroke-width="4.2"
+		stroke-linecap="round"
+	/>
 </svg>

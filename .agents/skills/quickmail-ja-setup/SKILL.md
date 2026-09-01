@@ -1,6 +1,6 @@
 ---
 name: quickmail-ja-setup
-description: QuickMail-jaのBYOK導入時に、Cloudflare、Resend、Google Cloudの公式画面を日本語で案内する。
+description: NoroshiのBYOK導入時に、Cloudflare、Resend、Google Cloudの公式画面を日本語で案内する。
 ---
 
 このファイルはCodex用の薄いリポジトリアダプターです。

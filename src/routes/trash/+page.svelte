@@ -6,7 +6,7 @@
 </script>
 
 <svelte:head>
-	<title>ゴミ箱 — QuickMail-ja</title>
+	<title>ゴミ箱 — Noroshi</title>
 </svelte:head>
 
 <MailboxView

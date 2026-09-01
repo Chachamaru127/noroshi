@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex,nofollow,noarchive,nosnippet,noimageindex">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-OUvpDkpAIeNzcDPrgpiNQyOH3tj+SobtHGm3bmuACxo='; img-src data:; connect-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="color-scheme" content="light dark">
-  <title>QuickMail-ja 操作可能デモ</title>
+  <title>Noroshi 操作可能デモ</title>
   <style>
     :root {
       --bg:#f7f8f7; --surface:#fff; --surface-2:#f2f4f3; --surface-3:#e8eeea;
@@ -521,7 +521,7 @@
 
     /*
       Question answered by this prototype:
-      Can a non-technical user explore QuickMail-ja's major screens and state
+      Can a non-technical user explore Noroshi's major screens and state
       changes without triggering mail delivery, Cloudflare, Resend, D1 or R2?
       All transitions are handled by this pure reducer and exist in memory only.
     */
@@ -550,7 +550,7 @@
         error:""
       },
       messages: [
-        {id:"m1",folder:"inbox",from:"田中 彩",fromAddress:"aya@sender.invalid",to:"info@quickmail.invalid",subject:"次回イベントの登壇について",preview:"来月開催予定のイベントについてご相談があります。",body:"QuickMail-ja ご担当者様\n\n来月開催予定のオンラインイベントについて、登壇をご相談したくご連絡しました。\n候補日は9月18日または25日です。\n\nご確認をお願いいたします。",date:"今日 10:24",unread:true,starred:true,attachment:"イベント概要.pdf",folderName:""},
+        {id:"m1",folder:"inbox",from:"田中 彩",fromAddress:"aya@sender.invalid",to:"info@quickmail.invalid",subject:"次回イベントの登壇について",preview:"来月開催予定のイベントについてご相談があります。",body:"Noroshi ご担当者様\n\n来月開催予定のオンラインイベントについて、登壇をご相談したくご連絡しました。\n候補日は9月18日または25日です。\n\nご確認をお願いいたします。",date:"今日 10:24",unread:true,starred:true,attachment:"イベント概要.pdf",folderName:""},
         {id:"m2",folder:"inbox",from:"佐藤 健",fromAddress:"ken@sender.invalid",to:"info@quickmail.invalid",subject:"資料送付のお礼",preview:"先ほどはありがとうございました。資料も確認できました。",body:"ご担当者様\n\n先ほどはお打ち合わせありがとうございました。\n送付いただいた資料も確認できました。\n\n引き続きよろしくお願いいたします。",date:"昨日 17:08",unread:true,starred:false,attachment:"",folderName:""},
         {id:"m3",folder:"inbox",from:"運営チーム",fromAddress:"office@sender.invalid",to:"support@quickmail.invalid",subject:"会員情報の更新依頼",preview:"登録情報を更新しましたので、ご確認ください。",body:"サポートご担当者様\n\n会員情報の更新をお願いいたします。\n詳細は添付の一覧をご確認ください。",date:"8月25日",unread:false,starred:false,attachment:"会員情報.xlsx",folderName:""},
         {id:"m4",folder:"sent",from:"自分",fromAddress:"info@quickmail.invalid",to:"partner@recipient.invalid",subject:"Re: 連携のご相談",preview:"ご提案ありがとうございます。社内で確認します。",body:"ご提案ありがとうございます。\n内容を社内で確認し、今週中にご連絡します。",date:"8月24日",unread:false,starred:false,attachment:"",folderName:""},
@@ -564,7 +564,7 @@
       ],
       compose: {mode:"new",from:"info@quickmail.invalid",to:"",cc:"",bcc:"",subject:"",body:"",attachments:[],draftId:null},
       settings: {
-        signature:"QuickMailデモ事務局",
+        signature:"Noroshiデモ事務局",
         forwardingDestination:"archive@recipient.invalid",
         forwardingStatus:"pending",
         forwardingAcknowledged:false,
@@ -616,7 +616,7 @@
       const handoff = provider === "Gemini"
         ? "質問文をコピーしたあとGeminiを開くよう端末に要求します。新規チャットへ貼り付けてください。"
         : "質問文をコピーし、新規チャットの入力欄へ受け渡します。内容を確認してから送信してください。";
-      return "QuickMail-jaの導入を支援してください。\n" +
+      return "Noroshiの導入を支援してください。\n" +
         "回答前にCloudflareとResendの最新の公式ドキュメントを確認し、画面名は日本語で説明してください。\n" +
         "BYOK前提です。Cloudflare、Resend、将来のGmail連携で使うGoogle Cloudは利用者自身のアカウントと認証情報を使います。\n" +
         "ブラウザ操作に対応し、利用者が許可した場合だけ公式画面を開いて案内してください。ログイン、MFA、規約同意、秘密値入力、保存・変更操作は利用者へ引き渡してください。\n" +
@@ -1223,7 +1223,7 @@
         '<div class="demo-banner"><span class="demo-dot"></span><span class="demo-copy">非公式の比較デモです。架空データのみを使用し、実際のメールは送受信しません。AI相談は押した時だけ外部サービスを開きます</span>' + profileSwitcher + connectivityToggle + '</div>' +
         '<div class="' + (state.offline ? 'offline-status' : 'sr-only') + '" data-status="connectivity" role="status" aria-live="polite">' + (state.offline ? 'オフラインです。接続が戻るまでメールを送受信できません。' : 'オンラインです。デモ操作を続けられます。') + '</div>' +
         '<aside class="sidebar"' + (state.profile === "calm" ? '' : ' data-pane="navigation"') + ' aria-label="メールメニュー">' +
-          '<div class="brand"><span class="brand-mark">' + icon("mail") + '</span><span>QuickMail-ja</span></div>' +
+          '<div class="brand"><span class="brand-mark">' + icon("mail") + '</span><span>Noroshi</span></div>' +
           '<button class="compose-new" data-action="compose-new">' + icon("edit") + '<span class="compose-label">新規メール</span></button>' +
           '<nav class="nav">' +
             navButton("inbox","受信トレイ","inbox",inboxUnread) +

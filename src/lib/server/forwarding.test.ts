@@ -646,7 +646,7 @@ describe('automatic forwarding data contract', () => {
 			() => setForwardingRuleEnabled(db.db(), 'user-1', result.rule.id, true),
 			(error: unknown) =>
 				error instanceof ForwardingValidationError &&
-				error.message === 'Destination must be outside QuickMail domains'
+				error.message === 'Destination must be outside Noroshi domains'
 		);
 		assert.equal(
 			(await getForwardingRuleForUser(db.db(), 'user-1', result.rule.id))?.status,
@@ -677,7 +677,7 @@ describe('automatic forwarding data contract', () => {
 			() => setForwardingRuleEnabled(db.db(), 'user-1', result.rule.id, true),
 			(error: unknown) =>
 				error instanceof ForwardingValidationError &&
-				error.message === 'Destination must be outside QuickMail domains'
+				error.message === 'Destination must be outside Noroshi domains'
 		);
 		assert.equal(
 			(await getForwardingRuleForUser(db.db(), 'user-1', result.rule.id))?.status,

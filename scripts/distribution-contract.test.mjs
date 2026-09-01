@@ -32,11 +32,11 @@ test('README is Japanese-first and documents the supported operating boundary', 
 	assert.doesNotMatch(readme, /npm install|node scripts\/setup/);
 });
 
-test('release artifact and title use the QuickMail-ja product name', () => {
+test('release artifact and title use the Noroshi product name', () => {
 	const release = read('.github/workflows/release.yml');
-	assert.match(release, /quickmail-ja-\$\{\{ steps\.version\.outputs\.version \}\}\.zip/);
-	assert.match(release, /--prefix="quickmail-ja-/);
-	assert.match(release, /--title "QuickMail-ja /);
+	assert.match(release, /noroshi-mail-\$\{\{ steps\.version\.outputs\.version \}\}\.zip/);
+	assert.match(release, /--prefix="noroshi-mail-/);
+	assert.match(release, /--title "Noroshi /);
 	assert.doesNotMatch(release, /--title "QuickMail /);
 	assert.match(release, /INPUT_TAG: \$\{\{ github\.event\.inputs\.tag \}\}/);
 	assert.match(release, /\^v\[0-9\]\+\\\.\[0-9\]\+\\\.\[0-9\]\+/);
@@ -89,7 +89,7 @@ test('setup Skill has one canonical source and bounded repo adapters', () => {
 	assert.match(canonical, /クリップボードが分離[\s\S]*秘密入力broker/u);
 	assert.match(
 		canonical,
-		/Cloudflare Email Routing Activity、Worker\/D1、Resend、QuickMail-ja UI[\s\S]*configuration fingerprint、MX、TXT[\s\S]*権威DNSと公開DNSリゾルバ/u
+		/Cloudflare Email Routing Activity、Worker\/D1、Resend、Noroshi UI[\s\S]*configuration fingerprint、MX、TXT[\s\S]*権威DNSと公開DNSリゾルバ/u
 	);
 });
 

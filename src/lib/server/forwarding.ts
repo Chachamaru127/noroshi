@@ -229,7 +229,7 @@ async function ensureExternalDestination(
 		source.address.toLowerCase() === destination ||
 		source.domain_name.toLowerCase() === destinationDomainName
 	) {
-		throw new ForwardingValidationError('Destination must be outside QuickMail domains');
+		throw new ForwardingValidationError('Destination must be outside Noroshi domains');
 	}
 
 	const [managedDomain, ownedAddress, loginAddress] = await Promise.all([
@@ -245,7 +245,7 @@ async function ensureExternalDestination(
 	]);
 
 	if (managedDomain || ownedAddress || loginAddress) {
-		throw new ForwardingValidationError('Destination must be outside QuickMail domains');
+		throw new ForwardingValidationError('Destination must be outside Noroshi domains');
 	}
 }
 

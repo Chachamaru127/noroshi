@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# QuickMail-jaの準備: 検証済みBunを確認し、ウィザードを開始します。
+# Noroshiの準備: 検証済みBunを確認し、ウィザードを開始します。
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -18,12 +18,12 @@ has_bun() {
 }
 
 say ""
-say "QuickMail-ja セットアップ"
+say "Noroshi セットアップ"
 say "  Bunと依存パッケージを確認し、ドメイン設定ウィザードを開始します。"
 say ""
 
 if ! has_bun; then
-	warn "Bunがありません。QuickMail-jaはBun 1.3.14を検証済みです。"
+	warn "Bunがありません。NoroshiはBun 1.3.14を検証済みです。"
 	say "  https://bun.sh/docs/installation の公式手順でBun 1.3.14を導入してください。"
 	say "  ダウンロードしたインストーラーは内容と公式checksumを確認し、pipe実行しないでください。"
 	exit 1

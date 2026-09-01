@@ -6,7 +6,7 @@
 </script>
 
 <svelte:head>
-	<title>スター付き — QuickMail-ja</title>
+	<title>スター付き — Noroshi</title>
 </svelte:head>
 
 <MailboxView

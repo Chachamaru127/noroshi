@@ -1,7 +1,7 @@
 {
 	"$schema": "https://json-schema.org/draft/2020-12/schema",
 	"$id": "https://quickmail-ja.example/schemas/source-registry.schema.json",
-	"title": "QuickMail-ja support source registry",
+	"title": "Noroshi support source registry",
 	"type": "object",
 	"additionalProperties": false,
 	"required": [

@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Interactive first-run setup for QuickMail-ja.
+ * Interactive first-run setup for Noroshi.
  *
  * This is the repository's separate interactive CLI, outside the QMJ-10
  * provider-neutral setup-engine contract. It is intentionally not bundled in
@@ -76,7 +76,7 @@ if (args.help) {
 let rl = null;
 
 function printHelp() {
-	console.log(`QuickMail-ja セットアップ
+	console.log(`Noroshi セットアップ
 
 Cloudflareへログインし、D1/R2、設定ファイル、受信・送信経路を準備します。
 受信にはCloudflareで管理するDNSゾーンが必要です。標準の送信はResendです。
@@ -350,7 +350,7 @@ function readMutedLine() {
 
 function readWrangler() {
 	if (!existsSync(wranglerFile)) {
-		throw new Error('wrangler.jsoncがありません。QuickMail-jaのルートから実行してください。');
+		throw new Error('wrangler.jsoncがありません。Noroshiのルートから実行してください。');
 	}
 	return readFileSync(wranglerFile, 'utf8');
 }
@@ -907,7 +907,7 @@ async function main() {
 	await ensureRuntime();
 	if (args.localDev) return runLocalDev();
 
-	log(`\n${c.bold('QuickMail-ja セットアップ')}`);
+	log(`\n${c.bold('Noroshi セットアップ')}`);
 	log(c.dim('  Cloudflare上に独自ドメインのメール環境を作成します。\n'));
 
 	const total = 9;

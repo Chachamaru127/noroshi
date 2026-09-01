@@ -1,4 +1,4 @@
-# QuickMail-ja UI比較計画
+# Noroshi UI比較計画
 
 ## Design Read
 
@@ -21,7 +21,7 @@ Reading this as: 日本語利用者向けセルフホストWebメールの製品
 - 現行の`/inbox`、`/folders/:id`、`/mail/:id`、`/compose`の意味と戻る操作を維持する。
 - semantic token名、Remixicon、日本語ラベル、状態の意味は共通にする。色、font fallback、角丸、密度はprofileが所有し、参照先を判別できる近似にする。
 - 公開表示は`Gmail風`、`Outlook風`、`Thunderbird風`とし、非公式・非提携の比較であることを明示する。製品ロゴ、固有フォント、スクリーンショット、コピーしたassetは使わない。
-- `docs/design/patterns/`の正本は共通visual themeのprimitive/semantic tokenと3つのUI profile deltaに分ける。公式sourceの役割とQuickMail-jaのlocal valueを同じ値として扱わない。
+- `docs/design/patterns/`の正本は共通visual themeのprimitive/semantic tokenと3つのUI profile deltaに分ける。公式sourceの役割とNoroshiのlocal valueを同じ値として扱わない。
 - UI profileのruntime registryは固定ID、公開ラベル、renderer、任意の短い評価説明だけを持つ。pane幅、row高、breakpoint、collapse規則、paletteはDESIGN.mdとCSSに置き、data-driven runtime schemaへ膨らませない。focus semanticsとicon languageは共通にする。
 - 新しい比較案はprofile entry、delta文書、renderer、契約testの追加で完結させる。dynamic plugin、外部profile、remote theme、任意inheritance、productionの利用者別切替は作らない。
 - 比較段階では全案にライト、ダーク、モバイル、キーボード、スクリーンリーダー、`prefers-reduced-motion`の代表経路を用意する。全状態の完成責任は選定案の本番統合へ移す。

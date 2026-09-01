@@ -1,12 +1,14 @@
-# QuickMail-ja
+# Noroshi
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE.md)
 
-QuickMail-jaは、独自ドメインのメールを自分のCloudflare環境で管理する、日本語固定UIのセルフホスト型Webメールです。受信メール、送信履歴、添付ファイルを自分のCloudflareアカウントに保存します。
+Noroshiは、独自ドメインのメールを自分のCloudflare環境で管理する、日本語固定UIのセルフホスト型Webメールです。受信メール、送信履歴、添付ファイルを自分のCloudflareアカウントに保存します。
 
-**導入はBYOK（Bring Your Own Key / Account）です。** Cloudflare、Resend、将来提供するGmailコネクターのGoogle Cloudは、利用者自身のアカウントと認証情報を使います。QuickMail-ja共通のAPIキーやOAuth Clientは配布しません。アカウント、利用料金、保存データ、認証情報は利用者が管理します。
+名前は、離れた相手へ合図を届けた「狼煙」に由来します。忍者のイメージは控えめな意匠に留め、メール製品であることを優先します。検索・リポジトリの正式なslugは`noroshi-mail`です。
 
-QuickMail-jaの公開リポジトリのURLは未設定です。そのため、リモートインストーラーやクリック可能なDeployボタンは提供していません。現在は、このソース一式を入手した環境でセットアップしてください。
+**導入はBYOK（Bring Your Own Key / Account）です。** Cloudflare、Resend、将来提供するGmailコネクターのGoogle Cloudは、利用者自身のアカウントと認証情報を使います。Noroshi共通のAPIキーやOAuth Clientは配布しません。アカウント、利用料金、保存データ、認証情報は利用者が管理します。
+
+Noroshiの公開リポジトリのURLは未設定です。そのため、リモートインストーラーやクリック可能なDeployボタンは提供していません。現在は、このソース一式を入手した環境でセットアップしてください。
 
 ## Cloudflareへの展開
 
@@ -14,14 +16,14 @@ QuickMail-jaの公開リポジトリのURLは未設定です。そのため、�
 
 **公開準備中 — 現在のバナーはクリックできません。**
 
-Cloudflare公式の[Deploy to Cloudflareボタン](https://developers.cloudflare.com/workers/platform/deploy-buttons/)は、公開されたGitHubまたはGitLabリポジトリからWorkerを複製し、D1やR2など対応リソースの作成と紐付け、ビルド、デプロイを開始する仕組みです。QuickMail-jaの公開リポジトリURLとリリース承認が揃った後だけ有効にします。非公開リポジトリ、元の英語版、復旧用リポジトリは導入元にしません。
+Cloudflare公式の[Deploy to Cloudflareボタン](https://developers.cloudflare.com/workers/platform/deploy-buttons/)は、公開されたGitHubまたはGitLabリポジトリからWorkerを複製し、D1やR2など対応リソースの作成と紐付け、ビルド、デプロイを開始する仕組みです。Noroshiの公開リポジトリURLとリリース承認が揃った後だけ有効にします。非公開リポジトリ、元の英語版、復旧用リポジトリは導入元にしません。
 
 **デプロイ完了とメール開通は別です。** Workerの展開後も、次の作業が残ります。
 
 1. Resendへ送信用ドメインと送信用DNSを設定
 2. Cloudflare Email Routingを有効化
 3. Cloudflareが指定した受信用MXだけを設定
-4. `Catch-all → Send to a Worker`でQuickMail-jaを選択
+4. `Catch-all → Send to a Worker`でNoroshiを選択
 5. Resend送信キー、Webhook署名、セットアップキーなどのシークレットを安全に登録
 6. D1マイグレーションを適用
 7. `/setup`で最初の管理者を作成し、送受信を個別に確認
@@ -30,7 +32,7 @@ Cloudflare公式の[Deploy to Cloudflareボタン](https://developers.cloudflare
 
 | 導線                          | できること                                                                                | 現在の状態                                                       |
 | ----------------------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| AIに相談（提供中）            | 質問文をChatGPT、Claude、Geminiの新規チャットへ渡し、日本語の説明を受ける                 | QuickMail-ja、Cloudflare、Resendを読む・変更する権限はありません |
+| AIに相談（提供中）            | 質問文をChatGPT、Claude、Geminiの新規チャットへ渡し、日本語の説明を受ける                 | Noroshi、Cloudflare、Resendを読む・変更する権限はありません |
 | Setup Skill（ローカル提供中） | BYOKの担当範囲、公式画面、確認項目、人間へ引き渡す操作をAIへ教える再利用可能な手順書      | 案内専用。外部設定の作成・保存・変更は行いません                 |
 | Setup MCP（将来・未提供）     | 許可された確認・設定だけをツールとして実行し、1操作ごとに対象、差分、戻し方を確認する予定 | 公開前の安全強化とクライアント別検証が必要です                   |
 
@@ -77,12 +79,12 @@ codex plugin list
 
 ## AIに質問
 
-AI相談ボタンは、サーバーやQuickMail-jaのAPIキーを使わず、画面に表示した質問文をChatGPT、Claude、Geminiへ渡す補助機能です。各ボタンを押すと質問文のクリップボードへのコピーを開始し、対応するHTTPSページを新しいタブで開きます。
+AI相談ボタンは、サーバーやNoroshiのAPIキーを使わず、画面に表示した質問文をChatGPT、Claude、Geminiへ渡す補助機能です。各ボタンを押すと質問文のクリップボードへのコピーを開始し、対応するHTTPSページを新しいタブで開きます。
 
 - ChatGPTとClaudeは、質問文を`q`パラメータにも入れて事前入力を試みます。
 - GeminiはWebページを開き、コピーした質問文を利用者が貼り付けます。
 - 事前入力やクリップボードは、ブラウザの仕様、権限、ログイン状態によって利用できない場合があります。画面には質問文を選択できる形で残します。
-- 端末やOSの関連付けによって、インストール済みアプリまたはブラウザで開く場合があります。QuickMail-jaは起動先を保証せず、独自URLスキームも使いません。
+- 端末やOSの関連付けによって、インストール済みアプリまたはブラウザで開く場合があります。Noroshiは起動先を保証せず、独自URLスキームも使いません。
 - 質問文は自動送信しません。利用者が内容と送信先を確認し、AIの入力欄から送信します。
 
 AIには、回答するたびに公式ドキュメントを実際に開き、確認日と参照URLを示すよう依頼します。AIの記憶や検索結果の要約だけを設定根拠にはしません。入口として使う公式案内は、[ChatGPT Help Center](https://help.openai.com/en/articles/12677804-what-is-chatgpt-faq)、[Claude Help Center](https://support.claude.com/en/articles/8114491-get-started-with-claude)、[Gemini Apps Help](https://support.google.com/gemini/answer/13275745?hl=ja)です。各サービスの画面や利用条件は変更されるため、回答内容を確認してから作業してください。
@@ -92,10 +94,10 @@ AIには、回答するたびに公式ドキュメントを実際に開き、確
 - デプロイ完了とメール開通は別です。Workerの配置だけでは送受信できません。
 - Cloudflareのapex MXは受信用です。ResendのReturn-Path用MXは送信用サブドメインに置きます。
 - Resend Receivingは有効にしません。受信はCloudflare Email Routingを使います。
-- Email RoutingのCatch-allは、QuickMail-ja Workerへ接続するまで受信を保存しません。
+- Email RoutingのCatch-allは、Noroshi Workerへ接続するまで受信を保存しません。
 - セットアップキーは最初の管理者作成に使う一回限りの秘密値です。
 
-質問文はブラウザ履歴や利用中のAIサービスに保存される場合があります。**APIキー、パスワード、メール本文、DNS値、アカウントID、個人情報は入力しないでください。** ChatGPT、Claude、Gemini、Cloudflare、ResendとQuickMail-jaは提携・公式サポート関係にありません。各サービスの回答、保存、利用条件はそれぞれの提供元に従います。
+質問文はブラウザ履歴や利用中のAIサービスに保存される場合があります。**APIキー、パスワード、メール本文、DNS値、アカウントID、個人情報は入力しないでください。** ChatGPT、Claude、Gemini、Cloudflare、ResendとNoroshiは提携・公式サポート関係にありません。各サービスの回答、保存、利用条件はそれぞれの提供元に従います。
 
 ## 構成
 
@@ -200,7 +202,7 @@ bun run db:migrate:remote
 bun run deploy
 ```
 
-デプロイ後、Cloudflare Email Routingで対象ドメインを有効化します。受信用MXを設定し、`Catch-all → Send to a Worker`でデプロイしたQuickMail-ja Workerを選びます。Catch-allをWorkerへ接続するまで受信メールはQuickMail-jaに入りません。
+デプロイ後、Cloudflare Email Routingで対象ドメインを有効化します。受信用MXを設定し、`Catch-all → Send to a Worker`でデプロイしたNoroshi Workerを選びます。Catch-allをWorkerへ接続するまで受信メールはNoroshiに入りません。
 
 ローカル開発では次の手順を使います。
 
@@ -224,7 +226,7 @@ bun run setup -- --local-dev --domain example.com
 
 1. Cloudflareが表示した受信用MXレコードをapexへ設定
 2. Catch-allを有効化
-3. `Catch-all → Send to a Worker`でQuickMail-jaのWorkerを選択
+3. `Catch-all → Send to a Worker`でNoroshiのWorkerを選択
 4. 外部アドレスから受信テスト
 
 apexの受信用MXはCloudflareが表示した値だけにします。以前のメールサービスのMXを混在させると、配信先は保証されません。切り替え前に既存DNSを保存してください。
@@ -242,14 +244,14 @@ Webhookの対象イベントは`email.sent`、`email.delivered`、`email.bounced
 
 ## コスト
 
-QuickMail-ja自体はMITライセンスで無料です。実費は利用者自身のCloudflare、Resend、ドメイン契約に発生します。
+Noroshi自体はMITライセンスで無料です。実費は利用者自身のCloudflare、Resend、ドメイン契約に発生します。
 
 - Cloudflare Email Routingは無料で利用できます。
 - Workers、D1、R2は各無料枠があります。メール件数、Worker実行数、D1読み書き、R2保存量・操作数が枠を超えるとCloudflare側の課金対象です。
 - Resendには無料枠と有料枠があります。送信通数、ドメイン数、ログ保持などは契約プランに従います。
 - ドメインの取得・更新費用はレジストラに発生します。
 
-無料枠や料金は変更されるため、公開前に[Cloudflare料金](https://www.cloudflare.com/plans/developer-platform/)と[Resend料金](https://resend.com/pricing)を確認してください。QuickMail-jaは利用量の上限設定や請求代行を行いません。
+無料枠や料金は変更されるため、公開前に[Cloudflare料金](https://www.cloudflare.com/plans/developer-platform/)と[Resend料金](https://resend.com/pricing)を確認してください。Noroshiは利用量の上限設定や請求代行を行いません。
 
 公開前にCloudflareのWorkers、D1、R2について利用量通知または料金アラートを設定し、Resendでも契約プランで利用できる送信量・費用通知を設定してください。無料枠は常に課金を止める上限とは限りません。設定名と提供条件は変わるため、各社の公式ドキュメントと現在のダッシュボードを確認してください。
 
@@ -307,7 +309,7 @@ APIキー、Resendキー、Webhook署名、セットアップキーなどのシ�
 
 ## 更新
 
-公開リポジトリのURLが未設定のため、現時点では自動更新や正式なリリース配布はありません。入手元から新しいソース一式を受け取り、差分を確認して更新します。公開後はQuickMail-ja専用のリリースURLをREADMEへ追加します。元の英語版をQuickMail-jaとして導入するリンクは掲載しません。
+公開リポジトリのURLが未設定のため、現時点では自動更新や正式なリリース配布はありません。入手元から新しいソース一式を受け取り、差分を確認して更新します。公開後はNoroshi専用のリリースURLをREADMEへ追加します。元の英語版をNoroshiとして導入するリンクは掲載しません。
 
 更新手順:
 
@@ -330,30 +332,32 @@ git switch -c sync-upstream-YYYYMMDD
 git log --oneline HEAD..upstream/main
 ```
 
-上流の変更をQuickMail-jaの日本語UI、受信・送信構成、テストに再適用し、全検証後に取り込みます。特定環境のドメイン、リソースID、バックアップ、運用ログ、秘密値は個別の下流リポジトリにだけ置き、QuickMail-jaへ戻しません。
+上流の変更をNoroshiの日本語UI、受信・送信構成、テストに再適用し、全検証後に取り込みます。特定環境のドメイン、リソースID、バックアップ、運用ログ、秘密値は個別の下流リポジトリにだけ置き、Noroshiへ戻しません。
 
 ## API・CLI・MCP
 
 ユーザーは設定画面でAPIキーを作成できます。キーは`mail:read`、`mail:send`、管理権限のスコープを持ちます。生のキーは1回だけ表示され、D1にはSHA-256ハッシュだけを保存します。
 
 ```bash
-bun run quickmail -- login --url https://mail.example.com --token <APIキー>
-bun run quickmail -- inbox
-bun run quickmail -- send --to recipient@example.net --subject "確認" --body "本文"
+bun run noroshi -- login --url https://mail.example.com --token <APIキー>
+bun run noroshi -- inbox
+bun run noroshi -- send --to recipient@example.net --subject "確認" --body "本文"
 ```
+
+旧`bun run quickmail`コマンド、`QUICKMAIL_URL`、`QUICKMAIL_TOKEN`、`QUICKMAIL_CONFIG`、旧`~/.config/quickmail/config.json`の読み取りは、少なくとも次のメジャー版まで維持します。新規設定では`NOROSHI_URL`、`NOROSHI_TOKEN`、`NOROSHI_CONFIG`と`~/.config/noroshi/config.json`を使います。
 
 公開リポジトリURLができるまでは、このソースツリーからCLIとMCPを起動します。
 
 ```json
 {
 	"mcpServers": {
-		"quickmail-ja": {
+		"noroshi": {
 			"command": "bun",
-			"args": ["run", "quickmail", "--", "mcp"],
-			"cwd": "/path/to/QuickMail-ja",
+			"args": ["run", "noroshi", "--", "mcp"],
+			"cwd": "/path/to/Noroshi",
 			"env": {
-				"QUICKMAIL_URL": "https://mail.example.com",
-				"QUICKMAIL_TOKEN": "qm_live_xxxx"
+				"NOROSHI_URL": "https://mail.example.com",
+				"NOROSHI_TOKEN": "qm_live_xxxx"
 			}
 		}
 	}
@@ -378,4 +382,4 @@ bun run quickmail -- send --to recipient@example.net --subject "確認" --body "
 
 MIT Licenseです。原文は[LICENSE.md](LICENSE.md)を参照してください。
 
-QuickMail-jaは[DivinPrince/quickmail](https://github.com/DivinPrince/quickmail)を上流として、日本語UIとセルフホスト運用機能を追加した派生版です。上流の著作権表示とMITライセンスを維持します。このリンクは由来とライセンスの明示であり、QuickMail-jaのインストール先ではありません。
+Noroshi（旧QuickMail-ja）は[DivinPrince/quickmail](https://github.com/DivinPrince/quickmail)を上流として、日本語UIとセルフホスト運用機能を追加した派生版です。上流の著作権表示とMITライセンスを維持します。このリンクは由来とライセンスの明示であり、Noroshiのインストール先ではありません。

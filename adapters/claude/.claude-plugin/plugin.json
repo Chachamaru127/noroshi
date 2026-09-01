@@ -1,9 +1,9 @@
 {
 	"name": "quickmail-ja-setup",
 	"version": "1.0.0",
-	"description": "QuickMail-jaのBYOK導入計画をQMJ-10契約に沿って確認するClaude用アダプター。",
+	"description": "NoroshiのBYOK導入計画をQMJ-10契約に沿って確認するClaude用アダプター。",
 	"author": {
-		"name": "QuickMail-ja"
+		"name": "Noroshi"
 	},
 	"license": "MIT"
 }

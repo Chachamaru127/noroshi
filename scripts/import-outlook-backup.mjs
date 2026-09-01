@@ -9,7 +9,7 @@ const domainName = requiredArg('--domain', '例: --domain example.com');
 const plan = await buildOutlookImportPlan({ backupDir, stagingDir, mailboxAddress, domainName });
 console.log(JSON.stringify(plan.summary, null, 2));
 console.log(`\nドライランです。監査用manifestを ${stagingDir} に生成しました。`);
-console.log('本番反映はQuickMail-jaの管理画面から行います。');
+console.log('本番反映はNoroshiの管理画面から行います。');
 
 function readArg(name) {
 	const index = process.argv.indexOf(name);

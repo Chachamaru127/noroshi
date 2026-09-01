@@ -4,7 +4,7 @@
 
 ただし、OpenAI Codex CLIのローカルmarketplaceは別のネイティブ配布面である。現行の公式ドキュメントは、プラグイン側に `.codex-plugin/plugin.json` と、必要に応じてルートの `.mcp.json` を置き、marketplace側に `.agents/plugins/marketplace.json` を置く形式を定義している。リポジトリにはこの形式のadapterを `.agents/plugins/quickmail-ja-setup/` として同梱し、portable packageとは別の配布経路にしている。
 
-このファイルはプロバイダー接続アダプターではない。Cloudflare、Resend、DNS、メールボックス、QuickMail管理のツールや認証情報を追加しない。cloneだけでインストールされる、またはすべてのChatGPT画面で利用できるとは主張しない。
+このファイルはプロバイダー接続アダプターではない。Cloudflare、Resend、DNS、メールボックス、Noroshi管理のツールや認証情報を追加しない。cloneだけでインストールされる、またはすべてのChatGPT画面で利用できるとは主張しない。
 
 リポジトリの `scripts/setup.mjs` はAgent Pluginのallowlistに含めない別の対話型CLIであり、plugin/MCPの自動実行経路から切り離す。`setup_apply` はprovider adapter unavailableのまま停止する。
 

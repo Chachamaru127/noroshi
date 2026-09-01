@@ -84,7 +84,7 @@ describe('AI support prompt boundary', () => {
 			'MXレコードはどこで確認しますか？',
 			REVIEW_DAY_CLOCK
 		);
-		assert.match(prompt, /^\[QuickMail-ja Support v2\]/);
+		assert.match(prompt, /^\[Noroshi Support v2\]/);
 		assert.match(prompt, /手順ID: email-routing/);
 		assert.match(prompt, /公式ドキュメントを実際に開いて最新内容を確認してください/);
 		assert.match(prompt, /AIの記憶や検索結果の要約だけで回答しないでください/);

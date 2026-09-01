@@ -42,7 +42,7 @@ test('Codex native marketplace and plugin manifests stay in the official shape',
 	const mcp = readJson(nativeMcpPath);
 
 	assert.equal(marketplace.name, 'quickmail-ja');
-	assert.equal(marketplace.interface.displayName, 'QuickMail-ja');
+	assert.equal(marketplace.interface.displayName, 'Noroshi');
 	assert.equal(marketplace.plugins.length, 1);
 	const entry = marketplace.plugins[0];
 	assert.equal(entry.name, 'quickmail-ja-setup');

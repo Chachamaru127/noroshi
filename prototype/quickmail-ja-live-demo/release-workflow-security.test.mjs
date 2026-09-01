@@ -101,4 +101,4 @@ try {
 	fs.rmSync(sandbox, { recursive: true });
 }
 
-console.log('QuickMail-ja trusted release workflow boundary: PASS');
+console.log('Noroshi trusted release workflow boundary: PASS');

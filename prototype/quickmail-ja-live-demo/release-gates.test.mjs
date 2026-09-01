@@ -132,4 +132,4 @@ assert.throws(
 	/reviewedAt must not predate reviewedCommit/u
 );
 
-console.log('QuickMail-ja release receipt validators: PASS');
+console.log('Noroshi release receipt validators: PASS');

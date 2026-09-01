@@ -19,7 +19,7 @@
 
 ## 固定境界
 
-- 受信はCloudflare Email RoutingからQuickMail-ja Workerの`email()`へ渡す。
+- 受信はCloudflare Email RoutingからNoroshi Workerの`email()`へ渡す。
 - 送信はResend APIを使う。
 - Resend Receivingを有効にしない。Resendの受信用MXをapexへ追加しない。
 - Workerのデプロイ完了とメール開通は別である。
@@ -32,7 +32,7 @@
 
 ## 今回含めない機能
 
-MBOX、IMAP、自動返信、List-Unsubscribeは別提案へ延期する。共有受信箱、WebSocket、カレンダー、自己更新、Cloudflare Email Serviceによる外部送信はQuickMail-jaの現行導入構成へ採用しない。外部送信はResendのまま維持する。
+MBOX、IMAP、自動返信、List-Unsubscribeは別提案へ延期する。共有受信箱、WebSocket、カレンダー、自己更新、Cloudflare Email Serviceによる外部送信はNoroshiの現行導入構成へ採用しない。外部送信はResendのまま維持する。
 
 ## 画面案内の終点
 

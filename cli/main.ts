@@ -9,39 +9,40 @@ import {
 } from './client.ts';
 import { clearConfig, loadConfig, saveConfig } from './config.ts';
 
-const HELP = `quickmail — operate a QuickMail-ja instance from the terminal
+const HELP = `noroshi — operate a Noroshi instance from the terminal
 
 Usage:
-  quickmail login --url <https://mail.example.com> --token <qm_live_…>
-  quickmail logout
-  quickmail whoami
+  noroshi login --url <https://mail.example.com> --token <qm_live_…>
+  noroshi logout
+  noroshi whoami
 
 Mail:
-  quickmail inbox [--page N] [--unread] [--domain ID]
-  quickmail search <query> [--view inbox|sent|drafts|starred|trash]
-  quickmail read <thread-or-message-id>
-  quickmail send --to <addr> --subject <text> [--body <text>] [--from <address-id>]
-  quickmail reply <id> [--body <text>]
-  quickmail attachments <id>
-  quickmail download <email-id> <attachment-id> [--out file]
+  noroshi inbox [--page N] [--unread] [--domain ID]
+  noroshi search <query> [--view inbox|sent|drafts|starred|trash]
+  noroshi read <thread-or-message-id>
+  noroshi send --to <addr> --subject <text> [--body <text>] [--from <address-id>]
+  noroshi reply <id> [--body <text>]
+  noroshi attachments <id>
+  noroshi download <email-id> <attachment-id> [--out file]
 
 Admin:
-  quickmail users list
-  quickmail users create --name <name> --local <part> --domain <id> --password <pw>
-  quickmail users delete <id>
-  quickmail users passwd <id-or-email> --password <pw>
-  quickmail domains list
-  quickmail domains connect <id>
-  quickmail domains disconnect <id>
-  quickmail addresses list [--all]
-  quickmail addresses create --local <part> --domain <id> [--user <id>]
-  quickmail unrouted
+  noroshi users list
+  noroshi users create --name <name> --local <part> --domain <id> --password <pw>
+  noroshi users delete <id>
+  noroshi users passwd <id-or-email> --password <pw>
+  noroshi domains list
+  noroshi domains connect <id>
+  noroshi domains disconnect <id>
+  noroshi addresses list [--all]
+  noroshi addresses create --local <part> --domain <id> [--user <id>]
+  noroshi unrouted
 
 MCP:
-  quickmail mcp
+  noroshi mcp
 
-Auth is a Settings → API keys bearer token. QUICKMAIL_URL and QUICKMAIL_TOKEN
-override the saved config. Use --json on mail/admin commands for raw output.
+Auth is a Settings → API keys bearer token. NOROSHI_URL and NOROSHI_TOKEN are
+canonical; QUICKMAIL_URL and QUICKMAIL_TOKEN remain supported aliases. Use
+--json on mail/admin commands for raw output.
 `;
 
 type Flags = Record<string, string | boolean>;
@@ -186,12 +187,15 @@ async function run(argv: string[]): Promise<number> {
 	switch (head) {
 		case 'login': {
 			const url = flagString(flags, 'url');
-			const token = flagString(flags, 'token') ?? process.env.QUICKMAIL_TOKEN;
+			const token =
+				flagString(flags, 'token') ?? process.env.NOROSHI_TOKEN ?? process.env.QUICKMAIL_TOKEN;
 			if (!url) {
 				throw new Error('login requires --url');
 			}
 			if (!token) {
-				throw new Error('login requires --token or QUICKMAIL_TOKEN (create a key in Settings → API keys)');
+				throw new Error(
+					'login requires --token, NOROSHI_TOKEN, or QUICKMAIL_TOKEN (create a key in Settings → API keys)'
+				);
 			}
 			const client = new QuickMailClient(url, token);
 			const user = await client.whoami();
@@ -348,7 +352,7 @@ async function run(argv: string[]): Promise<number> {
 					(message.includes('mcp') || message.includes('@modelcontextprotocol/sdk'))
 				) {
 					throw new Error(
-						'MCP dependencies are not installed. Run `bun install` in the QuickMail-ja source directory and try again.'
+						'MCP dependencies are not installed. Run `bun install` in the Noroshi source directory and try again.'
 					);
 				}
 				throw error;

@@ -1,12 +1,12 @@
 # UI比較パターンの出典と採用境界
 
 - 検証日: 2026-08-27
-- 対象: QuickMail-ja の開発用比較デモ
+- 対象: Noroshi の開発用比較デモ
 - 正本: 共通の見た目は `base.DESIGN.md`、構造差は各 profile の `*.DESIGN.md`
 
 ## 参照する公式ソース
 
-| 公式ソース | 参照する役割・原則 | QuickMail-jaへ取り込まないもの |
+| 公式ソース | 参照する役割・原則 | Noroshiへ取り込まないもの |
 |---|---|---|
 | [Fluent 2 Design tokens](https://fluent2.microsoft.design/design-tokens) | global / alias token、light/dark theme、青系accentの役割 | proprietary font、製品asset、実装package |
 | [Fluent Nav](https://fluent2.microsoft.design/components/web/react/core/nav/usage) | 業務用ナビゲーションの階層と選択状態 | React component、Microsoft固有の外観 |
@@ -14,11 +14,11 @@
 | [Fluent List](https://fluent2.microsoft.design/components/web/react/core/list/usage/) | 高密度リストの情報階層 | component code、token値 |
 | [Material 3 canonical layouts](https://m3.material.io/foundations/layout/canonical-examples/overview) | canonical layoutとlist-detailの幅別適応 | Material Web、Google固有の色・形・asset |
 | [Thunderbird Mail front-end](https://developer.thunderbird.net/thunderbird-development/codebase-overview/mail-front-end) | folder / thread / messageの3ペイン構造、desktop密度 | Thunderbirdロゴ、製品固有icon、XUL asset |
-| [Thunderbird Bolt Design System](https://github.com/thunderbird/bolt-design-system) | 公式design systemが発展途上であることの確認、語彙の参考 | 未確立tokenをQuickMail-jaの正本として採用すること |
+| [Thunderbird Bolt Design System](https://github.com/thunderbird/bolt-design-system) | 公式design systemが発展途上であることの確認、語彙の参考 | 未確立tokenをNoroshiの正本として採用すること |
 
-公式ソースから借りるのは、情報構造とcomponentの役割だけである。値、asset、実装はQuickMail-jaが所有する。
+公式ソースから借りるのは、情報構造とcomponentの役割だけである。値、asset、実装はNoroshiが所有する。
 
-## QuickMail-jaが所有する値
+## Noroshiが所有する値
 
 | 領域 | 正本 | 所有する内容 |
 |---|---|---|

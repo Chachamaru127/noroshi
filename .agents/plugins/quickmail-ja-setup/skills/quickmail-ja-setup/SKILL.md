@@ -1,19 +1,19 @@
 ---
 name: quickmail-ja-setup
-description: QuickMail-jaを利用者自身のCloudflare、Resend、Google Cloud認証情報で導入する際に、公式画面を日本語で案内する。メール本文の操作やプロバイダー設定の自動変更には使わない。
+description: Noroshiを利用者自身のCloudflare、Resend、Google Cloud認証情報で導入する際に、公式画面を日本語で案内する。メール本文の操作やプロバイダー設定の自動変更には使わない。
 metadata:
-  short-description: QuickMail-jaのBYOK導入を日本語で案内
+  short-description: NoroshiのBYOK導入を日本語で案内
 ---
 
-# QuickMail-ja Setup
+# Noroshi Setup
 
-QuickMail-jaのBYOK（Bring Your Own Key / Account）導入を支援する。QuickMail-ja運営者の共通認証情報は使わず、利用者が所有するCloudflare、Resend、必要に応じてGoogle Cloudのプロジェクトと認証情報を使う。
+NoroshiのBYOK（Bring Your Own Key / Account）導入を支援する。Noroshi運営者の共通認証情報は使わず、利用者が所有するCloudflare、Resend、必要に応じてGoogle Cloudのプロジェクトと認証情報を使う。
 
 ## 最初に確認すること
 
 1. 利用目的を区別する。
    - 独自ドメイン: Cloudflare Email Routing受信、Resend送信。
-   - Gmail連携: 利用中のQuickMail-jaにGmailコネクターが実装済みの場合だけ案内する。未実装ならGoogle Cloud設定を始めず、利用できないと説明する。
+   - Gmail連携: 利用中のNoroshiにGmailコネクターが実装済みの場合だけ案内する。未実装ならGoogle Cloud設定を始めず、利用できないと説明する。
 2. 利用者が各サービスのアカウント、ドメイン、料金、保存データを所有・管理することを説明する。
 3. 回答時点の公式ドキュメントを実際に開き、確認日とURLを示す。記憶だけで画面名や値を断定しない。
 4. [references/setup-patterns.json](references/setup-patterns.json)から該当段階だけを読む。このファイルはリポジトリのレビュー済みKnowledge Packから生成された、導入・疎通確認用の限定版である。Patternの`review_by`を過ぎていたら具体的な変更手順に使わない。リポジトリ内で`support/knowledge/patterns.json`も読める場合は、版と確認期限の差を照合し、新しい正本があればそちらの該当Patternを使う。
@@ -47,7 +47,7 @@ QuickMail-jaのBYOK（Bring Your Own Key / Account）導入を支援する。Qui
 3. 公式資料と現在画面を照合し、次の一操作だけを説明する。
 4. 利用者の操作後、画面上の状態を読み返す。成功と推測せず、表示された状態を報告する。
 5. 受信、送信、Gmail連携は別々に確認する。実メール送信は、利用者がその送信を個別に承認した場合だけ扱う。
-6. 初回疎通のメール証拠は同じ非秘密canaryをCloudflare Email Routing Activity、Worker/D1、Resend、QuickMail-ja UIで突合する。canary tokenは`canary-`で始まる12〜72文字の小文字英数字とハイフンだけとし、secret、password、api-key、bearer、tokenを含む値は証拠へ取り込まない。DNS証拠は同じドメイン、configuration fingerprint、MX、TXTを権威DNSと公開DNSリゾルバで突合する。provider画面1か所だけで完了としない。
+6. 初回疎通のメール証拠は同じ非秘密canaryをCloudflare Email Routing Activity、Worker/D1、Resend、Noroshi UIで突合する。canary tokenは`canary-`で始まる12〜72文字の小文字英数字とハイフンだけとし、secret、password、api-key、bearer、tokenを含む値は証拠へ取り込まない。DNS証拠は同じドメイン、configuration fingerprint、MX、TXTを権威DNSと公開DNSリゾルバで突合する。provider画面1か所だけで完了としない。
 
 ## 秘密情報
 

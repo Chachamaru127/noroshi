@@ -110,7 +110,7 @@
 </script>
 
 <svelte:head>
-	<title>初期設定 — QuickMail-ja</title>
+	<title>初期設定 — Noroshi</title>
 </svelte:head>
 
 <WizardShell
@@ -126,7 +126,7 @@
 	current={step}
 	partner={step === 1}
 	partnerKind={data.providerKind}
-	partnerCaption={`QuickMail-ja + ${providerName(data.providerKind)}`}
+	partnerCaption={`Noroshi + ${providerName(data.providerKind)}`}
 >
 	{#if step === 1}
 		{#if !data.providerConfigured}
