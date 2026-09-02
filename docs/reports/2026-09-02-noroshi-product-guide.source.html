@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="__LOGO__">
+<title>Noroshi | 自分のドメインで、読む。返す。整理する。</title>
+<style>
+:root{
+  --bg:#F5F4F1; --surface:#FCFBF9; --surface-2:#F0EFEA;
+  --ink:#1B1B22; --ink-soft:#5A5A64; --ink-faint:#8C8C92;
+  --line:#E4E2DB; --line-strong:#D2CFC6;
+  --primary:#313A7E; --primary-soft:#E9EAF4; --primary-ink:#262E66;
+  --kernel:#191B2C; --kernel-2:#23263c; --kernel-line:#343750; --kernel-ink:#C9CBE0;
+  --done:#2F8F5B; --done-soft:#E4F2EA; --done-line:#B7DCC7;
+  --wip:#B8821C; --wip-soft:#F6EDD8;
+  --risk:#B5462F; --risk-soft:#F6E7E2; --risk-line:#E5C0B4;
+  --info:#2C5A7A; --info-soft:#E3ECF1;
+  --plain:#1f7a6d; --plain-soft:#E1F1EE; --plain-line:#BBE0D9;
+  --accent:#8FA0FF;
+  --radius:12px;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.9;word-break:normal;overflow-wrap:anywhere;font-size:15px}
+a{color:var(--primary);text-decoration:none}
+a:hover{text-decoration:underline}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px 80px}
+code{font-family:var(--mono);font-size:12.5px;background:var(--surface-2);padding:1px 6px;border-radius:4px}
+p{margin-bottom:10px}
+ul,ol{margin:6px 0 12px 1.4em}
+li{margin-bottom:5px}
+
+/* hero */
+.hero{background:radial-gradient(1200px 500px at 20% -10%,#2E3466 0%,transparent 60%),linear-gradient(135deg,var(--kernel),var(--kernel-2));color:#fff;padding:56px 24px 40px;text-align:center}
+.hero .inner{max-width:900px;margin:0 auto}
+.hero .logo{width:300px;max-width:80%;height:auto;margin:0 auto 20px;display:block;background:#fff;padding:14px 26px;border-radius:16px;box-shadow:0 12px 32px rgba(0,0,0,.35)}
+.hero h1{font-size:34px;letter-spacing:.02em;line-height:1.3;margin-bottom:8px;font-family:var(--mono);font-weight:700}
+.hero .tag{color:var(--kernel-ink);font-size:16px;margin-bottom:18px}
+.pills{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:22px}
+.pill{display:inline-flex;align-items:center;font-size:11.5px;letter-spacing:.03em;border-radius:6px;overflow:hidden;border:1px solid rgba(255,255,255,.18);font-family:var(--mono)}
+.pill .k{background:rgba(255,255,255,.12);padding:3px 8px;color:#DFE1F0}
+.pill .v{padding:3px 8px;color:#fff;font-weight:700}
+.pill.green .v{background:#2F8F5B}.pill.blue .v{background:#3E4A9F}.pill.purple .v{background:#6B4AA0}.pill.orange .v{background:#B8821C}.pill.red .v{background:#B5462F}.pill.cyan .v{background:#1E88A8}
+.thesis{border-left:4px solid var(--accent);background:rgba(255,255,255,.07);padding:14px 18px;border-radius:8px;font-size:15px;line-height:1.9;text-align:left;margin:0 auto 22px;max-width:820px}
+.cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.btn{display:inline-block;padding:10px 20px;border-radius:8px;font-weight:700;font-size:14px;border:1px solid transparent}
+.btn.primary{background:#fff;color:var(--kernel)}
+.btn.ghost{border-color:rgba(255,255,255,.35);color:#fff}
+.hero-meta{margin-top:18px;font-size:12px;color:#9FA3C0}
+
+/* loop */
+.loopwrap{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin:-26px auto 40px;max-width:940px;box-shadow:0 10px 30px rgba(25,27,44,.10)}
+.loopwrap img{width:100%;height:auto;display:block;border-radius:8px}
+/* 節内の説明図の受け皿 (loopwrap の非重なり版)。設計契約は references/dynamic-visualization.md */
+.flowfig{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px;margin:14px 0 18px}
+.flowfig img{width:100%;height:auto;display:block;border-radius:8px}
+
+/* sections */
+section{margin-bottom:56px}
+.kicker{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--primary);font-weight:700;margin-bottom:6px}
+h2{font-size:24px;margin-bottom:12px;line-height:1.4}
+h3{font-size:16px;margin:20px 0 8px;color:var(--primary-ink)}
+.lead{font-size:15.5px;color:var(--ink-soft);margin-bottom:18px;max-width:820px}
+.plainbox{background:var(--plain-soft);border:1px solid var(--plain-line);border-radius:var(--radius);padding:16px 18px;margin-bottom:16px}
+.plainbox .lbl{font-size:12px;font-weight:700;color:var(--plain);margin-bottom:6px}
+
+/* grid cards */
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}.g3{grid-template-columns:repeat(3,minmax(0,1fr))}.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.grid>*,.stat>*,.layers>*,.chain>*,.links>*{min-width:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;font-size:13.5px}
+.card .ic{font-size:22px;margin-bottom:6px;line-height:1}
+.card .t{font-weight:700;font-size:15px;margin-bottom:6px;color:var(--ink)}
+.card .cmd{display:inline-block;font-family:var(--mono);font-size:12.5px;background:var(--primary-soft);color:var(--primary-ink);padding:2px 8px;border-radius:6px;margin-bottom:8px}
+.card .d{color:var(--ink-soft)}
+.card .you{margin-top:10px;font-size:12.5px;padding-top:8px;border-top:1px dashed var(--line-strong)}
+.card .you b{color:var(--done)}
+.card.problem{border-top:4px solid var(--risk)}
+.card.problem .before{color:var(--risk);font-size:12.5px;margin-bottom:6px}
+.card.problem .after{color:var(--done);font-size:12.5px}
+.card.problem .before::before{content:"前: ";font-weight:700}
+.card.problem .after::before{content:"後: ";font-weight:700}
+
+/* terminal */
+.term{background:var(--kernel);border-radius:var(--radius);overflow:hidden;margin:14px 0;box-shadow:0 10px 30px rgba(25,27,44,.15)}
+.term .bar{background:#0F1020;padding:8px 14px;display:flex;gap:6px;align-items:center}
+.term .bar i{width:10px;height:10px;border-radius:50%;display:inline-block}
+.term .bar i:nth-child(1){background:#FF5F57}.term .bar i:nth-child(2){background:#FEBC2E}.term .bar i:nth-child(3){background:#28C840}
+.term .bar span{margin-left:auto;font-size:11px;color:#8B8FB0;font-family:var(--mono)}
+.term pre{color:#DCE0F5;font-family:var(--mono);font-size:13px;padding:16px 18px;line-height:1.8;overflow-x:auto;white-space:pre}
+.term pre .p{color:#8FA0FF}.term pre .c{color:#7C8199}.term pre .ok{color:#7ED4A0}
+
+/* table */
+table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;font-size:13.5px;margin:12px 0}
+th{background:var(--surface-2);text-align:left;padding:10px 12px;font-size:12.5px;border-bottom:1px solid var(--line-strong)}
+td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:none}
+tr.hit td{background:var(--done-soft)}
+tr.gap td{background:var(--risk-soft)}
+.tier{display:inline-block;font-size:11px;padding:1px 8px;border-radius:999px;font-family:var(--mono)}
+.tier.s{background:var(--done-soft);color:var(--done);border:1px solid var(--done-line)}
+.tier.c{background:var(--wip-soft);color:var(--wip);border:1px solid #E8D9AE}
+.tier.i{background:var(--info-soft);color:var(--info);border:1px solid #BFD3E0}
+.tier.f{background:var(--surface-2);color:var(--ink-faint);border:1px solid var(--line-strong)}
+
+/* dark figure */
+.figure{background:var(--kernel);border-radius:var(--radius);padding:22px;margin:14px 0;color:var(--kernel-ink)}
+.figure .cap{font-size:12px;color:#8B8FB0;margin-bottom:14px;letter-spacing:.04em}
+.chain{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.step{background:var(--kernel-2);border:1px solid var(--kernel-line);border-radius:8px;padding:12px}
+.step .n{display:inline-block;width:22px;height:22px;border-radius:50%;background:var(--accent);color:#191B2C;font-weight:700;font-size:12px;text-align:center;line-height:22px;margin-bottom:6px}
+.step .t{font-weight:700;color:#fff;font-size:13.5px;margin-bottom:4px}
+.step .d{font-size:12px;color:#B0B4D0}
+.step .who{display:block;margin-top:8px;font-size:11px;color:var(--accent);border-top:1px solid var(--kernel-line);padding-top:6px}
+.layers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:12px 0}
+.layer{border-radius:var(--radius);padding:16px 18px;font-size:13.5px;background:var(--surface);border:1px solid var(--line)}
+.layer.floor{border-top:5px solid var(--risk)}
+.layer.rail{border-top:5px solid var(--info)}
+.layer .t{font-weight:700;font-size:15px;margin-bottom:6px}
+.layer .tagline{font-size:12px;font-family:var(--mono);margin-bottom:8px}
+.layer.floor .tagline{color:var(--risk)}.layer.rail .tagline{color:var(--info)}
+.stat{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:16px 0}
+.stat .s{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px;text-align:center}
+.stat .s .n{font-size:28px;font-weight:800;color:var(--primary);font-family:var(--mono);line-height:1.2}
+.stat .s .l{font-size:12px;color:var(--ink-soft);margin-top:4px}
+.termdef{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--info);border-radius:8px;padding:10px 14px;margin:8px 0;font-size:13.5px}
+.termdef b{color:var(--info)}
+.termdef .sub{color:var(--ink-soft);font-size:12.5px}
+details{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin:8px 0;font-size:13.5px}
+summary{cursor:pointer;font-weight:600;color:var(--primary-ink)}
+details p{margin-top:8px;color:var(--ink-soft)}
+.verdict{background:var(--done-soft);border:1px solid var(--done-line);border-radius:var(--radius);padding:18px 20px;margin:24px 0}
+.verdict .lbl{font-weight:700;color:var(--done);font-size:13px;margin-bottom:6px}
+.openbox{background:var(--wip-soft);border:1px solid #E8D9AE;border-radius:var(--radius);padding:18px 20px;margin:24px 0}
+.openbox .lbl{font-weight:700;color:var(--wip);font-size:13px;margin-bottom:6px}
+.links{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;font-size:13px}
+.links a{display:block;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.links a small{display:block;color:var(--ink-faint);font-size:11.5px}
+footer{border-top:1px solid var(--line-strong);padding-top:18px;font-size:12px;color:var(--ink-faint);margin-top:40px}
+footer h4{font-size:12.5px;color:var(--ink-soft);margin:10px 0 4px}
+@media(max-width:820px){.g3,.g4,.stat,.links{grid-template-columns:1fr 1fr}.chain{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.g2,.g3,.g4,.stat,.links,.layers,.chain{grid-template-columns:1fr}.hero h1{font-size:21px;letter-spacing:0}.hero{padding:40px 16px 32px}.thesis{font-size:14px}}
+@media print{body{background:#fff}.hero,.figure,.term,.verdict,.openbox,.plainbox,.termdef,.layer,.card,tr.hit td,tr.gap td,.pill .v{-webkit-print-color-adjust:exact;print-color-adjust:exact}.g2,.g3,.g4,.stat,.links,.layers,.chain{grid-template-columns:repeat(2,1fr)!important}.loopwrap,.flowfig{box-shadow:none}}
+
+.hero .logo{width:68px;max-width:68px;padding:8px;margin-bottom:12px;border-radius:14px}
+.hero h1{font-family:var(--sans);font-size:clamp(26px,4vw,42px)}
+.hero .brand{font:700 18px var(--mono);margin-bottom:14px}
+.hero{padding-top:32px}
+.hero .inner{max-width:1040px}
+.hero .tag{max-width:720px;margin:12px auto 18px}
+.hero .thesis{max-width:820px}
+.tour{margin:24px auto 0;text-align:left;max-width:960px}
+.tour video{display:block;width:100%;height:auto;aspect-ratio:16/9;background:var(--kernel);border:1px solid var(--kernel-line);border-radius:var(--radius)}
+.tour details{color:var(--ink);text-align:left}
+.tour figcaption{font-size:12px;color:var(--kernel-ink);margin-top:8px}
+.tour figcaption a{color:var(--accent)}
+.tour details ol{font-size:13px}
+.wrap{padding-top:42px}
+.step .n{margin-right:5px}
+.chain{list-style:none;margin:0}
+.term pre{white-space:pre-wrap;overflow-wrap:anywhere}
+table{table-layout:fixed}
+video:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid var(--accent);outline-offset:4px}
+@media(max-width:820px){.g3,.g4,.stat,.links,.chain{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.g2,.g3,.g4,.stat,.links,.layers,.chain{grid-template-columns:minmax(0,1fr)}.hero{padding-top:28px}.hero h1{font-size:28px}.wrap{padding:32px 16px 56px}h2{font-size:22px}th,td{padding:8px;font-size:12px}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation:none!important;transition:none!important}}
+@media print{.g2,.g3,.g4,.stat,.links,.layers,.chain{grid-template-columns:repeat(2,minmax(0,1fr))!important}.tour video{display:none}.tour::before{content:"操作動画: https://noroshi-ui-preview.pages.dev/guide/";color:var(--kernel-ink)}}
+
+</style>
+</head>
+
+<body>
+<header class="hero"><div class="inner">
+<img class="logo" src="__LOGO__" alt="">
+<div class="brand">Noroshi</div>
+<h1>自分のドメインで、<br>読む。返す。整理する。</h1>
+<p class="tag">自分のサービスや活動に、専用のメールアドレスを。<br>日々のやり取りを、日本語の画面ひとつで。</p>
+<div class="pills">
+<span class="pill blue"><span class="k">UI</span><span class="v">日本語</span></span>
+<span class="pill blue"><span class="k">license</span><span class="v">MIT</span></span>
+<span class="pill orange"><span class="k">配布</span><span class="v">ソース公開 / リリース審査中</span></span>
+</div>
+<div class="thesis">Noroshiは、<b>独自ドメインのメールを送受信し、返信と整理まで行えるWebメール</b>です。自分のクラウド環境へ設置して使います。Gmailなどの既存アカウントを直接接続する製品ではありません。</div>
+<div class="cta"><a class="btn primary" href="https://noroshi-ui-preview.pages.dev/">ライブデモを触る</a><a class="btn ghost" href="#install">自分の環境で始める</a></div>
+<figure class="tour" id="tour">
+<video src="__VIDEO__" poster="__POSTER__" controls playsinline preload="none" aria-label="Noroshiの製品動画。架空のメールを使った操作デモ" aria-describedby="tour-caption">動画に対応したブラウザで開くか、下の動画リンクを使用してください。</video>
+<figcaption id="tour-caption">36秒で使い心地を見る。実際のデモ画面を収録した、字幕付きの無音動画です。架空のデータのみで、外部へのメール送信は行いません。動画は再生ボタンを押すと始まります。<a href="https://noroshi-ui-preview.pages.dev/guide/noroshi-product-tour.mp4">MP4を開く</a></figcaption>
+<details><summary>動画の内容を文字で読む（36.2秒）</summary>
+<ol>
+<li><b>0〜7秒：</b>受信トレイからメールを開き、内容を読みます。</li>
+<li><b>7〜13.2秒：</b>返信を書き、下書きとして保存します。</li>
+<li><b>13.2〜19.2秒：</b>メールをアーカイブへ移し、アーカイブの一覧で確認します。</li>
+<li><b>19.2〜32.2秒：</b>Gmail風、Outlook風、Thunderbird風の順に画面を比較します。この切り替えは比較デモ限定です。本番メール画面のテーマ機能ではありません。</li>
+<li><b>32.2〜36.2秒：</b>ライブデモを試す案内を表示します。</li>
+</ol>
+</details>
+</figure>
+<div class="hero-meta">プロダクトガイド / 2026-09-02</div>
+</div></header>
+<main class="wrap">
+<section aria-labelledby="everyday">
+<div class="plainbox"><div class="lbl" id="everyday">メールのために、別の仕組みを探し回らない</div>
+たとえば、自分のドメインに届いた問い合わせを開く。その場で返信し、案件のフォルダーへ移す。別のアドレスでも読みたいメールは転送する。Noroshiには、この日常の流れを扱う画面があります。
+</div>
+<div class="stat">
+<div class="s"><div class="n">読む</div><div class="l">受信トレイとスレッド</div></div>
+<div class="s"><div class="n">返す</div><div class="l">返信、添付、署名</div></div>
+<div class="s"><div class="n">整理</div><div class="l">フォルダーと振り分け</div></div>
+<div class="s"><div class="n">転送</div><div class="l">手動と保存後の自動転送</div></div>
+</div>
+</section>
+
+<section aria-labelledby="why">
+<div class="kicker">01 / Why</div><h2 id="why">サービスを作った、その先の連絡に</h2>
+<p class="lead">バイブコーディングで作ったサービスにも、問い合わせを受けて返す場所が必要です。メール画面を一から作らず、自分のアドレスでやり取りを始められます。</p>
+<div class="grid g4">
+<div class="card problem"><div class="t">専用の窓口を作る</div><div class="before">サービスの連絡と個人のメールが混ざる。</div><div class="after">独自ドメインのアドレスで受信し、そのアドレスから返信する。</div></div>
+<div class="card problem"><div class="t">見落としを減らす</div><div class="before">受信トレイから毎回探し直す。</div><div class="after">フォルダーを作り、差出人や件名のルールで整理する。</div></div>
+<div class="card problem"><div class="t">読む場所を増やす</div><div class="before">別のアドレスへ何度も手で送り直す。</div><div class="after">保存済みメールを手動転送する。継続して読みたい宛先には自動転送を設定する。</div></div>
+<div class="card problem"><div class="t">自分で管理する</div><div class="before">保存先や処理を自分では変えられない。</div><div class="after">自分のCloudflareアカウントに設置し、公開ソースを必要に応じて変更する。</div></div>
+</div>
+</section>
+
+<section id="install" aria-labelledby="start">
+<div class="kicker">02 / Quick start</div><h2 id="start">用意するのは、自分のドメインとアカウント</h2>
+<p class="lead">BYOKは、利用者自身のアカウントと認証情報を使う方式です。Cloudflareはメール画面と保存先、Resendは送信を担当します。Noroshiの共通アカウントを借りる仕組みではありません。</p>
+<ol>
+<li>独自ドメインを用意し、DNS（ドメインの接続先を指定する設定）をCloudflareで管理する。</li>
+<li>CloudflareとResendのアカウントを用意する。登録、規約同意、ログインは本人が行う。</li>
+<li>ソースを取得し、READMEのセットアップ手順に沿って自分の環境へ設置する。</li>
+<li>最初の管理者を作成し、受信、送信、返信の到着をそれぞれ確認する。</li>
+</ol>
+<div class="term"><div class="bar"><i></i><i></i><i></i><span>ソースを手元へ取得</span></div><pre><span class="p">›</span> git clone https://github.com/Chachamaru127/noroshi.git
+<span class="p">›</span> cd noroshi
+<span class="c"># READMEの「セットアップ」を開き、前提と変更対象を確認</span></pre></div>
+<p><b>最初に決めるのは、使うドメインと管理するアカウントです。</b>設置後はブラウザからログインして使います。ソースを取得しただけでは、メールはまだ開通しません。</p>
+<details><summary>AIと一緒に設定するには</summary><p>Setup Skill（AIが読む導入手順書）を同梱しています。対応する環境へ導入すると、公式ドキュメントの確認と設定の案内に使えます。AIホストがブラウザ操作を提供し、本人が許可した場合に限り、公式画面への移動と状態確認を支援できます。利用できない場合は手動の手順へ切り替えます。</p><p>Skillはブラウザ機能を追加しません。ログイン、追加認証、支払い、秘密値の入力は人が行います。外部設定の自動変更は現行Skillの対象外です。設定を実行する対話型セットアップCLI（コマンド画面の補助プログラム）は別の経路です。</p></details>
+<details><summary>ソース公開とリリースの状態</summary><p>GitHubのソースは公開されています。正式リリースは審査中で、Deploy to Cloudflareボタンはまだ無効です。公開ソースからの設置には、READMEに記載した前提環境と各サービスの設定が必要です。</p></details>
+</section>
+
+<section id="flow" aria-labelledby="loop">
+<div class="kicker">03 / The loop</div><h2 id="loop">届いたメールが、返信になるまで</h2>
+<p class="lead">いつもの操作の裏で、受信、保存、送信を分担しています。外部サービスのアカウントと認証情報は、すべて利用者が管理します。</p>
+<figure class="figure" aria-labelledby="flow-caption">
+<figcaption class="cap" id="flow-caption">問い合わせが届いて、返信が届くまで。左から右へ進みます。</figcaption>
+<ol class="chain">
+<li class="step"><span class="n">1</span><div class="t">問い合わせが届く</div><div class="d">Cloudflare Email Routingが受信メールをNoroshiへ渡す。</div><span class="who">相手：メールを送る</span></li>
+<li class="step"><span class="n">2</span><div class="t">保存される</div><div class="d">Workers（実行環境）が処理。本文と索引をD1（データベース）へ、添付をR2（ファイル保存先）へ保存する。</div><span class="who">Noroshi：受信を記録する</span></li>
+<li class="step"><span class="n">3</span><div class="t">読んで、返信する</div><div class="d">日本語の受信トレイで開き、返信を書く。必要な添付と署名を加える。</div><span class="who">利用者：内容を確認して送信する</span></li>
+<li class="step"><span class="n">4</span><div class="t">相手へ送られる</div><div class="d">Resendが送信し、通知された配信結果をNoroshiへ記録する。</div><span class="who">利用者：配信状態を確認する</span></li>
+</ol>
+</figure>
+<div class="grid g3">
+<div class="card"><div class="t">整理する</div><span class="cmd">フォルダー / 振り分けルール</span><div class="d">差出人や件名を条件にして、受信メールの移動先を決めます。</div><div class="you"><b>利用者：</b>フォルダーと条件を設定する。</div></div>
+<div class="card"><div class="t">転送する</div><span class="cmd">手動転送 / 自動転送</span><div class="d">自動転送はメールを保存した後に実行します。宛先、有効と無効、状態を画面で確認できます。</div><div class="you"><b>利用者：</b>転送先と共有する内容を確認する。</div></div>
+<div class="card"><div class="t">過去のメールを取り込む</div><span class="cmd">EML取り込み</span><div class="d">EML（メールを1通ずつ保存する形式）の取り込みを管理画面から行えます。元サービスからの書き出しは別途必要です。</div><div class="you"><b>利用者：</b>取り込み先と元ファイルを確認する。</div></div>
+</div>
+</section>
+
+<section aria-labelledby="ownership">
+<div class="kicker">04 / Safety layer</div><h2 id="ownership">アカウントも、メールの保存先も自分のもの</h2>
+<div class="layers">
+<div class="layer floor"><div class="t">人が扱う認証情報</div><div class="tagline">本人の入力と判断</div>パスワードやAPIキー（外部サービスを利用するための秘密の鍵）は、チャットへ貼り付けません。ログイン、追加認証、秘密値入力は本人が行います。</div>
+<div class="layer rail"><div class="t">設定に合わせたメール運用</div><div class="tagline">利用者が設定</div>転送先、振り分け条件、署名を画面で設定します。CloudflareやResendの契約、上限、稼働状況、保存データの管理も利用者の担当です。</div>
+</div>
+</section>
+
+<section aria-labelledby="fit">
+<div class="kicker">05 / Who</div><h2 id="fit">自分で作り、自分で使うメール環境に</h2>
+<div class="grid g2">
+<div class="card"><div class="t">向いている使い方</div><ul><li>個人開発や小さな活動の独自ドメインで連絡を受けたい。</li><li>日本語のメール画面を、自分のクラウド環境へ設置したい。</li><li>公開ソースを使い、必要な部分を自分で育てたい。</li></ul></div>
+<div class="card"><div class="t">別の手段も検討したい場合</div><ul><li>アカウント登録だけで使える、運用代行付きのメールサービスが必要。</li><li>今のGmailアカウントを直接つなぎ、双方向で同期したい。</li><li>組織向けの保管義務や稼働保証を、導入時点で満たす必要がある。</li></ul></div>
+</div>
+</section>
+
+<section aria-labelledby="hosts">
+<div class="kicker">06 / Hosts</div><h2 id="hosts">デモで試すこと、本番で使うこと</h2>
+<table>
+<thead><tr><th>対象</th><th>現在できること</th></tr></thead>
+<tbody>
+<tr><td>本番メール画面</td><td>自分のCloudflare環境へ設置して利用。日本語の送受信、フォルダー、転送、設定を提供。</td></tr>
+<tr><td>ライブデモ</td><td>架空のメールで操作を体験。Gmail風、Outlook風、Thunderbird風の3パターンを比較。本番画面のテーマ切り替えではありません。</td></tr>
+<tr><td>Codexでの導入支援</td><td>実サービスを使った試験は完了。新しい環境でのSkill発見と再起動後の再開は、別の確認が必要です。</td></tr>
+<tr><td>ChatGPT / Claude</td><td>利用可能なSkill機能から手動導入。ブラウザ機能と設定に応じて案内。各クライアントの一連の実環境検証は未完了です。</td></tr>
+</tbody>
+</table>
+</section>
+
+<section aria-labelledby="faq">
+<div class="kicker">07 / FAQ</div><h2 id="faq">使い始める前によくある疑問</h2>
+<details><summary>メールサーバーを自分で管理する必要はありますか？</summary><p>専用サーバーを自分で用意する構成ではありません。Cloudflare Workersで画面と処理を動かし、受信にEmail Routing、送信にResendを使います。各サービスの契約と設定、稼働確認は必要です。</p></details>
+<details><summary>既存のGmailアカウントを接続できますか？</summary><p>双方向のGmailコネクターは将来の機能です。現在は独自ドメインのメールを扱います。別アドレスへの転送と、既存アカウントの同期は別の機能です。</p></details>
+<details><summary>デモの送信ボタンを押すと、実際に送信されますか？</summary><p>送信されません。ライブデモは架空のデータで操作を試すための画面です。実メールの送受信を使うには、自分の環境への設置と開通確認が必要です。</p></details>
+<details><summary>無料で使い続けられますか？</summary><p>ソースはMITライセンスで公開しています。独自ドメインと外部サービスの費用は別です。利用量やプランで変わるため、導入時にCloudflareとResendの公式料金を確認してください。</p></details>
+<details><summary>AIに全部任せれば開通しますか？</summary><p>現在の案内Skillは、設定の説明と確認を支援します。AIホストによって使える機能が異なります。アカウント取得、追加認証、秘密値入力、外部設定の変更には人の操作と判断が残ります。画面が開くだけで開通完了とはせず、送信と返信受信を個別に確かめます。</p></details>
+</section>
+
+<section aria-labelledby="terms">
+<div class="kicker">08 / Glossary</div><h2 id="terms">構成を読むための言葉</h2>
+<div class="termdef"><b>Cloudflare Workers</b> = Noroshiの画面とメール処理を動かす実行環境。</div>
+<div class="termdef"><b>Cloudflare Email Routing</b> = ドメイン宛ての受信メールをWorkerへ届ける機能。</div>
+<div class="termdef"><b>D1 / R2</b> = Cloudflareの保存サービス。D1は本文と索引、R2は添付ファイルを担当。</div>
+<div class="termdef"><b>Resend</b> = メールの送信と配信結果の通知を担当するサービス。</div>
+</section>
+
+<div class="verdict"><div class="lbl">日々のメールは、この画面で</div>設置と開通確認を終えたら、ブラウザでログイン。受信を読み、返信し、フォルダーで整理する。普段のメール操作はNoroshiから行えます。</div>
+<div class="openbox"><div class="lbl">正直な但し書き</div><ul><li>公開ソースとライブデモを提供中です。正式リリースは審査中で、ワンクリックのDeployボタンはまだ無効です。</li><li>3パターンの画面は非公式の比較デモです。Gmail、Outlook、Thunderbirdとの提携や互換接続を示すものではありません。</li><li>設置したメール環境の運用と費用は利用者が管理します。すべてのAIクライアントで同じ導入体験を確認した段階ではありません。</li></ul></div>
+
+<section aria-labelledby="links">
+<div class="kicker">Links</div><h2 id="links">触ってから、自分の環境へ</h2>
+<div class="links">
+<a href="https://noroshi-ui-preview.pages.dev/">操作できるライブデモ<small>架空のメールで使い心地を確認</small></a>
+<a href="https://github.com/Chachamaru127/noroshi">GitHubでソースを見る<small>README、導入手順、ライセンス</small></a>
+<a href="https://github.com/Chachamaru127/noroshi/tree/main/skills/quickmail-ja-setup">導入支援Skill<small>対応環境へ導入する手順書</small></a>
+</div>
+</section>
+<footer><h4>出典と確認範囲</h4><p>2026-09-02時点のNoroshi README、spec.mdのRequired capabilities / Setup assistant contract / UI direction contract、Plans.mdの導入試験と公開状態を参照しています。正本はGitHubのREADMEと仕様書です。このガイドは説明用の派生物であり、正本ではありません。</p><p>NoroshiはDivinPrince/quickmailを基にしたMITライセンスのフォークです。製品動画は合成データのデモ画面を収録しています。</p></footer>
+</main>
+</body>
+</html>

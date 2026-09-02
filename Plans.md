@@ -588,6 +588,24 @@ Pre-approval gates:
 - `external-send`: rename `Chachamaru127/quickmail` to `Chachamaru127/noroshi`, update repository metadata/topics, and push the reviewed local commits. Maximum uses: 3 for rename, metadata, and push/readback.
 - `external-send`: create/deploy a separate `noroshi-ui-preview` Cloudflare Pages preview and read it back. Maximum uses: 2 for deploy and readback. This does not authorize production Worker, D1, R2, DNS, Email Routing, or email-send changes.
 
+## NOR-2: README and product tour (2026-09-02)
+
+Purpose: Let first-time readers see reading, composing, organizing, and the comparison demo before infrastructure setup details.
+Spec skip reason: documentation and synthetic video only; runtime, provider settings, and release status remain unchanged.
+team_validation_mode: subagent (independent copy/fact review plus parent browser/media checks).
+
+| Task | 内容 | DoD | Depends | Status |
+| --- | --- | --- | --- | --- |
+| NOR-2A | `[tdd:skip:docs-and-media]` Benefit-first README and template-based product guide; preserve existing untracked product guides and images. | Current capabilities, comparison-only themes, BYOK and release limits agree with spec; video and demo links are usable. | none | cc:COMPLETE (GitHub publication approved 2026-09-03) |
+| NOR-2B | `[tdd:skip:media]` Record synthetic demo and author a captioned product tour with poster. | H.264 playback works; captions match observed actions; no real mail or credentials; controls and transcript available. | none | cc:COMPLETE (36.2s, 1920x1080, 949231 bytes) |
+| NOR-2C | Publish static guide/media under existing preview `/guide/`; leave demo root and its security policy unchanged. | 1200px/390px overflow checks, video playback and independent review pass; live readback matches local assets. | NOR-2A, NOR-2B | cc:COMPLETE (2026-09-02) |
+
+Scope: user requested video placement in hero. Only preview guide/media publication is included; GitHub push, release tags, mail Worker, D1/R2, DNS and real sends are excluded. Existing product guide artifacts are preserved as prior drafts.
+
+Follow-up approval (2026-09-03): commit and push this README, Plans entry, and the six new media/guide files to `Chachamaru127/noroshi` main. Existing untracked guides, images, browser logs and recording intermediates remain excluded. No new deployment or release tag is included.
+
+Evidence: independent review APPROVE after transcript contrast and archive wording corrections; distribution contracts 20/0; live-demo contracts PASS; guide builder PASS (1466160 bytes); live guide and video hashes match local; viewport/scroll widths 390/390 and 1200/1200; video advances with duration 36.2s. Deployment `8073a695.noroshi-ui-preview.pages.dev`. Root demo HTML hash and original CSP unchanged. Local Pages dev returned 404 and was not counted as evidence; public readback and browser playback supplied the deployment check.
+
 ### Review loops
 
 - After QMJ-8A: setup architecture + security + skeptic review; fix all P0/P1 before QMJ-9.
