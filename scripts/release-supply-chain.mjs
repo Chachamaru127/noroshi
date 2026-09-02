@@ -21,7 +21,7 @@ function exactKeys(value, expected, label) {
 }
 
 function assertArchiveMatchesCommit(repository, archive, tag, commit) {
-	const expectedName = `noroshi-mail-${tag.slice(1)}.zip`;
+	const expectedName = `noroshi-${tag.slice(1)}.zip`;
 	if (basename(archive) !== expectedName) throw new Error('archive name does not match tag');
 	const temporary = mkdtempSync(join(tmpdir(), 'quickmail-ja-expected-archive-'));
 	const expected = join(temporary, expectedName);
@@ -31,7 +31,7 @@ function assertArchiveMatchesCommit(repository, archive, tag, commit) {
 			[
 				'archive',
 				'--format=zip',
-				`--prefix=noroshi-mail-${tag.slice(1)}/`,
+				`--prefix=noroshi-${tag.slice(1)}/`,
 				`--output=${expected}`,
 				commit
 			],
@@ -137,7 +137,7 @@ export function generateEvidence({ repository, archive, tag, commit, output }) {
 		encoding: 'utf8'
 	}).trim();
 	const archiveName = basename(archive);
-	const sbomName = 'noroshi-mail.spdx.json';
+	const sbomName = 'noroshi.spdx.json';
 	const provenanceName = 'release-provenance.json';
 	const releaseEvidenceName = 'release-evidence.json';
 	const checksumsName = 'SHA256SUMS';
@@ -146,7 +146,7 @@ export function generateEvidence({ repository, archive, tag, commit, output }) {
 		dataLicense: 'CC0-1.0',
 		SPDXID: 'SPDXRef-DOCUMENT',
 		name: `${pkg.name}-${tag.slice(1)}`,
-		documentNamespace: `urn:noroshi-mail:${tag}:${commit}`,
+		documentNamespace: `urn:noroshi:${tag}:${commit}`,
 		creationInfo: { created, creators: ['Tool: Noroshi release-supply-chain.mjs'] },
 		packages: [
 			{
@@ -237,14 +237,14 @@ export function verifyEvidence({ repository, archive, output, tag, commit }) {
 	}
 	if (expectedMaterials.size > 0) throw new Error('missing material');
 	exactKeys(provenance.sbom, ['name', 'sha256'], 'sbom reference');
-	if (provenance.sbom.name !== 'noroshi-mail.spdx.json') throw new Error('unexpected SBOM name');
+	if (provenance.sbom.name !== 'noroshi.spdx.json') throw new Error('unexpected SBOM name');
 	if (provenance.sbom.sha256 !== hashFile(join(output, provenance.sbom.name))) {
 		throw new Error('SBOM provenance mismatch');
 	}
 	const sbom = JSON.parse(readFileSync(join(output, provenance.sbom.name), 'utf8'));
 	if (
 		sbom.name !== `${pkg.name}-${tag.slice(1)}` ||
-		sbom.documentNamespace !== `urn:noroshi-mail:${tag}:${commit}`
+		sbom.documentNamespace !== `urn:noroshi:${tag}:${commit}`
 	) {
 		throw new Error('SBOM identity mismatch');
 	}
@@ -263,7 +263,7 @@ export function verifyEvidence({ repository, archive, output, tag, commit }) {
 		basename(archive),
 		'release-evidence.json',
 		'release-provenance.json',
-		'noroshi-mail.spdx.json'
+		'noroshi.spdx.json'
 	].sort();
 	const actualNames = lines
 		.map((line) => line.match(/^[0-9a-f]{64}  ([A-Za-z0-9._-]+)$/u)?.[1])

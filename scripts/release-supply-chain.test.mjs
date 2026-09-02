@@ -17,13 +17,7 @@ const read = (path) => readFileSync(join(root, path), 'utf8');
 const gitArchive = (repository, archive, tag, commit) =>
 	execFileSync(
 		'git',
-		[
-			'archive',
-			'--format=zip',
-			`--prefix=noroshi-mail-${tag.slice(1)}/`,
-			`--output=${archive}`,
-			commit
-		],
+		['archive', '--format=zip', `--prefix=noroshi-${tag.slice(1)}/`, `--output=${archive}`, commit],
 		{ cwd: repository }
 	);
 
@@ -45,20 +39,20 @@ test('release workflow generates and uploads checksums, SBOM, and provenance', (
 	assert.match(workflow, /release-supply-chain\.mjs generate/u);
 	assert.match(workflow, /release-supply-chain\.mjs verify/u);
 	assert.match(workflow, /sha256sum --check SHA256SUMS/u);
-	for (const artifact of ['SHA256SUMS', 'noroshi-mail.spdx.json', 'release-provenance.json']) {
+	for (const artifact of ['SHA256SUMS', 'noroshi.spdx.json', 'release-provenance.json']) {
 		assert.match(workflow, new RegExp(artifact.replace('.', '\\.'), 'u'));
 	}
 });
 
 test('evidence is deterministic and rejects tampering', () => {
-	const temporary = mkdtempSync(join(tmpdir(), 'noroshi-mail-evidence-'));
-	const second = mkdtempSync(join(tmpdir(), 'noroshi-mail-evidence-'));
-	const archive = join(temporary, 'noroshi-mail-1.0.0.zip');
+	const temporary = mkdtempSync(join(tmpdir(), 'noroshi-evidence-'));
+	const second = mkdtempSync(join(tmpdir(), 'noroshi-evidence-'));
+	const archive = join(temporary, 'noroshi-1.0.0.zip');
 	const commit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
 	try {
 		gitArchive(root, archive, 'v1.0.0', commit);
 		generateEvidence({ repository: root, archive, tag: 'v1.0.0', commit, output: temporary });
-		const secondArchive = join(second, 'noroshi-mail-1.0.0.zip');
+		const secondArchive = join(second, 'noroshi-1.0.0.zip');
 		gitArchive(root, secondArchive, 'v1.0.0', commit);
 		generateEvidence({
 			repository: root,
@@ -69,7 +63,7 @@ test('evidence is deterministic and rejects tampering', () => {
 		});
 		for (const name of [
 			'SHA256SUMS',
-			'noroshi-mail.spdx.json',
+			'noroshi.spdx.json',
 			'release-provenance.json',
 			'release-evidence.json'
 		]) {
@@ -158,10 +152,10 @@ test('evidence is deterministic and rejects tampering', () => {
 });
 
 test('evidence reads the requested commit despite another HEAD and dirty files', () => {
-	const repository = mkdtempSync(join(tmpdir(), 'noroshi-mail-git-materials-'));
+	const repository = mkdtempSync(join(tmpdir(), 'noroshi-git-materials-'));
 	const output = join(repository, 'evidence');
 	mkdirSync(output);
-	const archive = join(output, 'noroshi-mail-1.0.0.zip');
+	const archive = join(output, 'noroshi-1.0.0.zip');
 	const git = (...args) => execFileSync('git', args, { cwd: repository, encoding: 'utf8' }).trim();
 	try {
 		git('init', '-q');
@@ -169,7 +163,7 @@ test('evidence reads the requested commit despite another HEAD and dirty files',
 		git('config', 'user.email', 'test@example.invalid');
 		writeFileSync(
 			join(repository, 'package.json'),
-			JSON.stringify({ name: 'noroshi-mail', version: '1.0.0', license: 'MIT' })
+			JSON.stringify({ name: 'noroshi', version: '1.0.0', license: 'MIT' })
 		);
 		writeFileSync(join(repository, 'bun.lock'), '{\n  "lockfileVersion": 1\n}\n');
 		git('add', 'package.json', 'bun.lock');
@@ -180,7 +174,7 @@ test('evidence reads the requested commit despite another HEAD and dirty files',
 		git('commit', '-qm', 'second');
 		writeFileSync(
 			join(repository, 'package.json'),
-			JSON.stringify({ name: 'noroshi-mail', version: '9.9.9', license: 'MIT' })
+			JSON.stringify({ name: 'noroshi', version: '9.9.9', license: 'MIT' })
 		);
 		gitArchive(repository, archive, 'v1.0.0', first);
 		generateEvidence({ repository, archive, tag: 'v1.0.0', commit: first, output });
@@ -189,7 +183,7 @@ test('evidence reads the requested commit despite another HEAD and dirty files',
 		assert.equal(provenance.materials[0].sha256.length, 64);
 		const mismatchOutput = join(repository, 'mismatch');
 		mkdirSync(mismatchOutput);
-		const mismatchArchive = join(mismatchOutput, 'noroshi-mail-2.0.0.zip');
+		const mismatchArchive = join(mismatchOutput, 'noroshi-2.0.0.zip');
 		gitArchive(repository, mismatchArchive, 'v2.0.0', first);
 		assert.throws(
 			() =>
@@ -212,7 +206,7 @@ test('tracked release paths contain no latest aliases or pipe installers', () =>
 });
 
 test('archive scanner rejects external font requests and permits local fonts', () => {
-	const temporary = mkdtempSync(join(tmpdir(), 'noroshi-mail-font-scan-'));
+	const temporary = mkdtempSync(join(tmpdir(), 'noroshi-font-scan-'));
 	try {
 		mkdirSync(join(temporary, 'safe'));
 		writeFileSync(

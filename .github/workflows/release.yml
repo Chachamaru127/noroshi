@@ -148,16 +148,16 @@ jobs:
       - name: Package
         run: |
           git archive --format=zip \
-            --prefix="noroshi-mail-${{ steps.version.outputs.version }}/" \
-            -o "noroshi-mail-${{ steps.version.outputs.version }}.zip" \
+            --prefix="noroshi-${{ steps.version.outputs.version }}/" \
+            -o "noroshi-${{ steps.version.outputs.version }}.zip" \
             "${{ needs.preflight.outputs.commit_sha }}"
-          unzip -l "noroshi-mail-${{ steps.version.outputs.version }}.zip" | tail -5
+          unzip -l "noroshi-${{ steps.version.outputs.version }}.zip" | tail -5
           bun scripts/release-supply-chain.mjs generate \
-            "noroshi-mail-${{ steps.version.outputs.version }}.zip" \
+            "noroshi-${{ steps.version.outputs.version }}.zip" \
             "${{ needs.preflight.outputs.tag }}" \
             "${{ needs.preflight.outputs.commit_sha }}"
           bun scripts/release-supply-chain.mjs verify \
-            "noroshi-mail-${{ steps.version.outputs.version }}.zip" \
+            "noroshi-${{ steps.version.outputs.version }}.zip" \
             "${{ needs.preflight.outputs.tag }}" \
             "${{ needs.preflight.outputs.commit_sha }}"
           sha256sum --check SHA256SUMS
@@ -166,11 +166,11 @@ jobs:
         # actions/upload-artifact v4.6.2
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: noroshi-mail-release-${{ github.run_id }}
+          name: noroshi-release-${{ github.run_id }}
           path: |
-            noroshi-mail-${{ steps.version.outputs.version }}.zip
+            noroshi-${{ steps.version.outputs.version }}.zip
             SHA256SUMS
-            noroshi-mail.spdx.json
+            noroshi.spdx.json
             release-provenance.json
             release-evidence.json
           if-no-files-found: error
@@ -186,7 +186,7 @@ jobs:
         # actions/download-artifact v4.3.0
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
-          name: noroshi-mail-release-${{ github.run_id }}
+          name: noroshi-release-${{ github.run_id }}
 
       - name: Publish release
         env:
@@ -196,7 +196,7 @@ jobs:
           EXPECTED_SHA: ${{ needs.preflight.outputs.commit_sha }}
         run: |
           set -euo pipefail
-          ARCHIVE="noroshi-mail-${VERSION}.zip"
+          ARCHIVE="noroshi-${VERSION}.zip"
           jq -e \
             --arg tag "$TAG" \
             --arg version "$VERSION" \
@@ -233,7 +233,7 @@ jobs:
           gh release create "$TAG" \
             "$ARCHIVE" \
             SHA256SUMS \
-            noroshi-mail.spdx.json \
+            noroshi.spdx.json \
             release-provenance.json \
             release-evidence.json \
             --title "Noroshi $TAG" \

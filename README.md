@@ -4,11 +4,11 @@
 
 Noroshiは、独自ドメインのメールを自分のCloudflare環境で管理する、日本語固定UIのセルフホスト型Webメールです。受信メール、送信履歴、添付ファイルを自分のCloudflareアカウントに保存します。
 
-名前は、離れた相手へ合図を届けた「狼煙」に由来します。封筒に一筋の煙を添え、メール製品であることを優先します。検索・リポジトリの正式なslugは`noroshi-mail`です。
+名前は、離れた相手へ合図を届けた「狼煙」に由来します。封筒に一筋の煙を添え、メール製品であることを優先します。検索・リポジトリの正式なslugは`noroshi`です。
 
 **導入はBYOK（Bring Your Own Key / Account）です。** Cloudflare、Resend、将来提供するGmailコネクターのGoogle Cloudは、利用者自身のアカウントと認証情報を使います。Noroshi共通のAPIキーやOAuth Clientは配布しません。アカウント、利用料金、保存データ、認証情報は利用者が管理します。
 
-Noroshiの公開リポジトリのURLは未設定です。そのため、リモートインストーラーやクリック可能なDeployボタンは提供していません。現在は、このソース一式を入手した環境でセットアップしてください。
+公開ソースは[Chachamaru127/noroshi](https://github.com/Chachamaru127/noroshi)です。現在はリリース審査中のため、クリック可能なDeployボタンはまだ提供していません。このソース一式を入手した環境でセットアップしてください。
 
 ## Cloudflareへの展開
 
@@ -16,7 +16,7 @@ Noroshiの公開リポジトリのURLは未設定です。そのため、リモ�
 
 **公開準備中 — 現在のバナーはクリックできません。**
 
-Cloudflare公式の[Deploy to Cloudflareボタン](https://developers.cloudflare.com/workers/platform/deploy-buttons/)は、公開されたGitHubまたはGitLabリポジトリからWorkerを複製し、D1やR2など対応リソースの作成と紐付け、ビルド、デプロイを開始する仕組みです。Noroshiの公開リポジトリURLとリリース承認が揃った後だけ有効にします。非公開リポジトリ、元の英語版、復旧用リポジトリは導入元にしません。
+Cloudflare公式の[Deploy to Cloudflareボタン](https://developers.cloudflare.com/workers/platform/deploy-buttons/)は、公開されたGitHubまたはGitLabリポジトリからWorkerを複製し、D1やR2など対応リソースの作成と紐付け、ビルド、デプロイを開始する仕組みです。Noroshiのリリース承認が揃った後だけ有効にします。元の英語版や復旧用リポジトリは導入元にしません。
 
 **デプロイ完了とメール開通は別です。** Workerの展開後も、次の作業が残ります。
 
@@ -309,7 +309,7 @@ APIキー、Resendキー、Webhook署名、セットアップキーなどのシ�
 
 ## 更新
 
-公開リポジトリのURLが未設定のため、現時点では自動更新や正式なリリース配布はありません。入手元から新しいソース一式を受け取り、差分を確認して更新します。公開後はNoroshi専用のリリースURLをREADMEへ追加します。元の英語版をNoroshiとして導入するリンクは掲載しません。
+正式なリリース配布はまだ開始していません。[Noroshiリポジトリ](https://github.com/Chachamaru127/noroshi)から新しいソース一式を取得し、差分を確認して更新します。元の英語版をNoroshiとして導入するリンクは掲載しません。
 
 更新手順:
 

@@ -567,7 +567,7 @@ Status: NOR-1A and NOR-1B completed locally with independent APPROVE; NOR-1C rem
 
 Spec delta:
 
-- Change the public product name from `QuickMail-ja` to `Noroshi` and use `noroshi-mail` as the canonical repository/search slug.
+- Change the public product name from `QuickMail-ja` to `Noroshi` and use `noroshi` as the canonical repository/search slug.
 - Keep protocol, migration, environment, idempotency, upstream-attribution, and existing Cloudflare resource identities that must remain stable for compatibility.
 - Add `noroshi` as the canonical CLI command and retain `quickmail` as a one-major compatibility alias.
 
@@ -575,7 +575,7 @@ Spec delta:
 | --- | --- | --- | --- | --- |
 | NOR-1A | `[lane:gate] [stage:tdd-implementation]` Rename public UI, PWA metadata, current docs, setup descriptions, root package identity, and CLI display/command. Keep plugin/Skill/MCP IDs, Cloudflare resource defaults, historical identifiers, and protocol identifiers on an explicit compatibility allowlist. | Product-facing checks observe `Noroshi`; `noroshi` CLI and legacy `quickmail` alias both work; migrations, setup schemas, plugin IDs, protocol headers, idempotency prefixes, Cloudflare resource defaults, upstream attribution, and existing-resource safety remain unchanged; product-guide untracked files are untouched. | none | cc:COMPLETE (local) |
 | NOR-1B | `[lane:gate] [stage:verification]` Add rename/distribution contracts and run full local validation plus independent product, compatibility, security, and QA review. | Full tests, D1 race, check, build, format, archive/privacy, plugin/adapter packages, and diff checks pass; independent review has no unresolved P0/P1. | NOR-1A | cc:COMPLETE (local, independent APPROVE) |
-| NOR-1C | `[lane:release] [stage:pr-closeout]` Rename the GitHub repository to `noroshi-mail`, update the local directory/remote, push the approved revision, and create a new Noroshi preview only under separate exact external approvals. | GitHub and local readback show the new repository identity; old links redirect where the provider supports it; any preview URL serves the approved revision; no production mail Worker, D1, R2, DNS, or email flow changes. | NOR-1B, QMJ-16 approval | cc:TODO |
+| NOR-1C | `[lane:release] [stage:pr-closeout]` Rename the GitHub repository to `noroshi`, update the local directory/remote, push the approved revision, and create a new Noroshi preview only under separate exact external approvals. | GitHub and local readback show the new repository identity; old links redirect where the provider supports it; any preview URL serves the approved revision; no production mail Worker, D1, R2, DNS, or email flow changes. | NOR-1B, QMJ-16 approval | cc:TODO |
 
 Planning classification:
 
@@ -585,7 +585,7 @@ Planning classification:
 
 Pre-approval gates:
 
-- `external-send`: rename `Chachamaru127/quickmail` to `Chachamaru127/noroshi-mail`, update repository metadata/topics, and push the reviewed local commits. Maximum uses: 3 for rename, metadata, and push/readback.
+- `external-send`: rename `Chachamaru127/quickmail` to `Chachamaru127/noroshi`, update repository metadata/topics, and push the reviewed local commits. Maximum uses: 3 for rename, metadata, and push/readback.
 - `external-send`: create/deploy a separate `noroshi-ui-preview` Cloudflare Pages preview and read it back. Maximum uses: 2 for deploy and readback. This does not authorize production Worker, D1, R2, DNS, Email Routing, or email-send changes.
 
 ### Review loops

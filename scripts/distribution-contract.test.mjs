@@ -27,15 +27,15 @@ test('README is Japanese-first and documents the supported operating boundary', 
 	}
 	assert.match(readme, /受信[^\n]*Cloudflare Email Routing/);
 	assert.match(readme, /送信[^\n]*Resend/);
-	assert.match(readme, /公開リポジトリのURL[^\n]*未設定/);
+	assert.match(readme, /https:\/\/github\.com\/Chachamaru127\/noroshi/);
 	assert.match(readme, /quickmail-ja-attachments/);
 	assert.doesNotMatch(readme, /npm install|node scripts\/setup/);
 });
 
 test('release artifact and title use the Noroshi product name', () => {
 	const release = read('.github/workflows/release.yml');
-	assert.match(release, /noroshi-mail-\$\{\{ steps\.version\.outputs\.version \}\}\.zip/);
-	assert.match(release, /--prefix="noroshi-mail-/);
+	assert.match(release, /noroshi-\$\{\{ steps\.version\.outputs\.version \}\}\.zip/);
+	assert.match(release, /--prefix="noroshi-/);
 	assert.match(release, /--title "Noroshi /);
 	assert.doesNotMatch(release, /--title "QuickMail /);
 	assert.match(release, /INPUT_TAG: \$\{\{ github\.event\.inputs\.tag \}\}/);
@@ -45,6 +45,9 @@ test('release artifact and title use the Noroshi product name', () => {
 
 test('package commands stay Bun-only and target the generic D1 name', () => {
 	const pkg = JSON.parse(read('package.json'));
+	assert.equal(pkg.name, 'noroshi');
+	assert.equal(pkg.repository, 'https://github.com/Chachamaru127/noroshi.git');
+	assert.equal(pkg.homepage, 'https://noroshi-ui-preview.pages.dev/');
 	assert.equal(pkg.scripts.setup, 'bun scripts/setup.mjs');
 	assert.equal(
 		pkg.scripts['db:migrate:local'],

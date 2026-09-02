@@ -44,9 +44,12 @@ describe('Noroshi public identity', () => {
 		const manifest = JSON.parse(read('static/manifest.webmanifest'));
 		expect(manifest.name).toBe('Noroshi');
 		expect(manifest.short_name).toBe('Noroshi');
-		expect(JSON.parse(read('package.json')).name).toBe('noroshi-mail');
+		const pkg = JSON.parse(read('package.json'));
+		expect(pkg.name).toBe('noroshi');
+		expect(pkg.repository).toBe('https://github.com/Chachamaru127/noroshi.git');
+		expect(pkg.homepage).toBe('https://noroshi-ui-preview.pages.dev/');
 		expect(JSON.parse(read('cli/package.json')).name).toBe('noroshi-cli');
-		expect(read('bun.lock')).toMatch(/""\s*:\s*\{\s*"name"\s*:\s*"noroshi-mail"/u);
+		expect(read('bun.lock')).toMatch(/""\s*:\s*\{\s*"name"\s*:\s*"noroshi"/u);
 	});
 
 	test('makes noroshi canonical while keeping the quickmail CLI and configuration aliases', () => {

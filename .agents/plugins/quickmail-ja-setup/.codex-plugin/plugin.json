@@ -6,7 +6,7 @@
 		"name": "Noroshi"
 	},
 	"license": "MIT",
-	"keywords": ["noroshi", "noroshi-mail", "quickmail-ja", "setup", "byok", "cloudflare", "resend", "japanese"],
+	"keywords": ["noroshi", "quickmail-ja", "setup", "byok", "cloudflare", "resend", "japanese"],
 	"skills": "./skills/",
 	"mcpServers": "./.mcp.json"
 }
