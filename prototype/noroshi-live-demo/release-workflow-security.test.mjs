@@ -61,7 +61,7 @@ function run(name, { remoteSha = commitA, evidence = {} } = {}) {
 	const working = path.join(sandbox, name);
 	fs.mkdirSync(working);
 	const marker = path.join(working, 'published');
-	fs.writeFileSync(path.join(working, `quickmail-ja-${version}.zip`), 'verified archive');
+	fs.writeFileSync(path.join(working, `noroshi-${version}.zip`), 'verified archive');
 	fs.writeFileSync(
 		path.join(working, 'release-evidence.json'),
 		JSON.stringify({ tag, version, commitSha: commitA, archiveSha256: archiveSha, ...evidence })

@@ -141,7 +141,7 @@ function cloudflareTarget(overrides = {}) {
 		account_id: 'cf-account-test',
 		zone_id: 'cf-zone-test',
 		resource_id: 'worker-test',
-		resource_name: 'quickmail-test-worker',
+		resource_name: 'noroshi-test-worker',
 		...overrides
 	};
 }
@@ -153,7 +153,7 @@ function resendTarget(overrides = {}) {
 		resource_type: 'resend_webhook',
 		team_id: 'resend-team-test',
 		resource_id: 'webhook-test',
-		resource_name: 'quickmail-test-webhook',
+		resource_name: 'noroshi-test-webhook',
 		...overrides
 	};
 }
@@ -327,7 +327,7 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 				resources: [
 					{
 						id: 'existing-worker',
-						name: 'quickmail-test-worker',
+						name: 'noroshi-test-worker',
 						resource_type: 'cloudflare_worker',
 						manifest_fingerprint: 'manifest-v1'
 					}
@@ -348,7 +348,7 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 						},
 						desiredState: {
 							resources: [],
-							resource_name: 'quickmail-test-worker',
+							resource_name: 'noroshi-test-worker',
 							ownership_manifest: {
 								resource_id: 'existing-worker',
 								resource_type: 'cloudflare_worker',
@@ -368,7 +368,7 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 				webhooks: [
 					{
 						id: 'existing-webhook',
-						endpoint: 'https://quickmail.test/hooks/resend',
+						endpoint: 'https://noroshi.test/hooks/resend',
 						event_types: ['email.sent', 'email.bounced']
 					}
 				]
@@ -388,7 +388,7 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 							operation: 'create_webhook'
 						},
 						desiredState: {
-							endpoint: 'https://quickmail.test/hooks/resend',
+							endpoint: 'https://noroshi.test/hooks/resend',
 							event_types: ['email.bounced', 'email.sent']
 						}
 					})
@@ -566,7 +566,7 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 
 		const collisionAdapter = new FakeCloudflare({
 			version: 1,
-			resources: [{ id: 'existing-worker', name: 'quickmail-test-worker' }]
+			resources: [{ id: 'existing-worker', name: 'noroshi-test-worker' }]
 		});
 		const collisionTarget = cloudflareTarget();
 		const collisionInspection = await inspectSetup({
@@ -1150,7 +1150,7 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 	});
 
 	test('atomic resumable state accepts only safe evidence and writes through same-directory rename', async () => {
-		const directory = await mkdtemp(join(tmpdir(), 'quickmail-ja-qmj10-'));
+		const directory = await mkdtemp(join(tmpdir(), 'noroshi-qmj10-'));
 		const file = join(directory, 'state.json');
 		const store = createAtomicSetupStateStore(file);
 		const state = {
@@ -1170,7 +1170,7 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 	});
 
 	test('atomic state lock fails closed on an existing or stale lock', async () => {
-		const directory = await mkdtemp(join(tmpdir(), 'quickmail-ja-qmj10-lock-'));
+		const directory = await mkdtemp(join(tmpdir(), 'noroshi-qmj10-lock-'));
 		const file = join(directory, 'apply-state.json');
 		const store = createAtomicSetupStateStore(file);
 		await writeFile(`${file}.lock`, 'stale lock marker', 'utf8');
@@ -1183,7 +1183,7 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 	});
 
 	test('atomic approval state resumes by readback after a write/readback crash without a duplicate write', async () => {
-		const directory = await mkdtemp(join(tmpdir(), 'quickmail-ja-qmj10-ledger-'));
+		const directory = await mkdtemp(join(tmpdir(), 'noroshi-qmj10-ledger-'));
 		const store = createAtomicSetupStateStore(join(directory, 'apply-state.json'));
 		const firstLedger = new AtomicApprovalLedger({ stateStore: store });
 		const fake = new FakeCloudflare({ version: 1 });
@@ -1206,7 +1206,7 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 		);
 		assert.equal(fake.applyCalls, 1);
 		assert.deepEqual(await store.load(), {
-			schema_version: 'quickmail-ja.setup-engine.v1.apply-state.v1',
+			schema_version: 'noroshi.setup-engine.v1.apply-state.v1',
 			plan_id: plan.plan_id,
 			plan_hash: plan.plan_hash,
 			approval_id: plan.approval_id,
@@ -1235,7 +1235,7 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 	});
 
 	test('two approval ledgers sharing a state path permit only one concurrent provider write', async () => {
-		const directory = await mkdtemp(join(tmpdir(), 'quickmail-ja-qmj10-concurrent-'));
+		const directory = await mkdtemp(join(tmpdir(), 'noroshi-qmj10-concurrent-'));
 		const file = join(directory, 'apply-state.json');
 		const firstLedger = new AtomicApprovalLedger({
 			stateStore: createAtomicSetupStateStore(file)

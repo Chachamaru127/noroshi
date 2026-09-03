@@ -430,7 +430,7 @@ test('resume invalidates grants for changed identity before considering clipboar
 test('canary completion requires the same non-secret token across all independent surfaces', () => {
 	const token = 'canary-fixture-01';
 	const complete = Object.fromEntries(
-		['email_routing_activity', 'worker_d1', 'resend', 'quickmail_ui'].map((surface) => [
+		['email_routing_activity', 'worker_d1', 'resend', 'noroshi_ui'].map((surface) => [
 			surface,
 			{ token, status: 'observed' }
 		])
@@ -460,7 +460,7 @@ test('canary evidence rejects unbounded or secret-like tokens without reflecting
 		'canary-日本語'
 	]) {
 		const evidence = Object.fromEntries(
-			['email_routing_activity', 'worker_d1', 'resend', 'quickmail_ui'].map((surface) => [
+			['email_routing_activity', 'worker_d1', 'resend', 'noroshi_ui'].map((surface) => [
 				surface,
 				{ token, status: 'observed' }
 			])

@@ -1,5 +1,5 @@
 ---
-name: quickmail-ja-setup
+name: noroshi-setup
 description: Noroshiを利用者自身のCloudflare、Resend、Google Cloud認証情報で導入する際に、公式画面を日本語で案内する。メール本文の操作やプロバイダー設定の自動変更には使わない。
 metadata:
   short-description: NoroshiのBYOK導入を日本語で案内

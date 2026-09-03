@@ -1,6 +1,6 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "quickmail-ja",
+	"name": "noroshi",
 	"main": ".svelte-kit/cloudflare/_worker.js",
 	"compatibility_date": "2025-06-01",
 	"compatibility_flags": ["nodejs_compat", "enable_nodejs_http_modules"],
@@ -45,7 +45,7 @@
 	"d1_databases": [
 		{
 			"binding": "DB",
-			"database_name": "quickmail-ja",
+			"database_name": "noroshi",
 			"database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID",
 			"migrations_dir": "migrations"
 		}
@@ -54,7 +54,7 @@
 	"r2_buckets": [
 		{
 			"binding": "ATTACHMENTS",
-			"bucket_name": "quickmail-ja-attachments"
+			"bucket_name": "noroshi-attachments"
 		}
 	],
 

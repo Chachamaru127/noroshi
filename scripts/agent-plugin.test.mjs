@@ -90,7 +90,7 @@ test('portable root manifest and MCP use the published Agent Plugins 1.0 schemas
 		assert.equal(createHash('sha256').update(readBytes(path)).digest('hex'), expected);
 	}
 	assert.equal(validateManifest({ ...manifest, unknown: true }), false);
-	assert.equal(validateManifest({ ...manifest, name: 'QuickMail-ja' }), false);
+	assert.equal(validateManifest({ ...manifest, name: 'Noroshi' }), false);
 	assert.equal(validateMcp({ ...mcp, extra: true }), false);
 	assert.equal(
 		validateMcp({
@@ -119,7 +119,7 @@ test('official schema checksum fixture rejects tampered bytes', () => {
 
 test('repository plugin passes the bounded manifest, generated projection, and MCP checks', () => {
 	const checked = validateAgentPlugin();
-	assert.equal(checked.manifest.name, 'quickmail-ja-setup');
+	assert.equal(checked.manifest.name, 'noroshi-setup');
 	assert.deepEqual(checked.mcp.mcpServers[MCP_SERVER_NAME].args, [
 		'${PLUGIN_ROOT}/scripts/setup-plugin-mcp.mjs'
 	]);
@@ -132,17 +132,17 @@ test('repository plugin passes the bounded manifest, generated projection, and M
 		admin: false
 	});
 	assert.equal(checked.projection.provider_email_access, false);
-	assert.match(read('skills/quickmail-ja-setup/SKILL.md'), /^---\nname: quickmail-ja-setup\n/u);
+	assert.match(read('skills/noroshi-setup/SKILL.md'), /^---\nname: noroshi-setup\n/u);
 	assert.deepEqual(
 		PLUGIN_PACKAGE_FILES.filter((path) => path.startsWith('skills/')),
 		[
-			'skills/quickmail-ja-operations/SKILL.md',
-			'skills/quickmail-ja-setup/SKILL.md',
-			'skills/quickmail-ja-setup/agents/openai.yaml',
-			'skills/quickmail-ja-setup/references/browser-and-byok.md',
-			'skills/quickmail-ja-setup/references/cloudflare-resend.md',
-			'skills/quickmail-ja-setup/references/gmail-byok.md',
-			'skills/quickmail-ja-setup/references/setup-patterns.json'
+			'skills/noroshi-operations/SKILL.md',
+			'skills/noroshi-setup/SKILL.md',
+			'skills/noroshi-setup/agents/openai.yaml',
+			'skills/noroshi-setup/references/browser-and-byok.md',
+			'skills/noroshi-setup/references/cloudflare-resend.md',
+			'skills/noroshi-setup/references/gmail-byok.md',
+			'skills/noroshi-setup/references/setup-patterns.json'
 		]
 	);
 	assert.doesNotMatch(
@@ -150,16 +150,16 @@ test('repository plugin passes the bounded manifest, generated projection, and M
 		/scripts\/setup\.mjs/u,
 		'interactive repository setup CLI must not be in the Agent Plugin'
 	);
-	assert.match(read('skills/quickmail-ja-setup/SKILL.md'), /BYOK/u);
-	assert.match(read('skills/quickmail-ja-setup/SKILL.md'), /公式ドキュメントを実際に開き/u);
+	assert.match(read('skills/noroshi-setup/SKILL.md'), /BYOK/u);
+	assert.match(read('skills/noroshi-setup/SKILL.md'), /公式ドキュメントを実際に開き/u);
 	assert.match(
-		read('skills/quickmail-ja-setup/SKILL.md'),
+		read('skills/noroshi-setup/SKILL.md'),
 		/ログイン、アカウント切替、MFA、CAPTCHA、規約同意、支払い/u
 	);
 });
 
 test('treeish validation reads the same committed source that packaging will archive', () => {
-	const temporary = mkdtempSync(join(tmpdir(), 'quickmail-ja-agent-plugin-treeish-'));
+	const temporary = mkdtempSync(join(tmpdir(), 'noroshi-agent-plugin-treeish-'));
 	try {
 		const archivePath = join(temporary, 'source.tar');
 		const archive = spawnSync(
@@ -174,8 +174,8 @@ test('treeish validation reads the same committed source that packaging will arc
 		assert.equal(extracted.status, 0, extracted.stderr?.toString());
 		for (const args of [
 			['init', '-q'],
-			['config', 'user.name', 'QuickMail-ja fixture'],
-			['config', 'user.email', 'quickmail-ja-fixture@example.invalid'],
+			['config', 'user.name', 'Noroshi fixture'],
+			['config', 'user.email', 'noroshi-fixture@example.invalid'],
 			['add', '-A'],
 			['commit', '-qm', 'fixture']
 		]) {
@@ -183,7 +183,7 @@ test('treeish validation reads the same committed source that packaging will arc
 			assert.equal(result.status, 0, result.stderr);
 		}
 		const workingTreeManifest = JSON.parse(readFileSync(join(temporary, 'plugin.json'), 'utf8'));
-		workingTreeManifest.name = 'QuickMail-ja';
+		workingTreeManifest.name = 'Noroshi';
 		writeFileSync(
 			join(temporary, 'plugin.json'),
 			`${JSON.stringify(workingTreeManifest, null, '\t')}\n`
@@ -340,7 +340,7 @@ test('MCP inspects only a non-secret local snapshot and never applies a provider
 	assert.ok(appliedResponse);
 	assert.ok(unknownResponse);
 	const inspected = JSON.parse(inspectedResponse.result.content[0].text);
-	assert.equal(inspected.schema_version, 'quickmail-ja.setup-engine.v1');
+	assert.equal(inspected.schema_version, 'noroshi.setup-engine.v1');
 	assert.equal(inspected.state.observed_at, '2026-08-29T00:00:00Z');
 	assert.match(inspected.current_state_fingerprint, /^[0-9a-f]{64}$/u);
 	const rejected = JSON.parse(rejectedResponse.result.content[0].text);
@@ -374,7 +374,7 @@ test('package allowlist rejects special files, unsafe paths, and additions', () 
 });
 
 test('package output path rejects outside paths and symlinks without touching targets', () => {
-	const temporary = mkdtempSync(join(tmpdir(), 'quickmail-ja-agent-plugin-'));
+	const temporary = mkdtempSync(join(tmpdir(), 'noroshi-agent-plugin-'));
 	const outside = join(temporary, 'outside.zip');
 	const out = join(repositoryRoot, 'out');
 	const output = join(out, `agent-plugin-symlink-${process.pid}.zip`);
@@ -401,28 +401,28 @@ test('committed Agent Plugin archive passes exact-entry, traversal, symlink, and
 		const packaged = packageAgentPlugin({ output });
 		assert.deepEqual([...packaged.files].sort(), [...PLUGIN_PACKAGE_FILES].sort());
 		const expectedEntries = [
-			'quickmail-ja-setup-plugin/',
-			'quickmail-ja-setup-plugin/LICENSE.md',
-			'quickmail-ja-setup-plugin/mcp.json',
-			'quickmail-ja-setup-plugin/plugin.json',
-			'quickmail-ja-setup-plugin/scripts/',
-			'quickmail-ja-setup-plugin/scripts/setup-engine.mjs',
-			'quickmail-ja-setup-plugin/scripts/setup-plugin-mcp.mjs',
-			'quickmail-ja-setup-plugin/setup/',
-			'quickmail-ja-setup-plugin/setup/capabilities.json',
-			'quickmail-ja-setup-plugin/setup/plugin-capabilities.json',
-			'quickmail-ja-setup-plugin/skills/',
-			'quickmail-ja-setup-plugin/skills/quickmail-ja-operations/',
-			'quickmail-ja-setup-plugin/skills/quickmail-ja-operations/SKILL.md',
-			'quickmail-ja-setup-plugin/skills/quickmail-ja-setup/',
-			'quickmail-ja-setup-plugin/skills/quickmail-ja-setup/SKILL.md',
-			'quickmail-ja-setup-plugin/skills/quickmail-ja-setup/agents/',
-			'quickmail-ja-setup-plugin/skills/quickmail-ja-setup/agents/openai.yaml',
-			'quickmail-ja-setup-plugin/skills/quickmail-ja-setup/references/',
-			'quickmail-ja-setup-plugin/skills/quickmail-ja-setup/references/browser-and-byok.md',
-			'quickmail-ja-setup-plugin/skills/quickmail-ja-setup/references/cloudflare-resend.md',
-			'quickmail-ja-setup-plugin/skills/quickmail-ja-setup/references/gmail-byok.md',
-			'quickmail-ja-setup-plugin/skills/quickmail-ja-setup/references/setup-patterns.json'
+			'noroshi-setup-plugin/',
+			'noroshi-setup-plugin/LICENSE.md',
+			'noroshi-setup-plugin/mcp.json',
+			'noroshi-setup-plugin/plugin.json',
+			'noroshi-setup-plugin/scripts/',
+			'noroshi-setup-plugin/scripts/setup-engine.mjs',
+			'noroshi-setup-plugin/scripts/setup-plugin-mcp.mjs',
+			'noroshi-setup-plugin/setup/',
+			'noroshi-setup-plugin/setup/capabilities.json',
+			'noroshi-setup-plugin/setup/plugin-capabilities.json',
+			'noroshi-setup-plugin/skills/',
+			'noroshi-setup-plugin/skills/noroshi-operations/',
+			'noroshi-setup-plugin/skills/noroshi-operations/SKILL.md',
+			'noroshi-setup-plugin/skills/noroshi-setup/',
+			'noroshi-setup-plugin/skills/noroshi-setup/SKILL.md',
+			'noroshi-setup-plugin/skills/noroshi-setup/agents/',
+			'noroshi-setup-plugin/skills/noroshi-setup/agents/openai.yaml',
+			'noroshi-setup-plugin/skills/noroshi-setup/references/',
+			'noroshi-setup-plugin/skills/noroshi-setup/references/browser-and-byok.md',
+			'noroshi-setup-plugin/skills/noroshi-setup/references/cloudflare-resend.md',
+			'noroshi-setup-plugin/skills/noroshi-setup/references/gmail-byok.md',
+			'noroshi-setup-plugin/skills/noroshi-setup/references/setup-patterns.json'
 		];
 		const listing = spawnSync('unzip', ['-Z1', output], { encoding: 'utf8' });
 		assert.equal(listing.status, 0, listing.stderr);
@@ -452,10 +452,10 @@ test('Claude adapter is generated from the portable Skill and stays truthful abo
 		}
 	);
 	assert.equal(generator.status, 0, generator.stderr);
-	const portable = read('skills/quickmail-ja-operations/SKILL.md');
-	const claude = read('adapters/claude/skills/quickmail-ja-operations/SKILL.md');
-	assert.match(claude, /^---\nname: quickmail-ja-operations\n/u);
-	assert.match(claude, /Generated from skills\/quickmail-ja-operations\/SKILL\.md/);
+	const portable = read('skills/noroshi-operations/SKILL.md');
+	const claude = read('adapters/claude/skills/noroshi-operations/SKILL.md');
+	assert.match(claude, /^---\nname: noroshi-operations\n/u);
+	assert.match(claude, /Generated from skills\/noroshi-operations\/SKILL\.md/);
 	assert.match(read('adapters/claude/README.md'), /確認していない|対応済みとは扱わない/);
 	assert.match(read('adapters/openai/README.md'), /cloneだけでインストールされる/);
 	assert.doesNotMatch(portable, /resend_api_key|api_key_value|password:/u);

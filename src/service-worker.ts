@@ -65,7 +65,7 @@ worker.addEventListener('push', (event: PushEvent) => {
 				body: stringValue(payload.body, '新着メールが届きました。'),
 				icon: '/icons/icon-192.png',
 				badge: '/icons/icon-192.png',
-				tag: stringValue(payload.tag, 'quickmail-new-message'),
+				tag: stringValue(payload.tag, 'noroshi-new-message'),
 				data: { url }
 			});
 		})()

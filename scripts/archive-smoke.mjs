@@ -8,9 +8,9 @@ import { findExternalFontReferences } from './release-supply-chain.mjs';
 import { nativePackageFiles } from './generate-codex-native-adapter.mjs';
 
 const repository = fileURLToPath(new URL('..', import.meta.url));
-const temporary = await mkdtemp(join(tmpdir(), 'quickmail-ja-archive-smoke-'));
-const archive = join(temporary, 'quickmail-ja.tar');
-const extracted = join(temporary, 'quickmail-ja-smoke');
+const temporary = await mkdtemp(join(tmpdir(), 'noroshi-archive-smoke-'));
+const archive = join(temporary, 'noroshi.tar');
+const extracted = join(temporary, 'noroshi-smoke');
 const treeish = process.env.ARCHIVE_TREEISH || 'HEAD';
 
 function run(command, args, options = {}) {
@@ -38,8 +38,8 @@ try {
 		}
 	}
 	const adapters = [
-		'.agents/skills/quickmail-ja-setup/SKILL.md',
-		'.claude/skills/quickmail-ja-setup/SKILL.md'
+		'.agents/skills/noroshi-setup/SKILL.md',
+		'.claude/skills/noroshi-setup/SKILL.md'
 	];
 	const nativeFiles = nativePackageFiles();
 	const allowedClientFiles = [...adapters, ...nativeFiles].sort();
@@ -70,14 +70,14 @@ try {
 	}
 	run(
 		'git',
-		['archive', '--format=tar', '--prefix=quickmail-ja-smoke/', `--output=${archive}`, treeish],
+		['archive', '--format=tar', '--prefix=noroshi-smoke/', `--output=${archive}`, treeish],
 		{ cwd: repository }
 	);
 	run('tar', ['-xf', archive, '-C', temporary]);
 	for (const required of [
-		'skills/quickmail-ja-setup/SKILL.md',
-		'.agents/skills/quickmail-ja-setup/SKILL.md',
-		'.claude/skills/quickmail-ja-setup/SKILL.md'
+		'skills/noroshi-setup/SKILL.md',
+		'.agents/skills/noroshi-setup/SKILL.md',
+		'.claude/skills/noroshi-setup/SKILL.md'
 	]) {
 		const status = await lstat(join(extracted, required));
 		if (!status.isFile() || status.isSymbolicLink()) {

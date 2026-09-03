@@ -62,7 +62,7 @@ function sanitizeBody(value: string | null | undefined): string {
 }
 
 export function forwardingIdempotencyKey(ruleId: string, emailId: string): string {
-	return `quickmail-forward:${ruleId}:${emailId}`;
+	return `noroshi-forward:${ruleId}:${emailId}`;
 }
 
 export function buildForwardingPayload(input: ForwardingPayloadInput): OutboundMailInput {
@@ -87,7 +87,7 @@ export function buildForwardingPayload(input: ForwardingPayloadInput): OutboundM
 		]
 			.join('\n')
 			.trim(),
-		headers: { 'X-QuickMail-Forwarded': '1' },
+		headers: { 'X-Noroshi-Forwarded': '1' },
 		attachments: input.attachments,
 		idempotencyKey: forwardingIdempotencyKey(input.ruleId, input.emailId)
 	};
@@ -96,7 +96,7 @@ export function buildForwardingPayload(input: ForwardingPayloadInput): OutboundM
 export function isForwardedHop(headers: unknown): boolean {
 	if (!headers) return false;
 	let value: unknown;
-	if (headers instanceof Headers) value = headers.get('X-QuickMail-Forwarded');
+	if (headers instanceof Headers) value = headers.get('X-Noroshi-Forwarded');
 	else if (Array.isArray(headers)) {
 		const match = headers.find(
 			(item) =>
@@ -104,12 +104,12 @@ export function isForwardedHop(headers: unknown): boolean {
 				typeof item === 'object' &&
 				'key' in item &&
 				typeof item.key === 'string' &&
-				item.key.toLowerCase() === 'x-quickmail-forwarded'
+				item.key.toLowerCase() === 'x-noroshi-forwarded'
 		);
 		value = match && typeof match === 'object' && 'value' in match ? match.value : undefined;
 	} else if (typeof headers === 'object') {
 		value = Object.entries(headers as Record<string, unknown>).find(
-			([key]) => key.toLowerCase() === 'x-quickmail-forwarded'
+			([key]) => key.toLowerCase() === 'x-noroshi-forwarded'
 		)?.[1];
 	}
 	return typeof value === 'string' && value.trim() === '1';

@@ -98,13 +98,13 @@ test('forces workers.dev and exposes no custom-domain setup path', () => {
 
 test('local dev passes bootstrap through process memory, never argv or a file', () => {
 	assert.match(source, /withLocalBootstrapEnvironment/);
-	assert.match(source, /process\.env\.QUICKMAIL_BOOTSTRAP_SECRET/);
+	assert.match(source, /process\.env\.NOROSHI_BOOTSTRAP_SECRET/);
 	assert.match(source, /buildAuthRateLimitSecretPlan\(randomBytes\(32\)\)/);
 	assert.doesNotMatch(source, /\['run', 'dev',[^\]]*BOOTSTRAP_SECRET/);
 });
 
 test('clean-clone local-dev requires and injects an explicit validated inbound domain', () => {
-	const directory = mkdtempSync(join(tmpdir(), 'quickmail-ja-local-dev-'));
+	const directory = mkdtempSync(join(tmpdir(), 'noroshi-local-dev-'));
 	const fakeBun = join(directory, 'bun');
 	writeFileSync(
 		fakeBun,
@@ -122,7 +122,7 @@ exit 2
 		const env = {
 			...process.env,
 			PATH: `${directory}:/usr/bin:/bin`,
-			QUICKMAIL_BOOTSTRAP_SECRET: 'process-only-bootstrap-value',
+			NOROSHI_BOOTSTRAP_SECRET: 'process-only-bootstrap-value',
 			RESEND_API_KEY: 'poisoned-runtime-key',
 			RESEND_WEBHOOK_SECRET: 'poisoned-webhook-key'
 		};

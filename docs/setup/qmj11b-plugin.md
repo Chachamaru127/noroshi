@@ -8,16 +8,16 @@
 
 ## パッケージ構成
 
-このリリースのルートは Agent Plugins 1.0 のportable配布形である。これはOpenAI Codex CLIのネイティブなローカルmarketplace形式とは別の配布面である。Codex CLIの現行公式形式では、プラグイン側に `.codex-plugin/plugin.json` と、必要に応じてルートの `.mcp.json` を置き、marketplace側に `.agents/plugins/marketplace.json` を置く。rootの `plugin.json` と `mcp.json` だけでは、Codex CLIのローカルmarketplaceとして発見されない。このリポジトリでは、native adapterを `.agents/plugins/quickmail-ja-setup/` に同梱し、portable packageと並存させている。
+このリリースのルートは Agent Plugins 1.0 のportable配布形である。これはOpenAI Codex CLIのネイティブなローカルmarketplace形式とは別の配布面である。Codex CLIの現行公式形式では、プラグイン側に `.codex-plugin/plugin.json` と、必要に応じてルートの `.mcp.json` を置き、marketplace側に `.agents/plugins/marketplace.json` を置く。rootの `plugin.json` と `mcp.json` だけでは、Codex CLIのローカルmarketplaceとして発見されない。このリポジトリでは、native adapterを `.agents/plugins/noroshi-setup/` に同梱し、portable packageと並存させている。
 
 - `plugin.json`: Agent Plugins 1.0の公式マニフェスト。カスタム拡張には capability registry の参照と、メールボックス権限が全て `false` であることだけを記録する。
-- `skills/quickmail-ja-operations/SKILL.md`: QMJ-10 の `inspect → plan → approve → apply → readback → verify` を日本語で案内する正本 operations Skill。
-- `skills/quickmail-ja-setup/SKILL.md`: QMJ-11A の BYOK・公式画面・手動 fallback を案内する正本 guidance Skill。参照資料とともに Agent Plugin ZIP に同梱するため、プラグインだけを導入しても導入案内を利用できる。
+- `skills/noroshi-operations/SKILL.md`: QMJ-10 の `inspect → plan → approve → apply → readback → verify` を日本語で案内する正本 operations Skill。
+- `skills/noroshi-setup/SKILL.md`: QMJ-11A の BYOK・公式画面・手動 fallback を案内する正本 guidance Skill。参照資料とともに Agent Plugin ZIP に同梱するため、プラグインだけを導入しても導入案内を利用できる。
 - `mcp.json`: Agent Plugins 1.0形式の任意コンポーネントとして、ローカルの狭い QMJ-10 操作だけを stdio で公開する。メールボックス MCP とは物理的に別である。OpenAI Codex CLIへnative installする場合は、別形式のルート `.mcp.json` adapterが必要になる。
 - `setup/plugin-capabilities.json`: `setup/capabilities.json` と QMJ-10 の固定 step contract から生成した射影。公開 capability と provider operation は空である。
 - `adapters/claude/`: Agent Plugins 1.0 と別形式の Claude ネイティブアダプター。portable package の自動発見を意味しない。
 - `.agents/plugins/marketplace.json`: Codex CLI / ChatGPTデスクトップが読むrepo marketplace catalog。Agent Plugin ZIPへは含めない。
-- `.agents/plugins/quickmail-ja-setup/`: Codex native manifest、MCP、operations Skill、BYOK setup Skillと参照資料を含むself-contained adapter。canonical portable sourceから生成・一致検証する。
+- `.agents/plugins/noroshi-setup/`: Codex native manifest、MCP、operations Skill、BYOK setup Skillと参照資料を含むself-contained adapter。canonical portable sourceから生成・一致検証する。
 - `adapters/openai/`: Codex / ChatGPT の公式サポート面と検証範囲を記録する案内。
 
 MCP のツール一覧は次の6つに固定する。
@@ -51,7 +51,7 @@ MCP のツール一覧は次の6つに固定する。
 
 ### Codex / ChatGPT
 
-ルートの `plugin.json`、`skills/`、`mcp.json` が Agent Plugins 1.0のportable sourceである。Codex native sourceは `.agents/plugins/marketplace.json` と `.agents/plugins/quickmail-ja-setup/` に分離している。Codex CLI 0.149.1の一時クリーンプロファイルで、`codex plugin marketplace add <repo-root>`、`codex plugin list --json --available`、`codex plugin add quickmail-ja-setup@quickmail-ja`、installed/enabled表示、cache上のBYOK setup Skill確認、MCP stdio initialize、tools/list、`setup_apply` blockedまで成功した。
+ルートの `plugin.json`、`skills/`、`mcp.json` が Agent Plugins 1.0のportable sourceである。Codex native sourceは `.agents/plugins/marketplace.json` と `.agents/plugins/noroshi-setup/` に分離している。Codex CLI 0.149.1の一時クリーンプロファイルで、`codex plugin marketplace add <repo-root>`、`codex plugin list --json --available`、`codex plugin add noroshi-setup@noroshi`、installed/enabled表示、cache上のBYOK setup Skill確認、MCP stdio initialize、tools/list、`setup_apply` blockedまで成功した。
 
 Codex CLIの確認はアカウントログインなしで行った。一時 `HOME` / `CODEX_HOME`を使ったため、既存global configは変更されていない。provider、DNS、メール、秘密値、外部送信は扱っていない。ChatGPTデスクトップは、公式のPlugins Directoryでlocal/repo marketplaceを選択してインストールし、再起動後の新規チャットで確認する別gateである。Agent Plugin ZIPの導入後に利用できる範囲は、同梱した非接続のoperations SkillとBYOK guidance Skillである。
 

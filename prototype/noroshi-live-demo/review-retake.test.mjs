@@ -25,7 +25,7 @@ assert.ok(fs.existsSync(path.join(directory, 'release-workflow-security.test.mjs
 assert.ok(fs.existsSync(path.join(directory, 'voiceover-review-receipt.schema.json')));
 assert.match(release, /^permissions:\n  contents: read$/mu);
 assert.match(release, /persist-credentials: false/u);
-assert.match(release, /node prototype\/quickmail-ja-live-demo\/release-gates\.mjs/u);
+assert.match(release, /node prototype\/noroshi-live-demo\/release-gates\.mjs/u);
 assert.match(release, /commit_sha: \$\{\{ steps\.version\.outputs\.commit_sha \}\}/u);
 assert.ok(
 	(release.match(/ref: \$\{\{ needs\.preflight\.outputs\.commit_sha \}\}/gu) || []).length >= 2,
@@ -38,7 +38,7 @@ assert.match(release, /EXPECTED_SHA: \$\{\{ needs\.preflight\.outputs\.commit_sh
 assert.doesNotMatch(release, /uses:\s+[^\s]+@(v\d+|main|master)/u);
 assert.equal(
 	packageJson.scripts['test:live-demo:contracts'],
-	'node prototype/quickmail-ja-live-demo/test.mjs && node prototype/quickmail-ja-live-demo/review-retake.test.mjs && node prototype/quickmail-ja-live-demo/release-workflow-security.test.mjs && node prototype/quickmail-ja-live-demo/release-gates.test.mjs'
+	'node prototype/noroshi-live-demo/test.mjs && node prototype/noroshi-live-demo/review-retake.test.mjs && node prototype/noroshi-live-demo/release-workflow-security.test.mjs && node prototype/noroshi-live-demo/release-gates.test.mjs'
 );
 assert.match(ci, /run: bun run test:live-demo:contracts/u);
 assert.match(release, /run: bun run test:live-demo:contracts/u);

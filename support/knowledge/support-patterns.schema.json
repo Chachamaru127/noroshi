@@ -1,6 +1,6 @@
 {
 	"$schema": "https://json-schema.org/draft/2020-12/schema",
-	"$id": "https://quickmail-ja.example/schemas/support-patterns.schema.json",
+	"$id": "https://noroshi.example/schemas/support-patterns.schema.json",
 	"title": "Noroshi Japanese support patterns",
 	"type": "object",
 	"additionalProperties": false,

@@ -1,5 +1,5 @@
 {
-	"schema_version": "quickmail-ja.setup-capabilities.v1",
+	"schema_version": "noroshi.setup-capabilities.v1",
 	"providers": ["cloudflare", "resend"],
 	"guidance_skill": {
 		"exposed_capability_ids": [],

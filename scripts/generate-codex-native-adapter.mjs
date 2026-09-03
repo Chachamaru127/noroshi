@@ -4,29 +4,29 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repositoryRoot = fileURLToPath(new URL('..', import.meta.url));
-const nativeRoot = join(repositoryRoot, '.agents/plugins/quickmail-ja-setup');
-const nativePackagePrefix = '.agents/plugins/quickmail-ja-setup';
+const nativeRoot = join(repositoryRoot, '.agents/plugins/noroshi-setup');
+const nativePackagePrefix = '.agents/plugins/noroshi-setup';
 const nativeStaticFiles = Object.freeze(['.codex-plugin/plugin.json', '.mcp.json']);
 
 const mirrorFiles = Object.freeze([
-	['skills/quickmail-ja-operations/SKILL.md', 'skills/quickmail-ja-operations/SKILL.md'],
-	['skills/quickmail-ja-setup/SKILL.md', 'skills/quickmail-ja-setup/SKILL.md'],
-	['skills/quickmail-ja-setup/agents/openai.yaml', 'skills/quickmail-ja-setup/agents/openai.yaml'],
+	['skills/noroshi-operations/SKILL.md', 'skills/noroshi-operations/SKILL.md'],
+	['skills/noroshi-setup/SKILL.md', 'skills/noroshi-setup/SKILL.md'],
+	['skills/noroshi-setup/agents/openai.yaml', 'skills/noroshi-setup/agents/openai.yaml'],
 	[
-		'skills/quickmail-ja-setup/references/browser-and-byok.md',
-		'skills/quickmail-ja-setup/references/browser-and-byok.md'
+		'skills/noroshi-setup/references/browser-and-byok.md',
+		'skills/noroshi-setup/references/browser-and-byok.md'
 	],
 	[
-		'skills/quickmail-ja-setup/references/cloudflare-resend.md',
-		'skills/quickmail-ja-setup/references/cloudflare-resend.md'
+		'skills/noroshi-setup/references/cloudflare-resend.md',
+		'skills/noroshi-setup/references/cloudflare-resend.md'
 	],
 	[
-		'skills/quickmail-ja-setup/references/gmail-byok.md',
-		'skills/quickmail-ja-setup/references/gmail-byok.md'
+		'skills/noroshi-setup/references/gmail-byok.md',
+		'skills/noroshi-setup/references/gmail-byok.md'
 	],
 	[
-		'skills/quickmail-ja-setup/references/setup-patterns.json',
-		'skills/quickmail-ja-setup/references/setup-patterns.json'
+		'skills/noroshi-setup/references/setup-patterns.json',
+		'skills/noroshi-setup/references/setup-patterns.json'
 	],
 	['scripts/setup-engine.mjs', 'scripts/setup-engine.mjs'],
 	['scripts/setup-plugin-mcp.mjs', 'scripts/setup-plugin-mcp.mjs'],

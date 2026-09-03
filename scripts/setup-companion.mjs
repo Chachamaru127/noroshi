@@ -18,7 +18,7 @@ const REQUIRED_CANARY_SURFACES = Object.freeze([
 	'email_routing_activity',
 	'worker_d1',
 	'resend',
-	'quickmail_ui'
+	'noroshi_ui'
 ]);
 
 const APPROVAL_FIELDS = Object.freeze([

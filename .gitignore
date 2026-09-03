@@ -3,14 +3,14 @@ backup/
 .agents/*
 !.agents/skills/
 .agents/skills/*
-!.agents/skills/quickmail-ja-setup/
-!.agents/skills/quickmail-ja-setup/SKILL.md
+!.agents/skills/noroshi-setup/
+!.agents/skills/noroshi-setup/SKILL.md
 !.agents/plugins/
 .claude/*
 !.claude/skills/
 .claude/skills/*
-!.claude/skills/quickmail-ja-setup/
-!.claude/skills/quickmail-ja-setup/SKILL.md
+!.claude/skills/noroshi-setup/
+!.claude/skills/noroshi-setup/SKILL.md
 .harness/
 .harness-*/
 .harness-mem/
@@ -44,4 +44,4 @@ vite.config.ts.timestamp-*
 .dev.vars
 
 # Local QMJ-10 resumable setup state (never commit)
-/.quickmail-ja/
+/.noroshi/

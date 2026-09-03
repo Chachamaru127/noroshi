@@ -1,5 +1,5 @@
 ---
-name: quickmail-ja-operations
+name: noroshi-operations
 description: Noroshiのセットアップ計画を、QMJ-10の固定契約と利用者のBYOK境界に沿って確認する。メールボックスやプロバイダーを直接操作しない。
 metadata:
   short-description: QMJ-10の導入計画を安全に確認

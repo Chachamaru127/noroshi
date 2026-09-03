@@ -40,11 +40,11 @@ describe('Resend provider with Cloudflare inbound', () => {
 				headers: { 'content-type': 'application/json' }
 			});
 		}) as typeof fetch;
-		const provider = createResendProvider('re_test', undefined, 'quickmail.example');
+		const provider = createResendProvider('re_test', undefined, 'noroshi.example');
 		await provider.send({
 			from: {
-				id: 'address', user_id: 'user', domain_id: 'domain', domain_name: 'quickmail.example',
-				address: 'info@quickmail.example', label: null, is_default: true, signature: null,
+				id: 'address', user_id: 'user', domain_id: 'domain', domain_name: 'noroshi.example',
+				address: 'info@noroshi.example', label: null, is_default: true, signature: null,
 				created_at: '2026-08-25T00:00:00.000Z'
 			},
 			senderName: 'Info',
@@ -52,10 +52,10 @@ describe('Resend provider with Cloudflare inbound', () => {
 			replyTo: 'sender@example.net',
 			subject: 'Fwd: Hello',
 			text: 'Body',
-			idempotencyKey: 'quickmail-forward:rule:email'
+			idempotencyKey: 'noroshi-forward:rule:email'
 		});
 		assert.equal(body.reply_to, 'sender@example.net');
-		assert.equal(idempotencyKey, 'quickmail-forward:rule:email');
+		assert.equal(idempotencyKey, 'noroshi-forward:rule:email');
 	});
 
 	test('can target an explicit local API origin for FakeProvider UI smoke', async () => {
@@ -71,13 +71,13 @@ describe('Resend provider with Cloudflare inbound', () => {
 		const provider = createResendProvider(
 			're_test',
 			undefined,
-			'quickmail.example',
+			'noroshi.example',
 			'http://127.0.0.1:8788/api/'
 		);
 		const result = await provider.send({
 			from: {
-				id: 'address', user_id: 'user', domain_id: 'domain', domain_name: 'quickmail.example',
-				address: 'info@quickmail.example', label: null, is_default: true, signature: null,
+				id: 'address', user_id: 'user', domain_id: 'domain', domain_name: 'noroshi.example',
+				address: 'info@noroshi.example', label: null, is_default: true, signature: null,
 				created_at: '2026-08-25T00:00:00.000Z'
 			},
 			senderName: 'Info',
@@ -121,7 +121,7 @@ describe('Resend provider with Cloudflare inbound', () => {
 
 	test('rejects a non-loopback FakeProvider origin through the provider factory', () => {
 		assert.throws(
-			() => createResendProvider('re_test', undefined, 'quickmail.example', 'http://collector.example'),
+			() => createResendProvider('re_test', undefined, 'noroshi.example', 'http://collector.example'),
 			/loopback IP/i
 		);
 	});

@@ -1,6 +1,6 @@
 {
-	"schema_version": "quickmail-ja.setup-plugin-capabilities.v1",
-	"source_schema_version": "quickmail-ja.setup-capabilities.v1",
+	"schema_version": "noroshi.setup-plugin-capabilities.v1",
+	"source_schema_version": "noroshi.setup-capabilities.v1",
 	"source": "setup/capabilities.json",
 	"exposed_capability_ids": [],
 	"mailbox_permissions": {

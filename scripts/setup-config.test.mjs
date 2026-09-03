@@ -249,12 +249,12 @@ describe('setup provider config transforms', () => {
 	test('removes the setup input name at the actual child environment merge', () => {
 		const env = buildChildEnvironment(
 			{
-				QUICKMAIL_BOOTSTRAP_SECRET: 'operator-input',
-				QUICKMAIL_AUTH_RATE_LIMIT_SECRET: 'input-alias',
+				NOROSHI_BOOTSTRAP_SECRET: 'operator-input',
+				NOROSHI_AUTH_RATE_LIMIT_SECRET: 'input-alias',
 				PATH: '/bin'
 			},
 			{ BOOTSTRAP_SECRET: 'runtime-only', AUTH_RATE_LIMIT_SECRET: 'independent-random' },
-			['QUICKMAIL_BOOTSTRAP_SECRET', 'QUICKMAIL_AUTH_RATE_LIMIT_SECRET']
+			['NOROSHI_BOOTSTRAP_SECRET', 'NOROSHI_AUTH_RATE_LIMIT_SECRET']
 		);
 		assert.deepEqual(env, {
 			PATH: '/bin',
@@ -297,16 +297,16 @@ CLOUDFLARE_MAIL_DOMAINS=old.example
 	test('generates a generic Resend outbound and Cloudflare inbound config', () => {
 		const template = readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8');
 		const configured = configureSetupTemplate(template, {
-			workerName: 'quickmail-ja',
-			databaseName: 'quickmail-ja',
+			workerName: 'noroshi',
+			databaseName: 'noroshi',
 			databaseId: '00000000-0000-4000-8000-000000000000',
-			bucketName: 'quickmail-ja-attachments',
+			bucketName: 'noroshi-attachments',
 			domain: 'example.com',
 			hostname: null
 		});
-		assert.match(configured, /"name": "quickmail-ja"/);
-		assert.match(configured, /"database_name": "quickmail-ja"/);
-		assert.match(configured, /"bucket_name": "quickmail-ja-attachments"/);
+		assert.match(configured, /"name": "noroshi"/);
+		assert.match(configured, /"database_name": "noroshi"/);
+		assert.match(configured, /"bucket_name": "noroshi-attachments"/);
 		assert.match(configured, /"EMAIL_PROVIDER": "resend"/);
 		assert.match(configured, /"INBOUND_EMAIL_PROVIDER": "cloudflare"/);
 		assert.match(configured, /"CLOUDFLARE_MAIL_DOMAINS": "example\.com"/);
@@ -318,10 +318,10 @@ CLOUDFLARE_MAIL_DOMAINS=old.example
 	test('does not enable legacy Cloudflare outbound for a fresh setup request', () => {
 		const template = readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8');
 		const configured = configureSetupTemplate(template, {
-			workerName: 'quickmail-ja',
-			databaseName: 'quickmail-ja',
+			workerName: 'noroshi',
+			databaseName: 'noroshi',
 			databaseId: '00000000-0000-4000-8000-000000000000',
-			bucketName: 'quickmail-ja-attachments',
+			bucketName: 'noroshi-attachments',
 			domain: 'example.com',
 			provider: 'cloudflare',
 			hostname: null,

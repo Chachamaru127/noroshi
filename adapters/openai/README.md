@@ -2,7 +2,7 @@
 
 このリポジトリのルートは、Agent Plugins 1.0のportable packageである。`plugin.json`、`skills/`、`mcp.json`を別の独自manifestへ変換しない。Agent Plugin ZIPにはQMJ-10 operations Skillと、参照資料を含むcanonical BYOK setup Skillを同梱する。
 
-ただし、OpenAI Codex CLIのローカルmarketplaceは別のネイティブ配布面である。現行の公式ドキュメントは、プラグイン側に `.codex-plugin/plugin.json` と、必要に応じてルートの `.mcp.json` を置き、marketplace側に `.agents/plugins/marketplace.json` を置く形式を定義している。リポジトリにはこの形式のadapterを `.agents/plugins/quickmail-ja-setup/` として同梱し、portable packageとは別の配布経路にしている。
+ただし、OpenAI Codex CLIのローカルmarketplaceは別のネイティブ配布面である。現行の公式ドキュメントは、プラグイン側に `.codex-plugin/plugin.json` と、必要に応じてルートの `.mcp.json` を置き、marketplace側に `.agents/plugins/marketplace.json` を置く形式を定義している。リポジトリにはこの形式のadapterを `.agents/plugins/noroshi-setup/` として同梱し、portable packageとは別の配布経路にしている。
 
 このファイルはプロバイダー接続アダプターではない。Cloudflare、Resend、DNS、メールボックス、Noroshi管理のツールや認証情報を追加しない。cloneだけでインストールされる、またはすべてのChatGPT画面で利用できるとは主張しない。
 
@@ -13,7 +13,7 @@
 Codex CLI 0.149.1の一時クリーンプロファイルで、次を実測した（2026-08-30）。
 
 - `codex plugin marketplace add <repo-root>` でこのリポジトリの `.agents/plugins/marketplace.json` を登録できた。
-- `codex plugin list --json --available` で `quickmail-ja-setup@quickmail-ja` とBYOK setup Skillを含むnative pluginを発見し、`codex plugin add` 後にinstalled/enabled表示まで成功した。インストール先は公式のcache配下であった。
+- `codex plugin list --json --available` で `noroshi-setup@noroshi` とBYOK setup Skillを含むnative pluginを発見し、`codex plugin add` 後にinstalled/enabled表示まで成功した。インストール先は公式のcache配下であった。
 - インストール済みcacheの同じMCPコマンドでstdio initializeとtools/listを確認し、`setup_apply` は `provider_adapter_unavailable` で停止した。provider、DNS、メール、秘密値、外部送信は扱っていない。
 - 一時 `HOME` / `CODEX_HOME`だけを使い、既存のglobal configはハッシュが変わらないことを確認した。
 

@@ -102,7 +102,7 @@ test('requires an explicit verified send domain and a present restricted Resend 
 });
 
 test('atomically replaces the single send-domain allowlist', () => {
-	const directory = mkdtempSync(join(tmpdir(), 'quickmail-ja-upgrade-'));
+	const directory = mkdtempSync(join(tmpdir(), 'noroshi-upgrade-'));
 	const path = join(directory, 'wrangler.jsonc');
 	try {
 		writeFileSync(path, '{"vars":{"RESEND_SEND_DOMAINS":"old.example"}}');

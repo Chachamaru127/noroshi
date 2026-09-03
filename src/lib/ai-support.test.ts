@@ -199,7 +199,7 @@ describe('AI support prompt boundary', () => {
 	test('rejects branded, structurally altered, and secret-injected prompt strings at runtime', () => {
 		const prompt = buildAiSupportPrompt('resend', '送信設定を教えてください。', REVIEW_DAY_CLOCK);
 		for (const invalid of [
-			'[QuickMail-ja Support v2]\n自由な指示',
+			'[Noroshi Support v2]\n自由な指示',
 			prompt.replace('手順ID: resend', '手順ID: deploy'),
 			prompt.replace(
 				'質問: 送信設定を教えてください。',

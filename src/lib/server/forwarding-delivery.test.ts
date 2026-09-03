@@ -13,8 +13,8 @@ const source: MailAddress = {
 	id: 'address-1',
 	user_id: 'user-1',
 	domain_id: 'domain-1',
-	domain_name: 'quickmail.example',
-	address: 'info@quickmail.example',
+	domain_name: 'noroshi.example',
+	address: 'info@noroshi.example',
 	label: 'Info',
 	is_default: true,
 	signature: null,
@@ -43,8 +43,8 @@ describe('automatic forwarding MVP contract', () => {
 		assert.equal(payload.bcc, undefined);
 		assert.equal(payload.inReplyTo, undefined);
 		assert.equal(payload.references, undefined);
-		assert.deepEqual(payload.headers, { 'X-QuickMail-Forwarded': '1' });
-		assert.equal(payload.idempotencyKey, 'quickmail-forward:rule-1:email-1');
+		assert.deepEqual(payload.headers, { 'X-Noroshi-Forwarded': '1' });
+		assert.equal(payload.idempotencyKey, 'noroshi-forward:rule-1:email-1');
 	});
 
 	test('uses safe plain text from HTML-only inbound mail', () => {
@@ -79,8 +79,8 @@ describe('automatic forwarding MVP contract', () => {
 	});
 
 	test('detects loop marker and allows initial plus three retries', () => {
-		assert.equal(isForwardedHop({ 'x-quickmail-forwarded': '1' }), true);
-		assert.equal(isForwardedHop({ 'X-QuickMail-Forwarded': '0' }), false);
+		assert.equal(isForwardedHop({ 'x-noroshi-forwarded': '1' }), true);
+		assert.equal(isForwardedHop({ 'X-Noroshi-Forwarded': '0' }), false);
 		assert.equal(MAX_FORWARDING_CLAIMS, 4);
 		const now = new Date('2026-08-25T01:00:00.000Z');
 		assert.equal(nextForwardingRetryAt(1, now)?.toISOString(), '2026-08-25T01:01:00.000Z');

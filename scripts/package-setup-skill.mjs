@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('..', import.meta.url));
 const treeish = process.env.SETUP_SKILL_TREEISH || 'HEAD';
 const outputRoot = resolve(root, 'out');
-const output = resolve(root, process.argv[2] || join('out', 'quickmail-ja-setup.zip'));
+const output = resolve(root, process.argv[2] || join('out', 'noroshi-setup.zip'));
 
 function run(command, args, options = {}) {
 	const result = spawnSync(command, args, { cwd: root, encoding: 'utf8', ...options });
@@ -82,19 +82,14 @@ if (import.meta.main) {
 	validatePackageOutput(output);
 	mkdirSync(outputRoot, { recursive: true });
 	rmSync(output, { force: true });
-	const listing = run('git', [
-		'ls-tree',
-		'-r',
-		'-z',
-		`${treeish}:skills/quickmail-ja-setup`
-	]).stdout;
+	const listing = run('git', ['ls-tree', '-r', '-z', `${treeish}:skills/noroshi-setup`]).stdout;
 	const sourceEntries = validateSkillTreeListing(listing);
 	run('git', [
 		'archive',
 		'--format=zip',
-		'--prefix=quickmail-ja-setup/',
+		'--prefix=noroshi-setup/',
 		`--output=${output}`,
-		`${treeish}:skills/quickmail-ja-setup`
+		`${treeish}:skills/noroshi-setup`
 	]);
 	const packaged = lstatSync(output);
 	if (!packaged.isFile() || packaged.isSymbolicLink() || packaged.size === 0) {

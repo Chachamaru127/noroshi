@@ -75,8 +75,8 @@ export function withLocalBootstrapEnvironment({
 		throw new TypeError('validated local mail domain is required');
 	}
 	const {
-		QUICKMAIL_BOOTSTRAP_SECRET: _setupInput,
-		QUICKMAIL_AUTH_RATE_LIMIT_SECRET: _rateInput,
+		NOROSHI_BOOTSTRAP_SECRET: _setupInput,
+		NOROSHI_AUTH_RATE_LIMIT_SECRET: _rateInput,
 		RESEND_API_KEY: _resendKey,
 		RESEND_WEBHOOK_SECRET: _resendWebhookSecret,
 		...safeEnvironment

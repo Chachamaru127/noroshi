@@ -29,7 +29,7 @@ test('setup guide is Japanese-first and documents the supported operating bounda
 	assert.match(readme, /受信[^\n]*Cloudflare Email Routing/);
 	assert.match(readme, /送信[^\n]*Resend/);
 	assert.match(readme, /https:\/\/github\.com\/Chachamaru127\/noroshi/);
-	assert.match(readme, /quickmail-ja-attachments/);
+	assert.match(readme, /noroshi-attachments/);
 	assert.doesNotMatch(readme, /npm install|node scripts\/setup/);
 });
 
@@ -38,7 +38,7 @@ test('release artifact and title use the Noroshi product name', () => {
 	assert.match(release, /noroshi-\$\{\{ steps\.version\.outputs\.version \}\}\.zip/);
 	assert.match(release, /--prefix="noroshi-/);
 	assert.match(release, /--title "Noroshi /);
-	assert.doesNotMatch(release, /--title "QuickMail /);
+	assert.doesNotMatch(release, /--title "QuickMail-ja /);
 	assert.match(release, /INPUT_TAG: \$\{\{ github\.event\.inputs\.tag \}\}/);
 	assert.match(release, /\^v\[0-9\]\+\\\.\[0-9\]\+\\\.\[0-9\]\+/);
 	assert.doesNotMatch(release, /TAG="\$\{\{ github\.event\.inputs\.tag/);
@@ -50,14 +50,8 @@ test('package commands stay Bun-only and target the generic D1 name', () => {
 	assert.equal(pkg.repository, 'https://github.com/Chachamaru127/noroshi.git');
 	assert.equal(pkg.homepage, 'https://noroshi-ui-preview.pages.dev/');
 	assert.equal(pkg.scripts.setup, 'bun scripts/setup.mjs');
-	assert.equal(
-		pkg.scripts['db:migrate:local'],
-		'wrangler d1 migrations apply quickmail-ja --local'
-	);
-	assert.equal(
-		pkg.scripts['db:migrate:remote'],
-		'wrangler d1 migrations apply quickmail-ja --remote'
-	);
+	assert.equal(pkg.scripts['db:migrate:local'], 'wrangler d1 migrations apply noroshi --local');
+	assert.equal(pkg.scripts['db:migrate:remote'], 'wrangler d1 migrations apply noroshi --remote');
 	assert.equal(pkg.scripts['package:setup-skill'], 'bun scripts/package-setup-skill.mjs');
 	assert.equal(
 		pkg.scripts['check:setup-skill-knowledge'],
@@ -67,15 +61,13 @@ test('package commands stay Bun-only and target the generic D1 name', () => {
 
 test('setup Skill has one canonical source and bounded repo adapters', () => {
 	const readme = read('docs/setup-and-operations.md');
-	const canonical = read('skills/quickmail-ja-setup/SKILL.md');
-	const codex = read('.agents/skills/quickmail-ja-setup/SKILL.md');
-	const claude = read('.claude/skills/quickmail-ja-setup/SKILL.md');
-	const codexNative = JSON.parse(
-		read('.agents/plugins/quickmail-ja-setup/.codex-plugin/plugin.json')
-	);
-	assert.match(canonical, /^name: quickmail-ja-setup$/m);
+	const canonical = read('skills/noroshi-setup/SKILL.md');
+	const codex = read('.agents/skills/noroshi-setup/SKILL.md');
+	const claude = read('.claude/skills/noroshi-setup/SKILL.md');
+	const codexNative = JSON.parse(read('.agents/plugins/noroshi-setup/.codex-plugin/plugin.json'));
+	assert.match(canonical, /^name: noroshi-setup$/m);
 	for (const adapter of [codex, claude]) {
-		assert.match(adapter, /\.\.\/\.\.\/\.\.\/skills\/quickmail-ja-setup\/SKILL\.md/);
+		assert.match(adapter, /\.\.\/\.\.\/\.\.\/skills\/noroshi-setup\/SKILL\.md/);
 		assert.doesNotMatch(adapter, /## ブラウザ案内|## Provider別の参照/);
 	}
 	assert.match(readme, /ChatGPTでは、cloneだけではインストールされません/);
@@ -83,7 +75,7 @@ test('setup Skill has one canonical source and bounded repo adapters', () => {
 	assert.match(readme, /Codex CLI向けには、公式native形式/);
 	assert.match(readme, /Claude Code/);
 	assert.doesNotMatch(readme, /実際に発見されるかはQMJ-15で未検証/);
-	assert.equal(codexNative.name, 'quickmail-ja-setup');
+	assert.equal(codexNative.name, 'noroshi-setup');
 	assert.equal(codexNative.skills, './skills/');
 	assert.equal(codexNative.mcpServers, './.mcp.json');
 	assert.doesNotMatch(readme, /Setup Skill（準備中・未提供）/);
@@ -118,7 +110,7 @@ test('QMJ-15 records the bounded Codex pilot without claiming cross-host complet
 });
 
 test('setup Skill package is built from the staged tree without adapters or state', () => {
-	const output = join(root, 'out', `quickmail-ja-setup-test-${process.pid}.zip`);
+	const output = join(root, 'out', `noroshi-setup-test-${process.pid}.zip`);
 	try {
 		const tree = spawnSync('git', ['write-tree'], { cwd: root, encoding: 'utf8' });
 		assert.equal(tree.status, 0, tree.stderr);
@@ -131,15 +123,15 @@ test('setup Skill package is built from the staged tree without adapters or stat
 		const archive = spawnSync('unzip', ['-Z1', output], { encoding: 'utf8' });
 		assert.equal(archive.status, 0, archive.stderr);
 		assert.deepEqual(archive.stdout.trim().split(/\r?\n/), [
-			'quickmail-ja-setup/',
-			'quickmail-ja-setup/SKILL.md',
-			'quickmail-ja-setup/agents/',
-			'quickmail-ja-setup/agents/openai.yaml',
-			'quickmail-ja-setup/references/',
-			'quickmail-ja-setup/references/browser-and-byok.md',
-			'quickmail-ja-setup/references/cloudflare-resend.md',
-			'quickmail-ja-setup/references/gmail-byok.md',
-			'quickmail-ja-setup/references/setup-patterns.json'
+			'noroshi-setup/',
+			'noroshi-setup/SKILL.md',
+			'noroshi-setup/agents/',
+			'noroshi-setup/agents/openai.yaml',
+			'noroshi-setup/references/',
+			'noroshi-setup/references/browser-and-byok.md',
+			'noroshi-setup/references/cloudflare-resend.md',
+			'noroshi-setup/references/gmail-byok.md',
+			'noroshi-setup/references/setup-patterns.json'
 		]);
 	} finally {
 		rmSync(output, { force: true });
@@ -147,7 +139,7 @@ test('setup Skill package is built from the staged tree without adapters or stat
 });
 
 test('setup Skill package rejects an output outside repository out without deleting it', () => {
-	const temporary = mkdtempSync(join(tmpdir(), 'quickmail-ja-skill-output-'));
+	const temporary = mkdtempSync(join(tmpdir(), 'noroshi-skill-output-'));
 	const outside = join(temporary, 'preserve.zip');
 	writeFileSync(outside, 'must remain');
 	try {
@@ -164,9 +156,9 @@ test('setup Skill package rejects an output outside repository out without delet
 });
 
 test('setup Skill package rejects an output symlink without deleting its target', () => {
-	const temporary = mkdtempSync(join(tmpdir(), 'quickmail-ja-skill-symlink-'));
+	const temporary = mkdtempSync(join(tmpdir(), 'noroshi-skill-symlink-'));
 	const target = join(temporary, 'target.zip');
-	const output = join(root, 'out', `quickmail-ja-setup-link-${process.pid}.zip`);
+	const output = join(root, 'out', `noroshi-setup-link-${process.pid}.zip`);
 	writeFileSync(target, 'must remain');
 	mkdirSync(join(root, 'out'), { recursive: true });
 	symlinkSync(target, output);
@@ -209,7 +201,7 @@ test('packaged setup knowledge is a current bounded projection of the reviewed P
 		}
 	);
 	assert.equal(checked.status, 0, checked.stderr);
-	const packaged = JSON.parse(read('skills/quickmail-ja-setup/references/setup-patterns.json'));
+	const packaged = JSON.parse(read('skills/noroshi-setup/references/setup-patterns.json'));
 	const source = JSON.parse(read('support/knowledge/patterns.json'));
 	assert.equal(packaged.generated_from, 'support/knowledge/patterns.json');
 	assert.deepEqual(packaged.setup_runbook, source.setup_runbook);
@@ -225,12 +217,12 @@ test('ignore rules admit only the two setup adapters, never Claude state', () =>
 	});
 	const codexAdapter = spawnSync(
 		'git',
-		['check-ignore', '-q', '.agents/skills/quickmail-ja-setup/SKILL.md'],
+		['check-ignore', '-q', '.agents/skills/noroshi-setup/SKILL.md'],
 		{ cwd: root }
 	);
 	const claudeAdapter = spawnSync(
 		'git',
-		['check-ignore', '-q', '.claude/skills/quickmail-ja-setup/SKILL.md'],
+		['check-ignore', '-q', '.claude/skills/noroshi-setup/SKILL.md'],
 		{ cwd: root }
 	);
 	assert.equal(ignoredState.status, 0);
@@ -275,7 +267,7 @@ test('setup never downloads or executes a Bun installer', () => {
 	const setup = read('scripts/setup.sh');
 	assert.doesNotMatch(setup, /curl[^\n|]*\|\s*(?:ba)?sh/u);
 	assert.match(setup, /Bun 1\.3\.14を検証済み/u);
-	const temporaryHome = mkdtempSync(join(tmpdir(), 'quickmail-ja-no-bun-'));
+	const temporaryHome = mkdtempSync(join(tmpdir(), 'noroshi-no-bun-'));
 	try {
 		const result = spawnSync('/bin/bash', ['scripts/setup.sh'], {
 			cwd: root,

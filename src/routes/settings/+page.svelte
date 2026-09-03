@@ -1096,7 +1096,7 @@
 		<details class="install-details">
 			<summary>開発者向け：CLI（コマンド操作ツール）を使う</summary>
 			<p class="hint">
-				公開リポジトリのURLが決まるまでは、ローカルのソースから <code>bun run noroshi</code> を実行してください。旧 <code>bun run quickmail</code> は互換エイリアスとして引き続き利用できます。
+				公開リポジトリのURLが決まるまでは、ローカルのソースから <code>bun run noroshi</code> を実行してください。
 			</p>
 		</details>
 	</section>

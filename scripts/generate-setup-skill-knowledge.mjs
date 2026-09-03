@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('..', import.meta.url));
 const sourcePath = fileURLToPath(new URL('../support/knowledge/patterns.json', import.meta.url));
 const outputPath = fileURLToPath(
-	new URL('../skills/quickmail-ja-setup/references/setup-patterns.json', import.meta.url)
+	new URL('../skills/noroshi-setup/references/setup-patterns.json', import.meta.url)
 );
 const setupCategories = new Set([
 	'deployment',

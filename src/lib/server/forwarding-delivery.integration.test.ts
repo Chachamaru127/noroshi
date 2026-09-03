@@ -85,9 +85,9 @@ function seed(options: { attempt?: boolean; attachmentsReady?: boolean; hop?: nu
 		PRAGMA foreign_keys=ON;
 		INSERT INTO users (id,email,name,password_hash) VALUES ('u','owner@example.net','Owner','hash');
 		INSERT INTO domains (id,name,status,sending_enabled,receiving_enabled)
-		VALUES ('domain','quickmail.example','verified',1,1);
+		VALUES ('domain','noroshi.example','verified',1,1);
 		INSERT INTO addresses (id,user_id,domain_id,address,is_default,created_at)
-		VALUES ('address','u','domain','info@quickmail.example',1,'${now}');
+		VALUES ('address','u','domain','info@noroshi.example',1,'${now}');
 		INSERT INTO forwarding_destinations
 		(id,user_id,source_address_id,destination_address,status,created_at,updated_at)
 		VALUES ('destination','u','address','archive@outside.example','verified','${now}','${now}');
@@ -96,7 +96,7 @@ function seed(options: { attempt?: boolean; attachmentsReady?: boolean; hop?: nu
 		VALUES ('rule','u','address','destination','enabled','${now}','${now}','${now}');
 		INSERT INTO emails
 		(id,user_id,direction,from_addr,to_addr,subject,body_text,forwarding_hop,attachments_ready,created_at)
-		VALUES ('email','u','inbound','sender@example.net','info@quickmail.example','Hello','Body',${options.hop ?? 0},${options.attachmentsReady === false ? 0 : 1},'${now}');
+		VALUES ('email','u','inbound','sender@example.net','info@noroshi.example','Hello','Body',${options.hop ?? 0},${options.attachmentsReady === false ? 0 : 1},'${now}');
 	`);
 	if (options.attempt !== false) {
 		db.db.exec(`
@@ -124,7 +124,7 @@ function provider(send: EmailProvider['send']): EmailProvider {
 		listDomains: async () => [],
 		getDomain: async () => ({
 			id: 'domain',
-			name: 'quickmail.example',
+			name: 'noroshi.example',
 			status: 'verified',
 			region: null,
 			sendingEnabled: true,
@@ -147,7 +147,7 @@ describe('automatic forwarding MVP D1 integration', () => {
 				ATTACHMENTS: bucket(null),
 				EMAIL_PROVIDER: 'resend',
 				RESEND_API_KEY: 'test-key',
-				RESEND_SEND_DOMAINS: 'quickmail.example',
+				RESEND_SEND_DOMAINS: 'noroshi.example',
 				FORWARDING_KILL_SWITCH: '0',
 				FORWARDING_LEASE_MS: '30000'
 			},
@@ -271,7 +271,7 @@ describe('automatic forwarding MVP D1 integration', () => {
 			userId: 'u',
 			direction: 'inbound',
 			from: 'sender@example.net',
-			to: 'info@quickmail.example',
+			to: 'info@noroshi.example',
 			subject: 'Historical',
 			createdAt: new Date('2026-08-25T01:00:00.700Z')
 		});
@@ -295,7 +295,7 @@ describe('automatic forwarding MVP D1 integration', () => {
 			userId: 'u',
 			direction: 'inbound',
 			from: 'sender@example.net',
-			to: 'info@quickmail.example',
+			to: 'info@noroshi.example',
 			subject: 'New',
 			createdAt: new Date('2026-08-25T01:00:00.900Z')
 		});
@@ -342,7 +342,7 @@ describe('automatic forwarding MVP D1 integration', () => {
 		db.db.exec(`
 			INSERT INTO users (id,email,name,password_hash) VALUES ('other','other@example.net','Other','hash');
 			INSERT INTO emails (id,user_id,direction,from_addr,to_addr,subject)
-			VALUES ('foreign','other','inbound','sender@example.net','info@quickmail.example','Foreign');
+			VALUES ('foreign','other','inbound','sender@example.net','info@noroshi.example','Foreign');
 		`);
 		await assert.rejects(
 			createForwardingAttempt(d1(db), { ruleId: 'rule', emailId: 'foreign' }),
@@ -454,7 +454,7 @@ describe('automatic forwarding MVP D1 integration', () => {
 		db.db.exec(`
 			INSERT INTO emails
 			(id,user_id,direction,from_addr,to_addr,subject,body_text,forwarding_hop,attachments_ready,created_at)
-			VALUES ('email-two','u','inbound','sender@example.net','info@quickmail.example','Second','Body',0,1,'2026-08-25T01:00:00.100Z');
+			VALUES ('email-two','u','inbound','sender@example.net','info@noroshi.example','Second','Body',0,1,'2026-08-25T01:00:00.100Z');
 			INSERT INTO forwarding_attempts
 			(id,rule_id,email_id,status,attempt_count,next_attempt_at,hop,destination_id,destination_address,created_at,updated_at)
 			VALUES ('attempt-two','rule','email-two','queued',0,'2026-08-25T01:00:00.100Z',0,'destination','archive@outside.example','2026-08-25T01:00:00.100Z','2026-08-25T01:00:00.100Z');
@@ -517,7 +517,7 @@ describe('automatic forwarding MVP D1 integration', () => {
 			'attempt',
 			new Date('2026-08-25T01:02:00.000Z')
 		);
-		assert.deepEqual(keys, ['quickmail-forward:rule:email', 'quickmail-forward:rule:email']);
+		assert.deepEqual(keys, ['noroshi-forward:rule:email', 'noroshi-forward:rule:email']);
 	});
 
 	test('loads HTML-only inbound content as safe forwarded plain text', async () => {

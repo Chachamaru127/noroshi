@@ -84,8 +84,8 @@ docs/design/patterns/base.DESIGN.md
 docs/design/patterns/calm.DESIGN.md
 docs/design/patterns/command.DESIGN.md
 docs/design/patterns/classic.DESIGN.md
-prototype/quickmail-ja-live-demo/index.html
-prototype/quickmail-ja-live-demo/test.mjs
+prototype/noroshi-live-demo/index.html
+prototype/noroshi-live-demo/test.mjs
 ```
 
 - 3つのprofile `DESIGN.md`は独立した色表ではなく、`base.DESIGN.md`のvisual themeに対するlayout deltaを記録する。

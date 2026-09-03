@@ -23,7 +23,7 @@ function exactKeys(value, expected, label) {
 function assertArchiveMatchesCommit(repository, archive, tag, commit) {
 	const expectedName = `noroshi-${tag.slice(1)}.zip`;
 	if (basename(archive) !== expectedName) throw new Error('archive name does not match tag');
-	const temporary = mkdtempSync(join(tmpdir(), 'quickmail-ja-expected-archive-'));
+	const temporary = mkdtempSync(join(tmpdir(), 'noroshi-expected-archive-'));
 	const expected = join(temporary, expectedName);
 	try {
 		execFileSync(

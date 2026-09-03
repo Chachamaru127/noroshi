@@ -15,7 +15,7 @@ import {
 	verifyMutationReadback
 } from './setup-engine.mjs';
 
-const SERVER_NAME = 'quickmail-ja-setup-engine';
+const SERVER_NAME = 'noroshi-setup-engine';
 const SERVER_VERSION = '1.0.0';
 const PROTOCOL_VERSION = '2025-06-18';
 const APPLY_BLOCKED_CODE = 'provider_adapter_unavailable';

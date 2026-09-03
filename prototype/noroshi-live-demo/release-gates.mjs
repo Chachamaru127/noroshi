@@ -120,8 +120,8 @@ export function validateBaselineReceipt(receipt, { checkGit = true } = {}) {
 	}
 	if (checkGit) {
 		assertGitReviewBoundary(receipt.reviewedCommit, [
-			'prototype/quickmail-ja-live-demo/index.html',
-			'prototype/quickmail-ja-live-demo/baselines'
+			'prototype/noroshi-live-demo/index.html',
+			'prototype/noroshi-live-demo/baselines'
 		]);
 	}
 	return true;
@@ -163,8 +163,8 @@ export function validateVoiceOverReceipt(receipt, { checkGit = true } = {}) {
 	}
 	if (checkGit) {
 		assertGitReviewBoundary(receipt.reviewedCommit, [
-			'prototype/quickmail-ja-live-demo/index.html',
-			'prototype/quickmail-ja-live-demo/VOICEOVER-CHECKLIST.md'
+			'prototype/noroshi-live-demo/index.html',
+			'prototype/noroshi-live-demo/VOICEOVER-CHECKLIST.md'
 		]);
 	}
 	return true;

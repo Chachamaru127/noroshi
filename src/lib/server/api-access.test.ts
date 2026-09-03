@@ -253,14 +253,14 @@ describe('API key access', () => {
 		assert.equal(typeof createForwardingDestination, 'function');
 
 		const response = await createForwardingDestination({
-			request: new Request('https://quickmail.example/api/forwarding/destinations', {
+			request: new Request('https://noroshi.example/api/forwarding/destinations', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({})
 			}),
 			locals: { user: { id: 'user-1', name: 'Owner' } },
 			platform: { env: { DB: {} } },
-			url: new URL('https://quickmail.example/api/forwarding/destinations')
+			url: new URL('https://noroshi.example/api/forwarding/destinations')
 		} as Parameters<typeof createForwardingDestination>[0]);
 
 		assert.equal(response.status, 400);

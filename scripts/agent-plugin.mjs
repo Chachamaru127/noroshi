@@ -17,15 +17,15 @@ export const REPOSITORY_ROOT = fileURLToPath(new URL('..', import.meta.url));
 export const PLUGIN_PACKAGE_FILES = Object.freeze([
 	'plugin.json',
 	'mcp.json',
-	'skills/quickmail-ja-operations/SKILL.md',
+	'skills/noroshi-operations/SKILL.md',
 	// Keep the canonical BYOK guidance Skill and its reviewed references
 	// inside the Agent Plugin so the plugin is useful without the repository.
-	'skills/quickmail-ja-setup/SKILL.md',
-	'skills/quickmail-ja-setup/agents/openai.yaml',
-	'skills/quickmail-ja-setup/references/browser-and-byok.md',
-	'skills/quickmail-ja-setup/references/cloudflare-resend.md',
-	'skills/quickmail-ja-setup/references/gmail-byok.md',
-	'skills/quickmail-ja-setup/references/setup-patterns.json',
+	'skills/noroshi-setup/SKILL.md',
+	'skills/noroshi-setup/agents/openai.yaml',
+	'skills/noroshi-setup/references/browser-and-byok.md',
+	'skills/noroshi-setup/references/cloudflare-resend.md',
+	'skills/noroshi-setup/references/gmail-byok.md',
+	'skills/noroshi-setup/references/setup-patterns.json',
 	'scripts/setup-engine.mjs',
 	'scripts/setup-plugin-mcp.mjs',
 	'setup/capabilities.json',
@@ -40,7 +40,7 @@ export const ENGINE_OPERATIONS = Object.freeze([
 	'readback',
 	'verify'
 ]);
-export const MCP_SERVER_NAME = 'quickmail-ja-setup-engine';
+export const MCP_SERVER_NAME = 'noroshi-setup-engine';
 export const MCP_TOOL_NAMES = Object.freeze([
 	'setup_inspect',
 	'setup_plan',
@@ -94,7 +94,7 @@ function schemaValidator(schema) {
 }
 
 export function pluginCapabilityProjection(registry) {
-	if (!registry || registry.schema_version !== 'quickmail-ja.setup-capabilities.v1') {
+	if (!registry || registry.schema_version !== 'noroshi.setup-capabilities.v1') {
 		throw new Error('unsupported setup capability registry');
 	}
 	const registryCapabilities = new Map(
@@ -116,7 +116,7 @@ export function pluginCapabilityProjection(registry) {
 			)
 		);
 	return {
-		schema_version: 'quickmail-ja.setup-plugin-capabilities.v1',
+		schema_version: 'noroshi.setup-plugin-capabilities.v1',
 		source_schema_version: registry.schema_version,
 		source: 'setup/capabilities.json',
 		exposed_capability_ids: [],
@@ -174,18 +174,18 @@ export function validateAgentPlugin({ root = REPOSITORY_ROOT, treeish = null } =
 	const projection = readPluginJson(root, 'setup/plugin-capabilities.json', treeish);
 	deepStrictEqual(projection, expectedProjection);
 	if (
-		manifest.extensions?.['com.quickmail-ja.setup']?.capability_registry !==
+		manifest.extensions?.['com.noroshi.setup']?.capability_registry !==
 		'setup/plugin-capabilities.json'
 	) {
 		throw new Error('plugin manifest must point to the generated capability projection');
 	}
 	if (
-		JSON.stringify(manifest.extensions?.['com.quickmail-ja.setup']?.mailbox_permissions) !==
+		JSON.stringify(manifest.extensions?.['com.noroshi.setup']?.mailbox_permissions) !==
 		JSON.stringify({ read: false, send: false, admin: false })
 	) {
 		throw new Error('plugin manifest mailbox permissions must remain disabled');
 	}
-	const extension = manifest.extensions?.['com.quickmail-ja.setup'];
+	const extension = manifest.extensions?.['com.noroshi.setup'];
 	if (!extension || extension.provider_adapter_status !== 'not-enabled') {
 		throw new Error('plugin manifest must keep provider adapters disabled');
 	}
@@ -195,17 +195,17 @@ export function validateAgentPlugin({ root = REPOSITORY_ROOT, treeish = null } =
 	) {
 		throw new Error('plugin manifest must expose no provider capabilities or email access');
 	}
-	const skill = readPluginFile(root, 'skills/quickmail-ja-operations/SKILL.md', treeish);
-	if (!/^---\nname: quickmail-ja-operations\n/mu.test(skill)) {
+	const skill = readPluginFile(root, 'skills/noroshi-operations/SKILL.md', treeish);
+	if (!/^---\nname: noroshi-operations\n/mu.test(skill)) {
 		throw new Error('operations Skill frontmatter is missing');
 	}
-	const setupSkillPath = 'skills/quickmail-ja-setup/SKILL.md';
+	const setupSkillPath = 'skills/noroshi-setup/SKILL.md';
 	const setupSkill = readPluginFile(root, setupSkillPath, treeish);
-	if (!/^---\nname: quickmail-ja-setup\n/mu.test(setupSkill)) {
+	if (!/^---\nname: noroshi-setup\n/mu.test(setupSkill)) {
 		throw new Error('BYOK setup Skill frontmatter is missing');
 	}
 	const packagedSetupFiles = PLUGIN_PACKAGE_FILES.filter((path) =>
-		path.startsWith('skills/quickmail-ja-setup/')
+		path.startsWith('skills/noroshi-setup/')
 	);
 	for (const relativePath of packagedSetupFiles.filter((path) => path !== setupSkillPath)) {
 		if (!hasPluginFile(root, relativePath, treeish)) {
@@ -307,7 +307,7 @@ export function validatePackageOutput(
 
 export function packageAgentPlugin({
 	treeish = 'HEAD',
-	output = join(REPOSITORY_ROOT, 'out', 'quickmail-ja-agent-plugin.zip')
+	output = join(REPOSITORY_ROOT, 'out', 'noroshi-agent-plugin.zip')
 } = {}) {
 	validateAgentPlugin({ root: REPOSITORY_ROOT, treeish });
 	const outputPath = validatePackageOutput(output);
@@ -325,7 +325,7 @@ export function packageAgentPlugin({
 	run('git', [
 		'archive',
 		'--format=zip',
-		'--prefix=quickmail-ja-setup-plugin/',
+		'--prefix=noroshi-setup-plugin/',
 		`--output=${outputPath}`,
 		treeish,
 		'--',

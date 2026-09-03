@@ -109,8 +109,8 @@ export function checkTemplate(directory = root) {
 	if (tracked.length === 0) fail('No files were found to scan');
 
 	const trackedAdapterPaths = new Set([
-		'.agents/skills/quickmail-ja-setup/SKILL.md',
-		'.claude/skills/quickmail-ja-setup/SKILL.md',
+		'.agents/skills/noroshi-setup/SKILL.md',
+		'.claude/skills/noroshi-setup/SKILL.md',
 		...nativePackageFiles()
 	]);
 	const localOnlyPaths = [
@@ -163,14 +163,14 @@ export function checkTemplate(directory = root) {
 		if (route && !route[1].includes('example.com')) {
 			fail('wrangler.jsonc has a live route pattern — it should stay commented out');
 		}
-		if (!/^\s*"name"\s*:\s*"quickmail-ja"\s*,/m.test(wrangler)) {
-			fail('wrangler.jsonc Worker name must remain the generic quickmail-ja template name');
+		if (!/^\s*"name"\s*:\s*"noroshi"\s*,/m.test(wrangler)) {
+			fail('wrangler.jsonc Worker name must remain the generic noroshi template name');
 		}
-		if (!/^\s*"database_name"\s*:\s*"quickmail-ja"\s*,/m.test(wrangler)) {
-			fail('wrangler.jsonc D1 name must remain the generic quickmail-ja template name');
+		if (!/^\s*"database_name"\s*:\s*"noroshi"\s*,/m.test(wrangler)) {
+			fail('wrangler.jsonc D1 name must remain the generic noroshi template name');
 		}
-		if (!/^\s*"bucket_name"\s*:\s*"quickmail-ja-attachments"/m.test(wrangler)) {
-			fail('wrangler.jsonc R2 name must remain the generic quickmail-ja template name');
+		if (!/^\s*"bucket_name"\s*:\s*"noroshi-attachments"/m.test(wrangler)) {
+			fail('wrangler.jsonc R2 name must remain the generic noroshi template name');
 		}
 	}
 
@@ -179,11 +179,11 @@ export function checkTemplate(directory = root) {
 		fail('package.json is missing');
 	} else {
 		const pkg = JSON.parse(readFileSync(packagePath, 'utf8'));
-		if (pkg.scripts?.['db:migrate:local'] !== 'wrangler d1 migrations apply quickmail-ja --local') {
-			fail('package.json local D1 migration target must remain quickmail-ja');
+		if (pkg.scripts?.['db:migrate:local'] !== 'wrangler d1 migrations apply noroshi --local') {
+			fail('package.json local D1 migration target must remain noroshi');
 		}
-		if (pkg.scripts?.['db:migrate:remote'] !== 'wrangler d1 migrations apply quickmail-ja --remote') {
-			fail('package.json remote D1 migration target must remain quickmail-ja');
+		if (pkg.scripts?.['db:migrate:remote'] !== 'wrangler d1 migrations apply noroshi --remote') {
+			fail('package.json remote D1 migration target must remain noroshi');
 		}
 	}
 
@@ -191,9 +191,9 @@ export function checkTemplate(directory = root) {
 		'LICENSE.md',
 		'README.md',
 		'.dev.vars.example',
-		'skills/quickmail-ja-setup/SKILL.md',
-		'.agents/skills/quickmail-ja-setup/SKILL.md',
-		'.claude/skills/quickmail-ja-setup/SKILL.md'
+		'skills/noroshi-setup/SKILL.md',
+		'.agents/skills/noroshi-setup/SKILL.md',
+		'.claude/skills/noroshi-setup/SKILL.md'
 	]) {
 		if (!tracked.includes(required)) fail(`${required} is missing from the repository`);
 	}

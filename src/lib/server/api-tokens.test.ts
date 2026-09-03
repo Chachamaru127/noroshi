@@ -5,7 +5,7 @@ import { getUserByApiToken, previewFor, readBearerToken } from './api-tokens';
 
 describe('API token preview', () => {
 	test('skips the shared prefix so keys are distinguishable', () => {
-		assert.equal(previewFor('qm_live_abcdEFGHxxxxxxxxwXYZ'), 'abcd…wXYZ');
+		assert.equal(previewFor('nr_live_abcdEFGHxxxxxxxxwXYZ'), 'abcd…wXYZ');
 	});
 
 	test('still works if the prefix is missing', () => {
@@ -21,7 +21,7 @@ describe('API token parsing', () => {
 	} as unknown as D1Database;
 
 	test('readBearerToken extracts a Bearer value and rejects oversized tokens', () => {
-		const token = 'qm_live_abcdefghijklmnopqrstuvwxyz012345';
+		const token = 'nr_live_abcdefghijklmnopqrstuvwxyz012345';
 		const request = new Request('https://mail.example.com', {
 			headers: { authorization: `Bearer ${token}` }
 		});
@@ -35,8 +35,8 @@ describe('API token parsing', () => {
 	});
 
 	test('getUserByApiToken rejects missing prefix and oversized tokens before hashing', async () => {
-		assert.equal(await getUserByApiToken(unusedDb, 'not-a-quickmail-token'), null);
-		assert.equal(await getUserByApiToken(unusedDb, 'qm_live_'), null);
-		assert.equal(await getUserByApiToken(unusedDb, `qm_live_${'x'.repeat(300)}`), null);
+		assert.equal(await getUserByApiToken(unusedDb, 'not-a-noroshi-token'), null);
+		assert.equal(await getUserByApiToken(unusedDb, 'nr_live_'), null);
+		assert.equal(await getUserByApiToken(unusedDb, `nr_live_${'x'.repeat(300)}`), null);
 	});
 });

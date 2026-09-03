@@ -126,7 +126,7 @@ describe('new-mail push payloads', () => {
 		assert.deepEqual(payload, {
 			title: 'Project update',
 			body: '差出人: Ada <ada@example.com>',
-			tag: 'quickmail-mail/id',
+			tag: 'noroshi-mail/id',
 			url: '/mail/mail%2Fid'
 		});
 		assert.equal(JSON.stringify(payload).includes('message body'), false);
@@ -143,7 +143,7 @@ describe('new-mail push payloads', () => {
 			{
 				title: '（件名なし）',
 				body: '差出人: 不明な差出人',
-				tag: 'quickmail-mail-2',
+				tag: 'noroshi-mail-2',
 				url: '/mail/mail-2'
 			}
 		);

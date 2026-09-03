@@ -84,7 +84,7 @@ Noroshi自体は無料です。独自ドメインの取得と更新費、無料�
 ```text
 Noroshi（https://github.com/Chachamaru127/noroshi）を私のCloudflareアカウントに導入してください。
 
-1. リポジトリをこのフォルダーへcloneし、skills/quickmail-ja-setup/SKILL.md と docs/setup-and-operations.md を読んでから始めてください。
+1. リポジトリをこのフォルダーへcloneし、skills/noroshi-setup/SKILL.md と docs/setup-and-operations.md を読んでから始めてください。
 2. 必要なツール（Bunなど）は、インストール前に私へ確認してください。
 3. あなたが使える機能（ターミナル、ブラウザ操作）を確認し、使えない操作は「私が開く公式画面と操作」として1つずつ示してください。
 4. 私が行うこと: 各サービスへのログイン、MFA、支払い、秘密値（APIキー、セットアップキー）の入力、DNS/MX変更の最終承認、最初の管理者の作成。秘密値をチャットに貼らせないでください。
@@ -101,7 +101,7 @@ Noroshi（https://github.com/Chachamaru127/noroshi）を私のCloudflareアカ�
 ```text
 Noroshi（https://github.com/Chachamaru127/noroshi）を私のCloudflareアカウントに導入してください。
 
-1. リポジトリをこのフォルダーへcloneし、skills/quickmail-ja-setup/SKILL.md と docs/setup-and-operations.md を読んでから始めてください。
+1. リポジトリをこのフォルダーへcloneし、skills/noroshi-setup/SKILL.md と docs/setup-and-operations.md を読んでから始めてください。
 2. 必要なツール（Bunなど）は、インストール前に私へ確認してください。
 3. あなたが使える機能（ターミナル、ブラウザ操作、Computer Use）を確認し、使えない操作は「私が開く公式画面と操作」として1つずつ示してください。
 4. 私が行うこと: 各サービスへのログイン、MFA、支払い、秘密値（APIキー、セットアップキー）の入力、DNS/MX変更の最終承認、最初の管理者の作成。秘密値をチャットに貼らせないでください。
@@ -118,7 +118,7 @@ ChatGPTデスクトップアプリでWork（ローカルのファイルとブラ
 ```text
 Noroshi（https://github.com/Chachamaru127/noroshi）を私のCloudflareアカウントに導入してください。
 
-1. リポジトリを取得し、skills/quickmail-ja-setup/SKILL.md と docs/setup-and-operations.md を読んでから始めてください。
+1. リポジトリを取得し、skills/noroshi-setup/SKILL.md と docs/setup-and-operations.md を読んでから始めてください。
 2. あなたが使える機能（ターミナル、ブラウザ操作）を確認してください。ターミナルが使えない場合は、私が実行するコマンドを1つずつ示してください。私が実行して結果を貼ります。
 3. ブラウザ操作が使える場合は、CloudflareとResendの公式画面を開いて、私が操作する場所を示してください。
 4. 私が行うこと: 各サービスへのログイン、MFA、支払い、秘密値（APIキー、セットアップキー）の入力、DNS/MX変更の最終承認、最初の管理者の作成。秘密値をチャットに貼らせないでください。
@@ -135,7 +135,7 @@ ClaudeデスクトップアプリでCoworkを開き、次を送ります。
 ```text
 Noroshi（https://github.com/Chachamaru127/noroshi）を私のCloudflareアカウントに導入してください。
 
-1. リポジトリを取得し、skills/quickmail-ja-setup/SKILL.md と docs/setup-and-operations.md を読んでから始めてください。
+1. リポジトリを取得し、skills/noroshi-setup/SKILL.md と docs/setup-and-operations.md を読んでから始めてください。
 2. あなたが使える機能（ターミナル、ブラウザ操作、Computer Use）を確認してください。ターミナルが使えない場合は、私が実行するコマンドを1つずつ示してください。私が実行して結果を貼ります。
 3. ブラウザ操作が使える場合は、CloudflareとResendの公式画面を開いて、私が操作する場所を示してください。
 4. 私が行うこと: 各サービスへのログイン、MFA、支払い、秘密値（APIキー、セットアップキー）の入力、DNS/MX変更の最終承認、最初の管理者の作成。秘密値をチャットに貼らせないでください。

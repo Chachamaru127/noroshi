@@ -39,7 +39,7 @@ test('Outlook import CLI requires explicit mailbox and domain inputs', () => {
 });
 
 test('deduplicates exact EML files and keeps historical attachments without the live 5MB limit', async () => {
-	const root = await mkdtemp(join(tmpdir(), 'quickmail-ja-outlook-import-'));
+	const root = await mkdtemp(join(tmpdir(), 'noroshi-outlook-import-'));
 	const backupDir = join(root, 'outlook');
 	const stagingDir = join(root, 'staging');
 	try {
@@ -88,7 +88,7 @@ test('deduplicates exact EML files and keeps historical attachments without the 
 });
 
 test('rejects equal, nested, and symlink-overlapping source and staging paths', async () => {
-	const root = await mkdtemp(join(tmpdir(), 'quickmail-ja-import-boundary-'));
+	const root = await mkdtemp(join(tmpdir(), 'noroshi-import-boundary-'));
 	const source = join(root, 'source');
 	const sourceChild = join(source, 'child');
 	const stagingParent = join(root, 'staging-parent');
@@ -117,7 +117,7 @@ test('rejects equal, nested, and symlink-overlapping source and staging paths', 
 });
 
 test('rejects filesystem root and home as broad import paths', async () => {
-	const root = await mkdtemp(join(tmpdir(), 'quickmail-ja-import-broad-'));
+	const root = await mkdtemp(join(tmpdir(), 'noroshi-import-broad-'));
 	try {
 		await assert.rejects(
 			prepareOutlookImportDirectories({ backupDir: root, stagingDir: '/', cwd: root }),
@@ -133,7 +133,7 @@ test('rejects filesystem root and home as broad import paths', async () => {
 });
 
 test('never clears a non-empty unowned staging directory', async () => {
-	const root = await mkdtemp(join(tmpdir(), 'quickmail-ja-import-preserve-'));
+	const root = await mkdtemp(join(tmpdir(), 'noroshi-import-preserve-'));
 	const source = join(root, 'source');
 	const staging = join(root, 'staging');
 	const sentinel = join(staging, 'keep.txt');
@@ -152,14 +152,14 @@ test('never clears a non-empty unowned staging directory', async () => {
 });
 
 test('accepts a new or marked dedicated staging directory without deleting its manifest', async () => {
-	const root = await mkdtemp(join(tmpdir(), 'quickmail-ja-import-owned-'));
+	const root = await mkdtemp(join(tmpdir(), 'noroshi-import-owned-'));
 	const source = join(root, 'source');
 	const staging = join(root, 'staging');
 	try {
 		await mkdir(source);
 		const first = await prepareOutlookImportDirectories({ backupDir: source, stagingDir: staging });
 		assert.equal(first.stagingDir, await realpath(staging));
-		assert.match(await readFile(join(staging, IMPORT_STAGING_MARKER), 'utf8'), /QuickMail-ja/);
+		assert.match(await readFile(join(staging, IMPORT_STAGING_MARKER), 'utf8'), /Noroshi/);
 		await writeFile(join(staging, 'manifest.json'), '{"kept":true}');
 		await prepareOutlookImportDirectories({ backupDir: source, stagingDir: staging });
 		assert.equal(await readFile(join(staging, 'manifest.json'), 'utf8'), '{"kept":true}');
@@ -169,7 +169,7 @@ test('accepts a new or marked dedicated staging directory without deleting its m
 });
 
 test('rejects a manifest symlink without changing its external target', async () => {
-	const root = await mkdtemp(join(tmpdir(), 'quickmail-ja-import-manifest-link-'));
+	const root = await mkdtemp(join(tmpdir(), 'noroshi-import-manifest-link-'));
 	const source = join(root, 'source');
 	const staging = join(root, 'staging');
 	const sentinel = join(root, 'external-sentinel.json');
@@ -197,14 +197,14 @@ test('rejects a manifest symlink without changing its external target', async ()
 });
 
 test('rejects a staging marker symlink even when its target contains the valid marker', async () => {
-	const root = await mkdtemp(join(tmpdir(), 'quickmail-ja-import-marker-link-'));
+	const root = await mkdtemp(join(tmpdir(), 'noroshi-import-marker-link-'));
 	const source = join(root, 'source');
 	const staging = join(root, 'staging');
 	const markerTarget = join(root, 'marker-target');
 	try {
 		await mkdir(source);
 		await mkdir(staging);
-		await writeFile(markerTarget, 'QuickMail-ja Outlook import staging v1\n');
+		await writeFile(markerTarget, 'Noroshi Outlook import staging v1\n');
 		await symlink(markerTarget, join(staging, IMPORT_STAGING_MARKER));
 		await assert.rejects(
 			prepareOutlookImportDirectories({ backupDir: source, stagingDir: staging }),
@@ -216,7 +216,7 @@ test('rejects a staging marker symlink even when its target contains the valid m
 });
 
 test('rejects a non-regular staging marker', async () => {
-	const root = await mkdtemp(join(tmpdir(), 'quickmail-ja-import-marker-special-'));
+	const root = await mkdtemp(join(tmpdir(), 'noroshi-import-marker-special-'));
 	const source = join(root, 'source');
 	const staging = join(root, 'staging');
 	try {
@@ -232,7 +232,7 @@ test('rejects a non-regular staging marker', async () => {
 });
 
 test('rejects a second import while the first import holds the staging lock', async () => {
-	const root = await mkdtemp(join(tmpdir(), 'quickmail-ja-import-concurrent-'));
+	const root = await mkdtemp(join(tmpdir(), 'noroshi-import-concurrent-'));
 	const source = join(root, 'source');
 	const staging = join(root, 'staging');
 	let releaseFirst;
@@ -282,7 +282,7 @@ test('rejects a second import while the first import holds the staging lock', as
 });
 
 test('rejects an in-place manifest mutation during the scan without overwriting it', async () => {
-	const root = await mkdtemp(join(tmpdir(), 'quickmail-ja-import-manifest-mutation-'));
+	const root = await mkdtemp(join(tmpdir(), 'noroshi-import-manifest-mutation-'));
 	const source = join(root, 'source');
 	const staging = join(root, 'staging');
 	const manifestPath = join(staging, 'manifest.json');
@@ -320,7 +320,7 @@ test('rejects an in-place manifest mutation during the scan without overwriting 
 });
 
 test('quarantines a replacement lock before release and keeps later imports blocked', async () => {
-	const root = await mkdtemp(join(tmpdir(), 'quickmail-ja-import-lock-release-race-'));
+	const root = await mkdtemp(join(tmpdir(), 'noroshi-import-lock-release-race-'));
 	const source = join(root, 'source');
 	const staging = join(root, 'staging');
 	const replacementContents = 'replacement lock sentinel\n';

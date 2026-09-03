@@ -13,7 +13,7 @@ import {
 import { PLUGIN_PACKAGE_FILES } from './agent-plugin.mjs';
 
 const repositoryRoot = fileURLToPath(new URL('..', import.meta.url));
-const nativeRoot = join(repositoryRoot, '.agents/plugins/quickmail-ja-setup');
+const nativeRoot = join(repositoryRoot, '.agents/plugins/noroshi-setup');
 const nativeManifestPath = join(nativeRoot, '.codex-plugin/plugin.json');
 const nativeMcpPath = join(nativeRoot, '.mcp.json');
 const marketplacePath = join(repositoryRoot, '.agents/plugins/marketplace.json');
@@ -41,14 +41,14 @@ test('Codex native marketplace and plugin manifests stay in the official shape',
 	const plugin = readJson(nativeManifestPath);
 	const mcp = readJson(nativeMcpPath);
 
-	assert.equal(marketplace.name, 'quickmail-ja');
+	assert.equal(marketplace.name, 'noroshi');
 	assert.equal(marketplace.interface.displayName, 'Noroshi');
 	assert.equal(marketplace.plugins.length, 1);
 	const entry = marketplace.plugins[0];
-	assert.equal(entry.name, 'quickmail-ja-setup');
+	assert.equal(entry.name, 'noroshi-setup');
 	assert.deepEqual(entry.source, {
 		source: 'local',
-		path: './.agents/plugins/quickmail-ja-setup'
+		path: './.agents/plugins/noroshi-setup'
 	});
 	assert.deepEqual(entry.policy, {
 		installation: 'AVAILABLE',
@@ -56,7 +56,7 @@ test('Codex native marketplace and plugin manifests stay in the official shape',
 	});
 	assert.equal(entry.category, 'Productivity');
 
-	assert.equal(plugin.name, 'quickmail-ja-setup');
+	assert.equal(plugin.name, 'noroshi-setup');
 	assert.equal(plugin.version, '1.0.0');
 	assert.equal(plugin.license, 'MIT');
 	assert.equal(plugin.skills, './skills/');
@@ -72,8 +72,8 @@ test('Codex native marketplace and plugin manifests stay in the official shape',
 		'version'
 	]);
 
-	assert.deepEqual(Object.keys(mcp), ['quickmail-ja-setup-engine']);
-	assert.deepEqual(mcp['quickmail-ja-setup-engine'], {
+	assert.deepEqual(Object.keys(mcp), ['noroshi-setup-engine']);
+	assert.deepEqual(mcp['noroshi-setup-engine'], {
 		command: 'node',
 		args: ['scripts/setup-plugin-mcp.mjs'],
 		cwd: '.'
@@ -84,18 +84,18 @@ test('Codex native distribution keeps one exact generated file allowlist', () =>
 	const files = nativePackageFiles();
 	assert.deepEqual(files, [
 		'.agents/plugins/marketplace.json',
-		'.agents/plugins/quickmail-ja-setup/.codex-plugin/plugin.json',
-		'.agents/plugins/quickmail-ja-setup/.mcp.json',
-		'.agents/plugins/quickmail-ja-setup/LICENSE.md',
-		'.agents/plugins/quickmail-ja-setup/scripts/setup-engine.mjs',
-		'.agents/plugins/quickmail-ja-setup/scripts/setup-plugin-mcp.mjs',
-		'.agents/plugins/quickmail-ja-setup/skills/quickmail-ja-operations/SKILL.md',
-		'.agents/plugins/quickmail-ja-setup/skills/quickmail-ja-setup/SKILL.md',
-		'.agents/plugins/quickmail-ja-setup/skills/quickmail-ja-setup/agents/openai.yaml',
-		'.agents/plugins/quickmail-ja-setup/skills/quickmail-ja-setup/references/browser-and-byok.md',
-		'.agents/plugins/quickmail-ja-setup/skills/quickmail-ja-setup/references/cloudflare-resend.md',
-		'.agents/plugins/quickmail-ja-setup/skills/quickmail-ja-setup/references/gmail-byok.md',
-		'.agents/plugins/quickmail-ja-setup/skills/quickmail-ja-setup/references/setup-patterns.json'
+		'.agents/plugins/noroshi-setup/.codex-plugin/plugin.json',
+		'.agents/plugins/noroshi-setup/.mcp.json',
+		'.agents/plugins/noroshi-setup/LICENSE.md',
+		'.agents/plugins/noroshi-setup/scripts/setup-engine.mjs',
+		'.agents/plugins/noroshi-setup/scripts/setup-plugin-mcp.mjs',
+		'.agents/plugins/noroshi-setup/skills/noroshi-operations/SKILL.md',
+		'.agents/plugins/noroshi-setup/skills/noroshi-setup/SKILL.md',
+		'.agents/plugins/noroshi-setup/skills/noroshi-setup/agents/openai.yaml',
+		'.agents/plugins/noroshi-setup/skills/noroshi-setup/references/browser-and-byok.md',
+		'.agents/plugins/noroshi-setup/skills/noroshi-setup/references/cloudflare-resend.md',
+		'.agents/plugins/noroshi-setup/skills/noroshi-setup/references/gmail-byok.md',
+		'.agents/plugins/noroshi-setup/skills/noroshi-setup/references/setup-patterns.json'
 	]);
 	for (const path of files) {
 		assert.equal(path.startsWith('/'), false);
@@ -114,8 +114,8 @@ test('Codex native adapter mirrors the canonical Skill, MCP, and safety runtime'
 		);
 	}
 	assert.equal(statSync(join(nativeRoot, '.codex-plugin')).isDirectory(), true);
-	assert.equal(read('skills/quickmail-ja-setup/SKILL.md').includes('BYOK'), true);
-	assert.equal(read(join(nativeRoot, 'skills/quickmail-ja-setup/SKILL.md')).includes('BYOK'), true);
+	assert.equal(read('skills/noroshi-setup/SKILL.md').includes('BYOK'), true);
+	assert.equal(read(join(nativeRoot, 'skills/noroshi-setup/SKILL.md')).includes('BYOK'), true);
 
 	const mcpScript = read(join(nativeRoot, 'scripts/setup-plugin-mcp.mjs'));
 	assert.doesNotMatch(mcpScript, /\b(?:fetch|WebSocket|http:|https:|net\.|dns\.)/u);
@@ -128,7 +128,7 @@ test('Codex native MCP discovers only setup tools and blocks setup_apply', () =>
 		{ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'setup_apply', arguments: {} } }
 	]);
 
-	assert.equal(initialize.result.serverInfo.name, 'quickmail-ja-setup-engine');
+	assert.equal(initialize.result.serverInfo.name, 'noroshi-setup-engine');
 	assert.deepEqual(
 		listed.result.tools.map((tool) => tool.name),
 		[

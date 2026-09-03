@@ -9,7 +9,7 @@ import { existsSync } from 'node:fs';
 import { readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-const MARKER = '__QUICKMAIL_EMAIL_WRAPPER__';
+const MARKER = '__NOROSHI_EMAIL_WRAPPER__';
 const generated = path.resolve('.svelte-kit/cloudflare/_worker.js');
 const sveltekit = path.resolve('.svelte-kit/cloudflare/_sveltekit.js');
 

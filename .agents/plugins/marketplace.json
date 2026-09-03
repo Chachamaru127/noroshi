@@ -1,14 +1,14 @@
 {
-	"name": "quickmail-ja",
+	"name": "noroshi",
 	"interface": {
 		"displayName": "Noroshi"
 	},
 	"plugins": [
 		{
-			"name": "quickmail-ja-setup",
+			"name": "noroshi-setup",
 			"source": {
 				"source": "local",
-				"path": "./.agents/plugins/quickmail-ja-setup"
+				"path": "./.agents/plugins/noroshi-setup"
 			},
 			"policy": {
 				"installation": "AVAILABLE",

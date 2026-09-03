@@ -282,7 +282,7 @@ export function buildNewMailPayload(input: NewMailNotificationInput): NewMailPus
 	return {
 		title: truncate(subject, 120) || '（件名なし）',
 		body: `差出人: ${sender}`,
-		tag: `quickmail-${input.emailId}`,
+		tag: `noroshi-${input.emailId}`,
 		url: `/mail/${encodeURIComponent(input.emailId)}`
 	};
 }

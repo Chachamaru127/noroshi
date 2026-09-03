@@ -111,7 +111,7 @@ jobs:
         run: echo "version=${{ needs.preflight.outputs.version }}" >> "$GITHUB_OUTPUT"
 
       - name: Require committed human approvals
-        run: node prototype/quickmail-ja-live-demo/release-gates.mjs
+        run: node prototype/noroshi-live-demo/release-gates.mjs
 
       # oven-sh/setup-bun v2.2.0
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6

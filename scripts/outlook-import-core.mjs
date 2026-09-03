@@ -6,10 +6,10 @@ import { dirname, isAbsolute, join, parse, relative, resolve, sep } from 'node:p
 import PostalMime from 'postal-mime';
 
 export const IMPORT_PREFIX = 'outlook-import-v1-';
-export const IMPORT_STAGING_MARKER = '.quickmail-ja-outlook-import-staging';
-export const IMPORT_LOCK = '.quickmail-ja-outlook-import.lock';
-export const IMPORT_QUARANTINE_PREFIX = '.quickmail-ja-outlook-import-quarantine-';
-const IMPORT_STAGING_MARKER_CONTENT = 'QuickMail-ja Outlook import staging v1\n';
+export const IMPORT_STAGING_MARKER = '.noroshi-outlook-import-staging';
+export const IMPORT_LOCK = '.noroshi-outlook-import.lock';
+export const IMPORT_QUARANTINE_PREFIX = '.noroshi-outlook-import-quarantine-';
+const IMPORT_STAGING_MARKER_CONTENT = 'Noroshi Outlook import staging v1\n';
 
 export async function buildOutlookImportPlan(options) {
 	const { mailboxAddress, domainName } = options;

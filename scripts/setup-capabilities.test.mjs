@@ -88,7 +88,7 @@ const dangerousContracts = {
 };
 
 test('defines one narrow Cloudflare and Resend setup registry', () => {
-	assert.equal(registry.schema_version, 'quickmail-ja.setup-capabilities.v1');
+	assert.equal(registry.schema_version, 'noroshi.setup-capabilities.v1');
 	assert.deepEqual(registry.providers, ['cloudflare', 'resend']);
 	assert.ok(Array.isArray(registry.capabilities));
 
@@ -180,7 +180,7 @@ test('provider email content and mailbox administration stay outside setup capab
 		'provider_email_content',
 		'email_body',
 		'attachment_content',
-		'quickmail_user_admin'
+		'noroshi_user_admin'
 	]);
 	for (const capability of registry.capabilities) {
 		for (const datum of capability.data_handled) {

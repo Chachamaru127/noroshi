@@ -355,7 +355,7 @@ function seedDb() {
 	db.users.set('user-2', { id: 'user-2', email: 'other@outside.example' });
 	db.domains.set('domain-1', {
 		id: 'domain-1',
-		name: 'quickmail.example',
+		name: 'noroshi.example',
 		status: 'verified',
 		region: null,
 		sending_enabled: 1,
@@ -368,8 +368,8 @@ function seedDb() {
 		id: 'address-1',
 		user_id: 'user-1',
 		domain_id: 'domain-1',
-		domain_name: 'quickmail.example',
-		address: 'info@quickmail.example',
+		domain_name: 'noroshi.example',
+		address: 'info@noroshi.example',
 		label: null,
 		is_default: 1,
 		signature: null,
@@ -379,8 +379,8 @@ function seedDb() {
 		id: 'address-2',
 		user_id: 'user-2',
 		domain_id: 'domain-1',
-		domain_name: 'quickmail.example',
-		address: 'other@quickmail.example',
+		domain_name: 'noroshi.example',
+		address: 'other@noroshi.example',
 		label: null,
 		is_default: 1,
 		signature: null,
@@ -542,28 +542,28 @@ describe('automatic forwarding data contract', () => {
 
 		const disabledResponse = await patchForwardingRule({
 			params: { id: initial.rule.id },
-			request: new Request('https://quickmail.example/api/forwarding/rules/rule-1', {
+			request: new Request('https://noroshi.example/api/forwarding/rules/rule-1', {
 				method: 'PATCH',
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({ destination: 'same@outside.example', enabled: false })
 			}),
 			locals: { user: { id: 'user-1', name: 'Owner' } },
 			platform: { env: { DB: db.db() } },
-			url: new URL('https://quickmail.example/api/forwarding/rules/rule-1')
+			url: new URL('https://noroshi.example/api/forwarding/rules/rule-1')
 		} as Parameters<typeof patchForwardingRule>[0]);
 		assert.equal(disabledResponse.status, 200);
 		assert.equal((await disabledResponse.json()).rule.status, 'disabled');
 
 		const enabledResponse = await patchForwardingRule({
 			params: { id: initial.rule.id },
-			request: new Request('https://quickmail.example/api/forwarding/rules/rule-1', {
+			request: new Request('https://noroshi.example/api/forwarding/rules/rule-1', {
 				method: 'PATCH',
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({ destination: 'same@outside.example', enabled: true })
 			}),
 			locals: { user: { id: 'user-1', name: 'Owner' } },
 			platform: { env: { DB: db.db() } },
-			url: new URL('https://quickmail.example/api/forwarding/rules/rule-1')
+			url: new URL('https://noroshi.example/api/forwarding/rules/rule-1')
 		} as Parameters<typeof patchForwardingRule>[0]);
 		assert.equal(enabledResponse.status, 200);
 		assert.equal((await enabledResponse.json()).rule.status, 'enabled');
@@ -583,7 +583,7 @@ describe('automatic forwarding data contract', () => {
 
 		try {
 			const postResponse = await createForwardingDestinationRoute({
-				request: new Request('https://quickmail.example/api/forwarding/destinations', {
+				request: new Request('https://noroshi.example/api/forwarding/destinations', {
 					method: 'POST',
 					headers: { 'content-type': 'application/json' },
 					body: JSON.stringify({
@@ -593,25 +593,25 @@ describe('automatic forwarding data contract', () => {
 				}),
 				locals: { user: { id: 'user-1', name: 'Owner' } },
 				platform: {
-					env: { DB: db.db(), RESEND_API_KEY: 're_test', RESEND_SEND_DOMAINS: 'quickmail.example' }
+					env: { DB: db.db(), RESEND_API_KEY: 're_test', RESEND_SEND_DOMAINS: 'noroshi.example' }
 				},
-				url: new URL('https://quickmail.example/api/forwarding/destinations')
+				url: new URL('https://noroshi.example/api/forwarding/destinations')
 			} as Parameters<typeof createForwardingDestinationRoute>[0]);
 			assert.equal(postResponse.status, 201);
 
 			const ruleId = String([...db.rules.values()][0].id);
 			const patchResponse = await patchForwardingRule({
 				params: { id: ruleId },
-				request: new Request(`https://quickmail.example/api/forwarding/rules/${ruleId}`, {
+				request: new Request(`https://noroshi.example/api/forwarding/rules/${ruleId}`, {
 					method: 'PATCH',
 					headers: { 'content-type': 'application/json' },
 					body: JSON.stringify({ destination: 'second@outside.example' })
 				}),
 				locals: { user: { id: 'user-1', name: 'Owner' } },
 				platform: {
-					env: { DB: db.db(), RESEND_API_KEY: 're_test', RESEND_SEND_DOMAINS: 'quickmail.example' }
+					env: { DB: db.db(), RESEND_API_KEY: 're_test', RESEND_SEND_DOMAINS: 'noroshi.example' }
 				},
-				url: new URL(`https://quickmail.example/api/forwarding/rules/${ruleId}`)
+				url: new URL(`https://noroshi.example/api/forwarding/rules/${ruleId}`)
 			} as Parameters<typeof patchForwardingRule>[0]);
 			assert.equal(patchResponse.status, 200);
 			assert.equal(keys.length, 2);
@@ -691,7 +691,7 @@ describe('automatic forwarding data contract', () => {
 			() =>
 				createOrResetForwardingDestination(db.db(), 'user-1', {
 					sourceAddressId: 'address-1',
-					destination: 'other@quickmail.example'
+					destination: 'other@noroshi.example'
 				}),
 			ForwardingValidationError
 		);
@@ -718,14 +718,14 @@ describe('automatic forwarding data contract', () => {
 			user_id: 'user-1',
 			provider_id: 'cf-1',
 			direction: 'inbound',
-			to_addr: 'info@quickmail.example'
+			to_addr: 'info@noroshi.example'
 		});
 		db.emails.set('email-2', {
 			id: 'email-2',
 			user_id: 'user-2',
 			provider_id: 'cf-2',
 			direction: 'inbound',
-			to_addr: 'other@quickmail.example'
+			to_addr: 'other@noroshi.example'
 		});
 
 		const first = await createForwardingAttempt(db.db(), {
@@ -752,14 +752,14 @@ describe('automatic forwarding data contract', () => {
 			user_id: 'user-1',
 			provider_id: 'outbound-1',
 			direction: 'outbound',
-			to_addr: 'info@quickmail.example'
+			to_addr: 'info@noroshi.example'
 		});
 		db.emails.set('email-wrong-recipient', {
 			id: 'email-wrong-recipient',
 			user_id: 'user-1',
 			provider_id: 'inbound-2',
 			direction: 'inbound',
-			to_addr: 'other@quickmail.example'
+			to_addr: 'other@noroshi.example'
 		});
 		await assert.rejects(
 			() =>
@@ -791,7 +791,7 @@ describe('automatic forwarding data contract', () => {
 			user_id: 'user-1',
 			provider_id: 'inbound-due',
 			direction: 'inbound',
-			to_addr: 'info@quickmail.example'
+			to_addr: 'info@noroshi.example'
 		});
 		const attempt = await createForwardingAttempt(db.db(), {
 			ruleId: result.rule.id,
@@ -887,7 +887,7 @@ describe('automatic forwarding data contract', () => {
 			user_id: 'user-1',
 			provider_id: 'inbound-provider',
 			direction: 'inbound',
-			to_addr: 'info@quickmail.example'
+			to_addr: 'info@noroshi.example'
 		});
 		const attempt = await createForwardingAttempt(db.db(), {
 			ruleId: result.rule.id,

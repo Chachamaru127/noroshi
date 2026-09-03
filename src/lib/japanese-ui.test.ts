@@ -94,8 +94,8 @@ describe('Noroshi Japanese UI contract', () => {
 
 	test('preserves internal forwarding protocol constants', () => {
 		const forwarding = source('src/lib/server/forwarding-delivery.ts');
-		assert.match(forwarding, /X-QuickMail-Forwarded/);
-		assert.match(forwarding, /quickmail-forward:/);
+		assert.match(forwarding, /X-Noroshi-Forwarded/);
+		assert.match(forwarding, /noroshi-forward:/);
 	});
 
 	test('keeps page errors shown to users in Japanese', () => {

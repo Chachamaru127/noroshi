@@ -1,6 +1,6 @@
 # Noroshi 導入と運用ガイド
 
-READMEに書いていない導入と運用の詳細です。AIに導入させる場合は、`skills/quickmail-ja-setup/SKILL.md`と合わせてAIに読ませてください。
+READMEに書いていない導入と運用の詳細です。AIに導入させる場合は、`skills/noroshi-setup/SKILL.md`と合わせてAIに読ませてください。
 
 **導入はBYOK（利用者自身のアカウントと認証情報を使う方式）です。** Cloudflare、Resend、将来提供するGmailコネクターのGoogle Cloudは、利用者自身のアカウントと認証情報を使います。Noroshi共通のAPIキーやOAuth Clientは配布しません。アカウント、利用料金、保存データ、認証情報は利用者が管理します。
 
@@ -30,11 +30,11 @@ Cloudflare公式の[Deploy to Cloudflareボタン](https://developers.cloudflare
 | Setup Skill（ローカル提供中） | BYOKの担当範囲、公式画面、確認項目、人間へ引き渡す操作をAIへ教える再利用可能な手順書      | 案内専用。外部設定の作成・保存・変更は行いません                 |
 | Setup MCP（将来・未提供）     | 許可された確認・設定だけをツールとして実行し、1操作ごとに対象、差分、戻し方を確認する予定 | 公開前の安全強化とクライアント別検証が必要です                   |
 
-現在利用できるAI相談ドックは、**デプロイ後のResend設定と最初の管理者作成**を支援します。`skills/quickmail-ja-setup`には、Cloudflare、Resend、将来のGmail BYOK設定を公式画面に沿って案内するポータブルSkillがあります。Agent Plugin ZIPにもこのSkillとレビュー済み参照資料を同梱します。外部設定を自動変更するSetup MCPは未提供です。
+現在利用できるAI相談ドックは、**デプロイ後のResend設定と最初の管理者作成**を支援します。`skills/noroshi-setup`には、Cloudflare、Resend、将来のGmail BYOK設定を公式画面に沿って案内するポータブルSkillがあります。Agent Plugin ZIPにもこのSkillとレビュー済み参照資料を同梱します。外部設定を自動変更するSetup MCPは未提供です。
 
 ### Setup Skillを使う
 
-正本は[`skills/quickmail-ja-setup`](./skills/quickmail-ja-setup/)の1か所です。`.agents/skills/quickmail-ja-setup`と`.claude/skills/quickmail-ja-setup`は正本を読むだけの薄いアダプターで、手順を複製しません。
+正本は[`skills/noroshi-setup`](./skills/noroshi-setup/)の1か所です。`.agents/skills/noroshi-setup`と`.claude/skills/noroshi-setup`は正本を読むだけの薄いアダプターで、手順を複製しません。
 
 - Codex CLI向けには、公式native形式のrepo marketplace（`.agents/plugins/marketplace.json`）と、`.codex-plugin/plugin.json`を持つadapterを同梱しています。新しいクライアントプロファイルでmarketplace追加、発見、インストール、有効化、MCP initializeまで確認済みです。portable Agent Plugins 1.0形式とは別の配布経路です。
 - `.agents/skills`はCodexのrepo-scoped Skill fallbackとして残しています。IDE拡張はプラグイン非対応のため、Skillの手動導入または通常のリポジトリ運用を使います。
@@ -42,7 +42,7 @@ Cloudflare公式の[Deploy to Cloudflareボタン](https://developers.cloudflare
 - ChatGPTでは、cloneだけではインストールされません。利用可能なプラン・ワークスペースで「Plugins → Skills → Create → Upload」から、下記のZIPをアップロードします。
 - Claude Desktop／Webでも、cloneだけではインストールされません。「Customize → Skills → Create skill → Upload a skill」から同じZIPをアップロードします。コード実行や利用者作成Skillが組織設定で無効な場合は利用できません。
 
-リポジトリのルートで次を実行すると、macOSの補助ファイルやクライアント別アダプターを含まないアップロード用ZIPを`out/quickmail-ja-setup.zip`へ作成できます。
+リポジトリのルートで次を実行すると、macOSの補助ファイルやクライアント別アダプターを含まないアップロード用ZIPを`out/noroshi-setup.zip`へ作成できます。
 
 ```bash
 bun run package:setup-skill
@@ -65,7 +65,7 @@ Codex CLIでrepo marketplaceを使う場合は、リポジトリのルートで�
 ```bash
 codex plugin marketplace add .
 codex plugin list --json --available
-codex plugin add quickmail-ja-setup@quickmail-ja
+codex plugin add noroshi-setup@noroshi
 codex plugin list
 ```
 
@@ -136,7 +136,7 @@ bash scripts/setup.sh
 
 1. Cloudflareへログイン
 2. メールドメインを指定。受信はCloudflare Email Routing、送信はResendに固定
-3. D1 `quickmail-ja`とR2 `quickmail-ja-attachments`を作成
+3. D1 `noroshi`とR2 `noroshi-attachments`を作成
 4. `wrangler.jsonc`とローカル用`.dev.vars`の非秘密設定だけを更新
 5. 利用者がパスワード管理ツールで作成したセットアップキーを非表示入力
 6. `BOOTSTRAP_SECRET`と自動生成した`AUTH_RATE_LIMIT_SECRET`をCloudflareのWorkerシークレットへ直接保存
@@ -158,8 +158,8 @@ multipartでは`payload`フィールドに添付以外のJSONを入れ、各フ�
 ```bash
 bun install --frozen-lockfile
 bunx wrangler login
-bunx wrangler d1 create quickmail-ja
-bunx wrangler r2 bucket create quickmail-ja-attachments
+bunx wrangler d1 create noroshi
+bunx wrangler r2 bucket create noroshi-attachments
 ```
 
 D1作成時に表示された`database_id`を`wrangler.jsonc`の`REPLACE_WITH_YOUR_D1_DATABASE_ID`と置き換えます。デプロイ前に、同じファイルの`vars`を次のように設定します。`CLOUDFLARE_MAIL_DOMAINS`が空だと、Workerは受信ドメインを許可しません。
@@ -191,12 +191,12 @@ bun run deploy
 ```bash
 cp .dev.vars.example .dev.vars
 bun run db:migrate:local
-read -rs QUICKMAIL_BOOTSTRAP_SECRET
-export QUICKMAIL_BOOTSTRAP_SECRET
+read -rs NOROSHI_BOOTSTRAP_SECRET
+export NOROSHI_BOOTSTRAP_SECRET
 bun run setup -- --local-dev --domain example.com
 ```
 
-`.dev.vars`には非秘密設定だけを置きます。`example.com`はローカルで受信アドレスに使う所有ドメインへ置き換えてください。`read -rs`はローカル用セットアップキーを画面やシェル履歴へ表示せず、現在のシェルへ読み込みます。開発サーバーを停止した後は`unset QUICKMAIL_BOOTSTRAP_SECRET`を実行してください。`--local-dev`は明示して形式確認したドメインと秘密値を子の開発サーバープロセスだけへ渡し、ファイルへ保存しません。継承環境にResendキーがあっても子へ渡さず、送信は無効のままです。非対話環境では`--domain`を省略すると停止します。
+`.dev.vars`には非秘密設定だけを置きます。`example.com`はローカルで受信アドレスに使う所有ドメインへ置き換えてください。`read -rs`はローカル用セットアップキーを画面やシェル履歴へ表示せず、現在のシェルへ読み込みます。開発サーバーを停止した後は`unset NOROSHI_BOOTSTRAP_SECRET`を実行してください。`--local-dev`は明示して形式確認したドメインと秘密値を子の開発サーバープロセスだけへ渡し、ファイルへ保存しません。継承環境にResendキーがあっても子へ渡さず、送信は無効のままです。非対話環境では`--domain`を省略すると停止します。
 
 受信の動作確認には`bun run preview`またはデプロイ済みWorkerを使います。Viteの開発サーバーだけではCloudflare Email Routingからメールを受信できません。
 
@@ -260,10 +260,10 @@ D1はWranglerでSQLへエクスポートできます。
 
 ```bash
 mkdir -p exports
-bunx wrangler d1 export quickmail-ja --remote --output=exports/quickmail-ja.sql
+bunx wrangler d1 export noroshi --remote --output=exports/noroshi.sql
 ```
 
-R2はCloudflareのS3互換APIに対応したバックアップツールで`quickmail-ja-attachments`の全オブジェクトをコピーします。アクセスキーをソースやシェル履歴へ保存しないでください。
+R2はCloudflareのS3互換APIに対応したバックアップツールで`noroshi-attachments`の全オブジェクトをコピーします。アクセスキーをソースやシェル履歴へ保存しないでください。
 
 過去メールは管理画面の「Outlook / EML取り込み」から読み込めます。メールボックスアドレス、ドメイン、受信・アーカイブのEML、送信済みのEMLを明示して実行します。取り込み中は外部送信、自動転送、通知を行いません。
 
@@ -326,7 +326,7 @@ bun run noroshi -- inbox
 bun run noroshi -- send --to recipient@example.net --subject "確認" --body "本文"
 ```
 
-旧`bun run quickmail`コマンド、`QUICKMAIL_URL`、`QUICKMAIL_TOKEN`、`QUICKMAIL_CONFIG`、旧`~/.config/quickmail/config.json`の読み取りは、少なくとも次のメジャー版まで維持します。新規設定では`NOROSHI_URL`、`NOROSHI_TOKEN`、`NOROSHI_CONFIG`と`~/.config/noroshi/config.json`を使います。
+設定は`NOROSHI_URL`、`NOROSHI_TOKEN`、`NOROSHI_CONFIG`の環境変数か、`~/.config/noroshi/config.json`から読み込みます。
 
 公開リポジトリURLができるまでは、このソースツリーからCLIとMCPを起動します。
 
@@ -339,7 +339,7 @@ bun run noroshi -- send --to recipient@example.net --subject "確認" --body "�
 			"cwd": "/path/to/Noroshi",
 			"env": {
 				"NOROSHI_URL": "https://mail.example.com",
-				"NOROSHI_TOKEN": "qm_live_xxxx"
+				"NOROSHI_TOKEN": "nr_live_xxxx"
 			}
 		}
 	}

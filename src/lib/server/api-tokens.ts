@@ -28,7 +28,7 @@ export type ApiTokenAuth = {
 	scopes: ApiScope[];
 };
 
-const TOKEN_PREFIX = 'qm_live_';
+const TOKEN_PREFIX = 'nr_live_';
 const MAX_TOKEN_LENGTH = 256;
 const LAST_USED_THROTTLE_MS = 5 * 60 * 1000;
 
@@ -68,13 +68,13 @@ function toBase64Url(bytes: Uint8Array): string {
 	return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-/** `qm_live_<32 random bytes, base64url>` — recognizable and collision-resistant. */
+/** `nr_live_<32 random bytes, base64url>` — recognizable and collision-resistant. */
 function generateToken(): string {
 	const bytes = crypto.getRandomValues(new Uint8Array(32));
 	return `${TOKEN_PREFIX}${toBase64Url(bytes)}`;
 }
 
-/** Preview the random part, not the shared `qm_live_` prefix. */
+/** Preview the random part, not the shared `nr_live_` prefix. */
 export function previewFor(token: string): string {
 	const random = token.startsWith(TOKEN_PREFIX) ? token.slice(TOKEN_PREFIX.length) : token;
 	if (random.length < 8) return random;

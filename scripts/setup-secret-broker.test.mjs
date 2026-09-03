@@ -21,8 +21,8 @@ test('injects bootstrap only into local child runtime memory', () => {
 		mailDomain: 'example.com',
 		environment: {
 			SAFE: 'yes',
-			QUICKMAIL_BOOTSTRAP_SECRET: 'operator-input',
-			QUICKMAIL_AUTH_RATE_LIMIT_SECRET: 'must-not-pass',
+			NOROSHI_BOOTSTRAP_SECRET: 'operator-input',
+			NOROSHI_AUTH_RATE_LIMIT_SECRET: 'must-not-pass',
 			RESEND_API_KEY: 'poisoned-runtime-key',
 			RESEND_WEBHOOK_SECRET: 'poisoned-webhook-key'
 		},

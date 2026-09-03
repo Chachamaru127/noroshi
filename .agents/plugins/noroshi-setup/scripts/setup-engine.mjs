@@ -11,7 +11,7 @@ import { dirname } from 'node:path';
  * engine from becoming part of the mailbox Worker bundle.
  */
 
-export const SETUP_ENGINE_SCHEMA_VERSION = 'quickmail-ja.setup-engine.v1';
+export const SETUP_ENGINE_SCHEMA_VERSION = 'noroshi.setup-engine.v1';
 
 export const SETUP_STEP_KINDS = Object.freeze([
 	'resource_creation',
@@ -361,7 +361,7 @@ function normalizeTarget(input) {
 	if (adapterKind === 'browser') {
 		const origin = normalizeString(input.origin, 'target.origin');
 		if (
-			!/^https:\/\/(?:dash\.cloudflare\.com|resend\.com|www\.resend\.com|quickmail-ja(?:-[a-z0-9-]+)?\.pages\.dev)(?:\/|$)/iu.test(
+			!/^https:\/\/(?:dash\.cloudflare\.com|resend\.com|www\.resend\.com|noroshi(?:-[a-z0-9-]+)?\.pages\.dev)(?:\/|$)/iu.test(
 				origin
 			)
 		) {

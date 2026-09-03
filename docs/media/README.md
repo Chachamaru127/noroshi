@@ -32,7 +32,7 @@ Cloudflare Pagesの `noroshi-ui-preview` はサイト全体をアップロード
 次回の公開でもガイドを残すため、操作デモだけでなく次の構成を用意します。
 
 ```text
-index.html                         ← prototype/quickmail-ja-live-demo/index.html
+index.html                         ← prototype/noroshi-live-demo/index.html
 _headers                           ← 同フォルダーの_headers + preview-guide.headers
 guide/index.html                   ← reportsの生成済みガイドHTML
 guide/noroshi-product-tour.mp4

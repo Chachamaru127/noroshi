@@ -8,16 +8,10 @@ export type CliConfig = {
 };
 
 function configPath(): string {
-	const override = process.env.NOROSHI_CONFIG ?? process.env.QUICKMAIL_CONFIG;
+	const override = process.env.NOROSHI_CONFIG;
 	if (override) return override;
 	const base = process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config');
 	return join(base, 'noroshi', 'config.json');
-}
-
-function legacyConfigPath(): string {
-	if (process.env.NOROSHI_CONFIG || process.env.QUICKMAIL_CONFIG) return configPath();
-	const base = process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config');
-	return join(base, 'quickmail', 'config.json');
 }
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
@@ -61,28 +55,12 @@ export async function loadConfig(): Promise<CliConfig> {
 		return { url: normalizeUrl(canonicalUrl), token: canonicalToken };
 	}
 
-	const legacyUrl = process.env.QUICKMAIL_URL;
-	const legacyToken = process.env.QUICKMAIL_TOKEN;
-	if (legacyUrl !== undefined || legacyToken !== undefined) {
-		if (!legacyUrl || !legacyToken) {
-			throw new Error('QUICKMAIL_URL and QUICKMAIL_TOKEN must be set together.');
-		}
-		return { url: normalizeUrl(legacyUrl), token: legacyToken };
-	}
-
 	let raw: Partial<CliConfig>;
 	try {
-		let serialized: string;
-		try {
-			serialized = await readFile(configPath(), 'utf8');
-		} catch (error) {
-			if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-			serialized = await readFile(legacyConfigPath(), 'utf8');
-		}
-		raw = JSON.parse(serialized) as Partial<CliConfig>;
+		raw = JSON.parse(await readFile(configPath(), 'utf8')) as Partial<CliConfig>;
 	} catch {
 		throw new Error(
-			'Not logged in. Run `noroshi login --url <instance> --token <key>` or set NOROSHI_URL and NOROSHI_TOKEN. QUICKMAIL_URL and QUICKMAIL_TOKEN remain supported aliases.'
+			'Not logged in. Run `noroshi login --url <instance> --token <key>` or set NOROSHI_URL and NOROSHI_TOKEN.'
 		);
 	}
 
@@ -90,7 +68,7 @@ export async function loadConfig(): Promise<CliConfig> {
 	const token = raw.token;
 	if (!url || !token) {
 		throw new Error(
-			'Not logged in. Run `noroshi login --url <instance> --token <key>` or set NOROSHI_URL and NOROSHI_TOKEN. QUICKMAIL_URL and QUICKMAIL_TOKEN remain supported aliases.'
+			'Not logged in. Run `noroshi login --url <instance> --token <key>` or set NOROSHI_URL and NOROSHI_TOKEN.'
 		);
 	}
 	return { url: normalizeUrl(url), token };
@@ -109,7 +87,7 @@ export async function saveConfig(config: CliConfig): Promise<string> {
 }
 
 export async function clearConfig(): Promise<void> {
-	for (const path of new Set([configPath(), legacyConfigPath()])) {
+	for (const path of new Set([configPath()])) {
 		try {
 			await unlink(path);
 		} catch (error) {

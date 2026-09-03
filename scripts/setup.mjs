@@ -86,8 +86,8 @@ Cloudflareへログインし、D1/R2、設定ファイル、受信・送信経�
 
 オプション:
   --domain <name>      メールドメイン（例: example.com）
-  --d1-name <name>     D1名（例: quickmail-ja）
-  --r2-name <name>     R2名（例: quickmail-ja-attachments）
+  --d1-name <name>     D1名（例: noroshi）
+  --r2-name <name>     R2名（例: noroshi-attachments）
   --yes                使用不可（外部変更の一括承認を拒否）
   --skip-deploy        最後のデプロイを行わない
   --local-dev          セットアップキーと明示ドメインをローカルdevへだけ渡す
@@ -528,7 +528,7 @@ async function askDomain() {
 }
 
 async function askWorkerName(current) {
-	const fallback = current && isWorkerName(current) ? current : 'quickmail-ja';
+	const fallback = current && isWorkerName(current) ? current : 'noroshi';
 	while (true) {
 		const name = (await prompt('Worker名', fallback)).toLowerCase();
 		if (isWorkerName(name)) return name;
@@ -648,8 +648,8 @@ function putSecret(name, secret) {
 }
 
 async function runLocalDev() {
-	const raw = process.env.QUICKMAIL_BOOTSTRAP_SECRET?.trim();
-	if (!raw) throw new Error('--local-devにはprocess環境のQUICKMAIL_BOOTSTRAP_SECRETが必要です。');
+	const raw = process.env.NOROSHI_BOOTSTRAP_SECRET?.trim();
+	if (!raw) throw new Error('--local-devにはprocess環境のNOROSHI_BOOTSTRAP_SECRETが必要です。');
 	const domain = args.domain
 		? normalizeDomain(args.domain)
 		: stdinStream.isTTY
@@ -667,8 +667,8 @@ async function runLocalDev() {
 			inherit: true,
 			env,
 			omitEnv: [
-				'QUICKMAIL_BOOTSTRAP_SECRET',
-				'QUICKMAIL_AUTH_RATE_LIMIT_SECRET',
+				'NOROSHI_BOOTSTRAP_SECRET',
+				'NOROSHI_AUTH_RATE_LIMIT_SECRET',
 				'RESEND_API_KEY',
 				'RESEND_WEBHOOK_SECRET'
 			]
@@ -824,7 +824,7 @@ async function setupResend(domain) {
 }
 
 function migrate(local, remote) {
-	const databaseName = jsoncString(readWrangler(), 'database_name') || 'quickmail-ja';
+	const databaseName = jsoncString(readWrangler(), 'database_name') || 'noroshi';
 	if (local) {
 		wrangler(['d1', 'migrations', 'apply', databaseName, '--local'], { inherit: true });
 		ok('ローカルD1へマイグレーションを適用しました');
@@ -932,20 +932,20 @@ async function main() {
 	await ensureWrangler();
 
 	let source = readWrangler();
-	const workerName = await askWorkerName(jsoncString(source, 'name') || 'quickmail-ja');
+	const workerName = await askWorkerName(jsoncString(source, 'name') || 'noroshi');
 	ok('Web UIはworkers.devへデプロイします。カスタムドメイン設定はこの段階では行いません。');
 
 	section(4, total, 'D1とR2');
 	const databaseName = await askResourceName(
-		'D1データベース名（例: quickmail-ja）',
-		jsoncString(source, 'database_name') || 'quickmail-ja',
+		'D1データベース名（例: noroshi）',
+		jsoncString(source, 'database_name') || 'noroshi',
 		args.d1Name,
 		isWorkerName,
 		'半角小文字、数字、ハイフンを使用してください。'
 	);
 	const bucketName = await askResourceName(
-		'R2バケット名（例: quickmail-ja-attachments）',
-		jsoncString(source, 'bucket_name') || 'quickmail-ja-attachments',
+		'R2バケット名（例: noroshi-attachments）',
+		jsoncString(source, 'bucket_name') || 'noroshi-attachments',
 		args.r2Name,
 		isR2BucketName,
 		'3〜63文字の半角小文字、数字、ハイフンを使用してください。'
@@ -967,7 +967,7 @@ async function main() {
 	writeWrangler(source);
 	ok('wrangler.jsoncを更新しました');
 	setPackageMigrateScripts(databaseName);
-	if (databaseName !== 'quickmail-ja') ok(`package.jsonの移行先を${databaseName}へ更新しました`);
+	if (databaseName !== 'noroshi') ok(`package.jsonの移行先を${databaseName}へ更新しました`);
 
 	const devVars = {
 		EMAIL_PROVIDER: 'resend',

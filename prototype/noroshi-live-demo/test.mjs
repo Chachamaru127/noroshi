@@ -452,9 +452,9 @@ try {
   },"provider allowlist must match exact HTTPS origin, path, query shape, and no fragment");
 
   await page.evaluate(() => {
-    window.__quickmailAudit = {navigations:[],copies:[]};
+    window.__noroshiAudit = {navigations:[],copies:[]};
     HTMLAnchorElement.prototype.click = function() {
-      window.__quickmailAudit.navigations.push({
+      window.__noroshiAudit.navigations.push({
         href:this.href,
         target:this.target,
         rel:this.rel,
@@ -464,7 +464,7 @@ try {
     Object.defineProperty(navigator,"clipboard",{
       configurable:true,
       value:{writeText(value) {
-        window.__quickmailAudit.copies.push(String(value));
+        window.__noroshiAudit.copies.push(String(value));
         return Promise.resolve();
       }}
     });
@@ -487,15 +487,15 @@ try {
     },value);
     await page.click('[data-action="ai-handoff"][data-provider="ChatGPT"]');
   }
-  let audit = await page.evaluate(() => window.__quickmailAudit);
+  let audit = await page.evaluate(() => window.__noroshiAudit);
   assert.deepEqual(audit,{navigations:[],copies:[]},"unsafe input must cause zero navigation and zero clipboard writes");
 
   await page.fill("#ai-question","CloudflareとResendの設定方法を教えてください");
   for (const provider of ["ChatGPT","Claude","Gemini"]) {
     await page.click('[data-action="ai-handoff"][data-provider="' + provider + '"]');
   }
-  await page.waitForFunction(() => window.__quickmailAudit.copies.length === 3);
-  audit = await page.evaluate(() => window.__quickmailAudit);
+  await page.waitForFunction(() => window.__noroshiAudit.copies.length === 3);
+  audit = await page.evaluate(() => window.__noroshiAudit);
   assert.equal(audit.navigations.length,3,"normal input must request exactly three provider launches");
   assert.equal(audit.copies.length,3,"normal input must copy once per provider");
   assert.ok(audit.copies.every(prompt => prompt.includes("BYOK前提です")),"every provider prompt must explain BYOK");

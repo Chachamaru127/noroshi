@@ -1,5 +1,5 @@
 {
-	"quickmail-ja-setup-engine": {
+	"noroshi-setup-engine": {
 		"command": "node",
 		"args": ["scripts/setup-plugin-mcp.mjs"],
 		"cwd": "."

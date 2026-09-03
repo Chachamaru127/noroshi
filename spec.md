@@ -8,9 +8,9 @@ Noroshi is a Japanese-first, self-hosted webmail for custom domains. It runs on 
 
 - The public product name is `Noroshi`. Its name refers to a smoke signal used to carry a message over distance; ninja imagery may inform a restrained visual accent, but must not obscure that this is an email product or imply delivery, security, or secrecy guarantees.
 - The operator-selected canonical repository and search slug is `noroshi`. Public descriptions pair the name with `日本語で使える、Cloudflare上のセルフホスト型メール` and searchable mail terms so its purpose remains clear among unrelated products with similar names.
-- Public UI, PWA metadata, current documentation, setup guidance, plugin descriptions, and newly generated package names use `Noroshi`. Migration notes may say `Noroshi, formerly QuickMail-ja` for one major release.
-- Existing technical identities remain compatible. Do not rewrite migration history, git history, upstream attribution, stored database values, `QUICKMAIL_*` environment variables, `X-QuickMail-Forwarded`, or existing idempotency prefixes only to complete the rebrand.
-- The canonical CLI command is `noroshi`; the existing `quickmail` command remains a compatibility alias for at least one major release. Existing Cloudflare Worker, D1, and R2 resources and the current template defaults are not renamed in this rebrand. A future resource-name change requires a separate migration contract and approval.
+- Public UI, PWA metadata, documentation, setup guidance, plugin and Skill IDs, package names, and runtime identifiers use `Noroshi` / `noroshi`.
+- No public release preceded the rename, so no compatibility alias is kept for the former product name. Do not rewrite git history or upstream attribution.
+- The only CLI command is `noroshi`, the only environment variables are `NOROSHI_*`, and the only configuration path is `~/.config/noroshi/config.json`. Worker, D1, and R2 template defaults are `noroshi` and `noroshi-attachments`. Operator approval for this resource-name change was recorded on 2026-09-03. An operator who already created resources under the former defaults keeps their own names in `wrangler.jsonc`.
 - Preserve the original MIT license and attribution to `DivinPrince/quickmail`. A rebrand is not a claim of independent origin.
 
 The default supported mail topology is:
@@ -46,7 +46,7 @@ Market claims must follow the dated evidence in `docs/research/japan-market-comp
 - Interpret `Agent 1.0` as Agent Plugins Specification 1.0.0 plus the Agent Skills specification.
 - Keep one portable setup core: a root `plugin.json`, Agent Skills under `skills/`, and an optional `mcp.json`. Generate or maintain thin client adapters only where the host requires them.
 - Support Codex and ChatGPT only on surfaces where the official plugin/App capability is available. Treat Claude Code/Desktop as a separate native adapter and verify it independently; Agent Plugins 1.0 does not itself guarantee Claude installation.
-- Keep `skills/quickmail-ja-setup` as the single guidance source. Repo-scoped Codex and Claude Code files may only point to that source; they must not copy its instructions. A clone may enable repo discovery in supported coding clients, but it never auto-installs a Skill in ChatGPT or Claude Desktop. Those surfaces require their supported upload or plugin flow and an independent smoke result.
+- Keep `skills/noroshi-setup` as the single guidance source. Repo-scoped Codex and Claude Code files may only point to that source; they must not copy its instructions. A clone may enable repo discovery in supported coding clients, but it never auto-installs a Skill in ChatGPT or Claude Desktop. Those surfaces require their supported upload or plugin flow and an independent smoke result.
 - A portable guidance-only Skill may ship before QMJ-10. It may open allowlisted official pages when the host has browser capability and the user permits it, but it does not create, save, delete, deploy, change DNS, enter secrets, or send mail. Provider mutations remain blocked until the QMJ-10 approval engine exists.
 - Reuse official Cloudflare and Resend MCP/API capabilities through a narrow setup adapter. Do not expose either provider's full MCP toolset to the setup agent, and do not reimplement provider APIs without a documented missing capability.
 - The assistant flow is `inspect -> plan -> approve one exact step -> apply -> read back -> verify`. Read-only inspection must be usable without granting write access.
@@ -124,7 +124,7 @@ The setup assistant is separate from the mailbox MCP. Installing it grants zero 
 
 - Preserve the original MIT license and attribution to DivinPrince/quickmail.
 - Base public history on upstream commit `77e8858acc5043fcc103f8560c60d0c5f958ccc0`; do not import any deployment-specific downstream history.
-- Do not include active custom routes, Cloudflare account IDs, D1 IDs, R2 production names, real domains, real email addresses, secrets, backups, `.wrangler`, `out`, or `.harness*` state. Under `.claude`, the only distributable path is the enumerated regular-file adapter `.claude/skills/quickmail-ja-setup/SKILL.md`; `.claude/state` and every other operational or client-local file remain forbidden. The same exact-path rule applies to `.agents/skills/quickmail-ja-setup/SKILL.md`.
+- Do not include active custom routes, Cloudflare account IDs, D1 IDs, R2 production names, real domains, real email addresses, secrets, backups, `.wrangler`, `out`, or `.harness*` state. Under `.claude`, the only distributable path is the enumerated regular-file adapter `.claude/skills/noroshi-setup/SKILL.md`; `.claude/state` and every other operational or client-local file remain forbidden. The same exact-path rule applies to `.agents/skills/noroshi-setup/SKILL.md`.
 - Until a Noroshi GitHub URL exists, do not present an installer or Deploy button that silently installs the original upstream build.
 - Generic templates use placeholders and cannot address any existing production resource without explicit user setup.
 

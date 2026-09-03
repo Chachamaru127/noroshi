@@ -1,15 +1,15 @@
 {
 	"$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
-	"name": "quickmail-ja-setup",
+	"name": "noroshi-setup",
 	"version": "1.0.0",
 	"description": "NoroshiのBYOK導入を、固定されたセットアップ契約に沿って案内・検証するプラグイン。",
 	"author": {
 		"name": "Noroshi"
 	},
 	"license": "MIT",
-	"keywords": ["noroshi", "quickmail-ja", "setup", "byok", "cloudflare", "resend", "japanese"],
+	"keywords": ["noroshi", "noroshi", "setup", "byok", "cloudflare", "resend", "japanese"],
 	"extensions": {
-		"com.quickmail-ja.setup": {
+		"com.noroshi.setup": {
 			"capability_registry": "setup/plugin-capabilities.json",
 			"mailbox_permissions": {
 				"read": false,

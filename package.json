@@ -8,8 +8,7 @@
 	"type": "module",
 	"packageManager": "bun@1.3.14",
 	"bin": {
-		"noroshi": "./bin/noroshi.mjs",
-		"quickmail": "./bin/quickmail.mjs"
+		"noroshi": "./bin/noroshi.mjs"
 	},
 	"scripts": {
 		"dev": "vite dev",
@@ -18,8 +17,8 @@
 		"setup": "bun scripts/setup.mjs",
 		"upgrade:qmj9-security": "bun scripts/upgrade-auth-secret.mjs",
 		"deploy": "bun run build && wrangler deploy",
-		"db:migrate:local": "wrangler d1 migrations apply quickmail-ja --local",
-		"db:migrate:remote": "wrangler d1 migrations apply quickmail-ja --remote",
+		"db:migrate:local": "wrangler d1 migrations apply noroshi --local",
+		"db:migrate:remote": "wrangler d1 migrations apply noroshi --remote",
 		"test:d1-forwarding": "bun scripts/forwarding-d1-race.test.mjs",
 		"test:agent-plugin": "bun test scripts/agent-plugin.test.mjs",
 		"test:codex-native": "bun test scripts/codex-native-adapter.test.mjs",
@@ -29,13 +28,13 @@
 		"package:agent-plugin": "bun scripts/agent-plugin.mjs package",
 		"generate:claude-adapter": "node scripts/generate-claude-adapter.mjs",
 		"check:claude-adapter": "node scripts/generate-claude-adapter.mjs --check",
-		"test:live-demo": "bun prototype/quickmail-ja-live-demo/test.mjs",
-		"test:live-demo:qa": "node prototype/quickmail-ja-live-demo/qa.mjs",
-		"test:live-demo:qa:update": "node prototype/quickmail-ja-live-demo/qa.mjs --update-baselines",
-		"test:live-demo:review-retake": "node prototype/quickmail-ja-live-demo/review-retake.test.mjs",
-		"test:live-demo:release-gates": "node prototype/quickmail-ja-live-demo/release-gates.mjs",
-		"test:live-demo:release-gates:unit": "node prototype/quickmail-ja-live-demo/release-gates.test.mjs",
-		"test:live-demo:contracts": "node prototype/quickmail-ja-live-demo/test.mjs && node prototype/quickmail-ja-live-demo/review-retake.test.mjs && node prototype/quickmail-ja-live-demo/release-workflow-security.test.mjs && node prototype/quickmail-ja-live-demo/release-gates.test.mjs",
+		"test:live-demo": "bun prototype/noroshi-live-demo/test.mjs",
+		"test:live-demo:qa": "node prototype/noroshi-live-demo/qa.mjs",
+		"test:live-demo:qa:update": "node prototype/noroshi-live-demo/qa.mjs --update-baselines",
+		"test:live-demo:review-retake": "node prototype/noroshi-live-demo/review-retake.test.mjs",
+		"test:live-demo:release-gates": "node prototype/noroshi-live-demo/release-gates.mjs",
+		"test:live-demo:release-gates:unit": "node prototype/noroshi-live-demo/release-gates.test.mjs",
+		"test:live-demo:contracts": "node prototype/noroshi-live-demo/test.mjs && node prototype/noroshi-live-demo/review-retake.test.mjs && node prototype/noroshi-live-demo/release-workflow-security.test.mjs && node prototype/noroshi-live-demo/release-gates.test.mjs",
 		"test:archive": "bun scripts/archive-smoke.mjs",
 		"package:setup-skill": "bun scripts/package-setup-skill.mjs",
 		"generate:setup-skill-knowledge": "bun scripts/generate-setup-skill-knowledge.mjs",
@@ -48,7 +47,6 @@
 		"format:check": "prettier --check \"src/**/*.{ts,js,svelte}\" \"cli/**/*.ts\" \"scripts/**/*.{ts,mjs}\" \"*.{ts,js,json,jsonc}\" \".github/workflows/*.{yml,yaml}\"",
 		"cf-typegen": "wrangler types",
 		"noroshi": "bun cli/main.ts",
-		"quickmail": "bun cli/main.ts",
 		"test": "bun test scripts/agent-plugin.test.mjs scripts/codex-native-adapter.test.mjs scripts/setup-capabilities.test.mjs scripts/setup-companion.test.mjs scripts/setup-config.test.mjs scripts/setup-engine.test.mjs scripts/setup-hardening.test.mjs scripts/setup-secret-broker.test.mjs scripts/upgrade-auth-secret.test.mjs scripts/release-supply-chain.test.mjs scripts/distribution-contract.test.mjs scripts/deploy-banner.test.mjs scripts/support-knowledge.test.mjs scripts/outlook-import-core.test.mjs src/lib/ai-support.test.ts src/lib/ai-support-a11y.test.ts src/lib/email-signature.test.ts src/lib/folder-a11y.test.ts src/lib/folder-ui.test.ts src/lib/japanese-ui.test.ts src/lib/mailbox-people.test.ts src/lib/mail-ui-copy.test.ts src/lib/mail-ui-errors.test.ts src/lib/mobile.test.ts src/lib/push-client.test.ts src/lib/settings-forwarding.test.ts src/lib/settings-sort-rules.test.ts src/lib/worker-boundary.test.ts src/lib/utils/attachments.test.ts src/lib/utils/html.test.ts src/lib/server/api-access.test.ts src/lib/server/api-tokens.test.ts src/lib/server/auth-endpoints-security.test.ts src/lib/server/auth-rate-limit.integration.test.ts src/lib/server/cloudflare-inbound.test.ts src/lib/server/context.test.ts src/lib/server/domains.test.ts src/lib/server/folder-rules.test.ts src/lib/server/folder-rules.integration.test.ts src/lib/server/folders-api.test.ts src/lib/server/folders.integration.test.ts src/lib/server/forwarding.test.ts src/lib/server/forwarding-delivery.test.ts src/lib/server/forwarding-delivery.integration.test.ts src/lib/server/manual-forward.test.ts src/lib/server/outbox.test.ts src/lib/server/outlook-import.test.ts src/lib/server/providers/resend-provider.test.ts src/lib/server/push-notifications.test.ts src/lib/server/request-security.test.ts src/lib/server/setup-bootstrap.test.ts src/lib/server/upstream-reconciliation.integration.test.ts cli/client.test.ts"
 	},
 	"devDependencies": {

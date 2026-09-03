@@ -8,13 +8,13 @@ export function safeDownloadName(name: string): string {
 	return base;
 }
 
-export class QuickMailError extends Error {
+export class NoroshiError extends Error {
 	constructor(
 		readonly status: number,
 		message: string
 	) {
 		super(message);
-		this.name = 'QuickMailError';
+		this.name = 'NoroshiError';
 	}
 }
 
@@ -101,7 +101,7 @@ export type ListThreadsQuery = {
 	domain?: string;
 };
 
-export class QuickMailClient {
+export class NoroshiClient {
 	readonly url: string;
 
 	constructor(
@@ -123,13 +123,13 @@ export class QuickMailClient {
 		if (res.headers.get('content-type')?.includes('application/json')) {
 			const body = (await res.json()) as T & { error?: string };
 			if (!res.ok) {
-				throw new QuickMailError(res.status, body.error ?? res.statusText);
+				throw new NoroshiError(res.status, body.error ?? res.statusText);
 			}
 			return body;
 		}
 
 		if (!res.ok) {
-			throw new QuickMailError(res.status, res.statusText);
+			throw new NoroshiError(res.status, res.statusText);
 		}
 		return undefined as T;
 	}
@@ -190,7 +190,7 @@ export class QuickMailClient {
 			{ headers: { authorization: `Bearer ${this.token}` } }
 		);
 		if (!res.ok) {
-			throw new QuickMailError(res.status, 'Failed to download attachment');
+			throw new NoroshiError(res.status, 'Failed to download attachment');
 		}
 
 		const disposition = res.headers.get('content-disposition') ?? '';

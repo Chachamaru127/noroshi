@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const root = new URL('..', import.meta.url);
-const temp = mkdtempSync(join(tmpdir(), 'quickmail-forwarding-mvp-'));
+const temp = mkdtempSync(join(tmpdir(), 'noroshi-forwarding-mvp-'));
 const database = join(temp, 'race.sqlite');
 const upgradeDatabase = join(temp, 'upgrade.sqlite');
 
@@ -75,14 +75,14 @@ try {
 	sqlite(`
 		PRAGMA foreign_keys=ON;
 		INSERT INTO users (id,email,name,password_hash) VALUES ('u','owner@example.net','Owner','hash');
-		INSERT INTO domains (id,name,status,sending_enabled,receiving_enabled) VALUES ('d','quickmail.example','verified',1,1);
-		INSERT INTO addresses (id,user_id,domain_id,address,is_default,created_at) VALUES ('a','u','d','info@quickmail.example',1,datetime('now'));
+		INSERT INTO domains (id,name,status,sending_enabled,receiving_enabled) VALUES ('d','noroshi.example','verified',1,1);
+		INSERT INTO addresses (id,user_id,domain_id,address,is_default,created_at) VALUES ('a','u','d','info@noroshi.example',1,datetime('now'));
 		INSERT INTO forwarding_destinations (id,user_id,source_address_id,destination_address,status,created_at,updated_at)
 		VALUES ('dest','u','a','archive@outside.example','verified',datetime('now'),datetime('now'));
 		INSERT INTO forwarding_rules (id,user_id,source_address_id,destination_id,status,created_at,updated_at)
 		VALUES ('rule','u','a','dest','enabled',datetime('now'),datetime('now'));
 		INSERT INTO emails (id,user_id,direction,from_addr,to_addr,subject,forwarding_hop)
-		VALUES ('email','u','inbound','sender@example.net','info@quickmail.example','Hello',0);
+		VALUES ('email','u','inbound','sender@example.net','info@noroshi.example','Hello',0);
 		INSERT INTO forwarding_attempts
 		(id,rule_id,email_id,status,attempt_count,next_attempt_at,hop,destination_id,destination_address,created_at,updated_at)
 		VALUES ('attempt','rule','email','queued',0,datetime('now'),0,'dest','archive@outside.example',datetime('now'),datetime('now'));

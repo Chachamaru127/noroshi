@@ -5,11 +5,11 @@ import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
-const sourcePath = join(root, 'skills/quickmail-ja-operations/SKILL.md');
-const outputPath = join(root, 'adapters/claude/skills/quickmail-ja-operations/SKILL.md');
+const sourcePath = join(root, 'skills/noroshi-operations/SKILL.md');
+const outputPath = join(root, 'adapters/claude/skills/noroshi-operations/SKILL.md');
 const source = readFileSync(sourcePath, 'utf8');
 const digest = createHash('sha256').update(source).digest('hex');
-const marker = `<!-- Generated from skills/quickmail-ja-operations/SKILL.md; source-sha256: ${digest} -->`;
+const marker = `<!-- Generated from skills/noroshi-operations/SKILL.md; source-sha256: ${digest} -->`;
 const sourceLines = source.split('\n');
 const frontmatterEnd = sourceLines.findIndex((line, index) => index > 0 && line === '---');
 if (frontmatterEnd < 0) throw new Error('portable operations Skill has no frontmatter boundary');
@@ -23,7 +23,7 @@ if (process.argv.includes('--check')) {
 	}
 	console.log('✓ Claude adapter Skill matches portable operations Skill.');
 } else {
-	mkdirSync(join(root, 'adapters/claude/skills/quickmail-ja-operations'), { recursive: true });
+	mkdirSync(join(root, 'adapters/claude/skills/noroshi-operations'), { recursive: true });
 	writeFileSync(outputPath, output);
 	console.log(`✓ Claude adapter Skill generated (${digest}).`);
 }

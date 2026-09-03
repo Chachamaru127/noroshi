@@ -1,8 +1,8 @@
 import { writeFile } from 'node:fs/promises';
 import { stdin as stdinStream } from 'node:process';
 import {
-	QuickMailClient,
-	QuickMailError,
+	NoroshiClient,
+	NoroshiError,
 	safeDownloadName,
 	type MailboxView,
 	type ThreadSummary
@@ -12,7 +12,7 @@ import { clearConfig, loadConfig, saveConfig } from './config.ts';
 const HELP = `noroshi — operate a Noroshi instance from the terminal
 
 Usage:
-  noroshi login --url <https://mail.example.com> --token <qm_live_…>
+  noroshi login --url <https://mail.example.com> --token <nr_live_…>
   noroshi logout
   noroshi whoami
 
@@ -40,9 +40,8 @@ Admin:
 MCP:
   noroshi mcp
 
-Auth is a Settings → API keys bearer token. NOROSHI_URL and NOROSHI_TOKEN are
-canonical; QUICKMAIL_URL and QUICKMAIL_TOKEN remain supported aliases. Use
---json on mail/admin commands for raw output.
+Auth is a Settings → API keys bearer token. Set NOROSHI_URL and NOROSHI_TOKEN,
+or run noroshi login. Use --json on mail/admin commands for raw output.
 `;
 
 type Flags = Record<string, string | boolean>;
@@ -146,12 +145,12 @@ function printThreads(page: { threads: ThreadSummary[]; total: number; page: num
 	console.log(`\n${page.total} conversation${page.total === 1 ? '' : 's'}  page ${page.page}/${page.pageCount}`);
 }
 
-async function clientFromConfig(): Promise<QuickMailClient> {
+async function clientFromConfig(): Promise<NoroshiClient> {
 	const config = await loadConfig();
-	return new QuickMailClient(config.url, config.token);
+	return new NoroshiClient(config.url, config.token);
 }
 
-async function resolveUserId(client: QuickMailClient, idOrEmail: string): Promise<string> {
+async function resolveUserId(client: NoroshiClient, idOrEmail: string): Promise<string> {
 	if (!idOrEmail.includes('@')) return idOrEmail;
 	const { users } = await client.listUsers();
 	const user = users.find((entry) => entry.email.toLowerCase() === idOrEmail.toLowerCase());
@@ -188,16 +187,16 @@ async function run(argv: string[]): Promise<number> {
 		case 'login': {
 			const url = flagString(flags, 'url');
 			const token =
-				flagString(flags, 'token') ?? process.env.NOROSHI_TOKEN ?? process.env.QUICKMAIL_TOKEN;
+				flagString(flags, 'token') ?? process.env.NOROSHI_TOKEN;
 			if (!url) {
 				throw new Error('login requires --url');
 			}
 			if (!token) {
 				throw new Error(
-					'login requires --token, NOROSHI_TOKEN, or QUICKMAIL_TOKEN (create a key in Settings → API keys)'
+					'login requires --token or NOROSHI_TOKEN (create a key in Settings → API keys)'
 				);
 			}
-			const client = new QuickMailClient(url, token);
+			const client = new NoroshiClient(url, token);
 			const user = await client.whoami();
 			const path = await saveConfig({ url, token });
 			console.log(`Logged in as ${user.email} (${path})`);
@@ -498,7 +497,7 @@ async function addressesCommand(sub: string | undefined, rest: string[], flags: 
 }
 
 const code = await run(process.argv.slice(2)).catch((error) => {
-	const message = error instanceof QuickMailError ? `${error.status} ${error.message}` : error.message;
+	const message = error instanceof NoroshiError ? `${error.status} ${error.message}` : error.message;
 	console.error(message);
 	return 1;
 });
