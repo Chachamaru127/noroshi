@@ -608,6 +608,24 @@ README rebuild (2026-09-03): README keeps only human-facing content (what it doe
 
 Evidence: independent review APPROVE after transcript contrast and archive wording corrections; distribution contracts 20/0; live-demo contracts PASS; guide builder PASS (1466160 bytes); live guide and video hashes match local; viewport/scroll widths 390/390 and 1200/1200; video advances with duration 36.2s. Deployment `8073a695.noroshi-ui-preview.pages.dev`. Root demo HTML hash and original CSP unchanged. Local Pages dev returned 404 and was not counted as evidence; public readback and browser playback supplied the deployment check.
 
+## NOR-3: Identifier rename (2026-09-03)
+
+Purpose: Complete the Noroshi rebrand at the identifier level. No public release preceded the rename, so no compatibility alias is retained.
+Spec delta: `spec.md` naming contract replaced. The former "existing technical identities remain compatible" and "quickmail remains a compatibility alias" clauses are removed; operator approval for the Cloudflare resource-name change is recorded as 2026-09-03.
+team_validation_mode: contract tests (`rebrand-compatibility.test.mjs` inverted to a repository-wide scan).
+
+| Task | Content | DoD | Depends | Status |
+| --- | --- | --- | --- | --- |
+| NOR-3A | Rename Skill, plugin, prototype, Cloudflare, runtime, and CLI identifiers to `noroshi`; delete the compatibility shims. | `git ls-files` scan finds `quickmail` only in upstream attribution, `Plans.md`, and dated research; full local checks pass. | NOR-1 | cc:COMPLETE (2026-09-03) |
+
+Renamed: `skills/quickmail-ja-setup` to `skills/noroshi-setup`; `skills/quickmail-ja-operations` to `noroshi-operations`; `prototype/quickmail-ja-live-demo` to `noroshi-live-demo`; plugin id, MCP server name, and setup-engine schema id; Worker/D1 `quickmail-ja` to `noroshi` and R2 bucket to `noroshi-attachments`; `X-QuickMail-Forwarded` to `X-Noroshi-Forwarded`; forwarding idempotency prefix, push tags, API key prefix `qm_live_` to `nr_live_`; `QuickMailClient`/`QuickMailError`; capability surface ids `quickmail_ui`/`quickmail_user_admin`; Outlook import staging directory; test fixture domains.
+
+Deleted, not renamed: `bin/quickmail.mjs`, the `quickmail` bin/script entries, `QUICKMAIL_*` environment fallbacks, and the `~/.config/quickmail/config.json` fallback path in `cli/config.ts`.
+
+Unchanged by design: upstream attribution (`DivinPrince/quickmail`, the `quickmail-upstream` source id and its `QuickMail` display name), `Plans.md` history, dated research documents, git history, and migrations (which contained no product identifier).
+
+Evidence: `bun test` 504/0; `check`, `format:check`, `check:clean` (394 files), `check:codex-native-adapter`, `check:claude-adapter`, `check:setup-skill-knowledge`, `check:agent-plugin`, `test:d1-forwarding`, `test:archive`, `test:live-demo:contracts`, and `build` all pass. `test:live-demo:qa` was not run: it requires Playwright browser binaries and Linux-pinned baselines that this host does not have. Operator consequence: an existing local dev D1 named `quickmail-ja` is no longer the default, so `bun run db:migrate:local` creates a fresh `noroshi` database, and any stored CLI credential under `~/.config/quickmail/config.json` requires `noroshi login` again.
+
 ### Review loops
 
 - After QMJ-8A: setup architecture + security + skeptic review; fix all P0/P1 before QMJ-9.
