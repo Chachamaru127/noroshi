@@ -7,7 +7,7 @@ import { compile } from 'svelte/compiler';
 const root = new URL('../../', import.meta.url).pathname;
 const component = readFileSync(join(root, 'src/lib/components/AiSupportDock.svelte'), 'utf8');
 const setup = readFileSync(join(root, 'src/routes/setup/+page.svelte'), 'utf8');
-const readme = readFileSync(join(root, 'README.md'), 'utf8');
+const readme = readFileSync(join(root, 'docs/setup-and-operations.md'), 'utf8');
 
 describe('AI support dock accessibility and privacy boundary', () => {
 	test('compiles without accessibility warnings', () => {
@@ -75,7 +75,7 @@ describe('AI support dock accessibility and privacy boundary', () => {
 		assert.doesNotMatch(setup, /<AiSupportDock[^>]*(?:chosen|selected|error|data|bootstrapSecret)/);
 	});
 
-	test('README has a standalone, bounded AI handoff section', () => {
+	test('setup guide has a standalone, bounded AI handoff section', () => {
 		assert.match(readme, /^## AIに質問$/m);
 		assert.match(readme, /導入はBYOK/);
 		assert.match(component, /自分のアカウントで設定します（BYOK）/);

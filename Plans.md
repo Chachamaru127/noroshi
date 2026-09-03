@@ -596,13 +596,15 @@ team_validation_mode: subagent (independent copy/fact review plus parent browser
 
 | Task | 内容 | DoD | Depends | Status |
 | --- | --- | --- | --- | --- |
-| NOR-2A | `[tdd:skip:docs-and-media]` Benefit-first README and template-based product guide; preserve existing untracked product guides and images. | Current capabilities, comparison-only themes, BYOK and release limits agree with spec; video and demo links are usable. | none | cc:COMPLETE (GitHub publication approved 2026-09-03) |
+| NOR-2A | `[tdd:skip:docs-and-media]` Benefit-first README and template-based product guide; preserve existing untracked product guides and images. | Current capabilities, comparison-only themes, BYOK and release limits agree with spec; video and demo links are usable. | none | cc:COMPLETE (GitHub publication approved 2026-09-03; README rebuilt 2026-09-03 as human-facing page, details moved to docs/setup-and-operations.md) |
 | NOR-2B | `[tdd:skip:media]` Record synthetic demo and author a captioned product tour with poster. | H.264 playback works; captions match observed actions; no real mail or credentials; controls and transcript available. | none | cc:COMPLETE (36.2s, 1920x1080, 949231 bytes) |
 | NOR-2C | Publish static guide/media under existing preview `/guide/`; leave demo root and its security policy unchanged. | 1200px/390px overflow checks, video playback and independent review pass; live readback matches local assets. | NOR-2A, NOR-2B | cc:COMPLETE (2026-09-02) |
 
 Scope: user requested video placement in hero. Only preview guide/media publication is included; GitHub push, release tags, mail Worker, D1/R2, DNS and real sends are excluded. Existing product guide artifacts are preserved as prior drafts.
 
 Follow-up approval (2026-09-03): commit and push this README, Plans entry, and the six new media/guide files to `Chachamaru127/noroshi` main. Existing untracked guides, images, browser logs and recording intermediates remain excluded. No new deployment or release tag is included.
+
+README rebuild (2026-09-03): README keeps only human-facing content (what it does, cost comparison against per-user SaaS billing, four copy-paste AI setup prompts, architecture, license, notes). Setup, DNS, cost, backup, recovery, update, API/CLI/MCP, and development sections moved verbatim to `docs/setup-and-operations.md`. Distribution contract tests (`distribution-contract`, `deploy-banner`, `ai-support-a11y`, `context.test`) now read that guide; README retains the GitHub URL, Noroshi, upstream attribution, 狼煙, and no-active-deploy-link assertions. Cost comparison policy recorded in `docs/research/japan-market-competition-2026-08-27.md`. Identifier rename (wrangler, plugin/Skill IDs, `QUICKMAIL_*`, CLI alias, forwarding header) intentionally not included.
 
 Evidence: independent review APPROVE after transcript contrast and archive wording corrections; distribution contracts 20/0; live-demo contracts PASS; guide builder PASS (1466160 bytes); live guide and video hashes match local; viewport/scroll widths 390/390 and 1200/1200; video advances with duration 36.2s. Deployment `8073a695.noroshi-ui-preview.pages.dev`. Root demo HTML hash and original CSP unchanged. Local Pages dev returned 404 and was not counted as evidence; public readback and browser playback supplied the deployment check.
 

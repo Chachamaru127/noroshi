@@ -46,7 +46,10 @@ describe('inbound provider configuration', () => {
 	});
 
 	test('documents Cloudflare inbound without switching outbound away from Resend', () => {
-		const readme = readFileSync(new URL('../../../README.md', import.meta.url), 'utf8');
+		const readme = readFileSync(
+			new URL('../../../docs/setup-and-operations.md', import.meta.url),
+			'utf8'
+		);
 		assert.match(readme, /`INBOUND_EMAIL_PROVIDER=cloudflare`、`EMAIL_PROVIDER=resend`が標準/);
 		assert.match(readme, /受信には、対象ドメインのDNSゾーンをCloudflareで管理する必要があります/);
 		assert.match(readme, /Resend Receivingを有効にしない/);

@@ -2,22 +2,25 @@ import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 
 const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8');
-const deploySection = readme.match(/## Cloudflareへの展開[\s\S]*?(?=\n## )/)?.[0] ?? '';
+const guide = readFileSync(new URL('../docs/setup-and-operations.md', import.meta.url), 'utf8');
+const deploySection = guide.match(/## Cloudflareへの展開[\s\S]*?(?=\n## )/)?.[0] ?? '';
 const deployBanner = readFileSync(
 	new URL('../docs/assets/deploy-to-cloudflare-disabled.svg', import.meta.url),
 	'utf8'
 );
 
 describe('Cloudflare deployment handoff', () => {
-	test('keeps the README banner inactive before public release approval', () => {
-		expect(readme).toContain('公開準備中');
+	test('keeps the deploy banner inactive before public release approval', () => {
+		expect(guide).toContain('公開準備中');
 		expect(deploySection).toContain('docs/assets/deploy-to-cloudflare-disabled.svg');
 		expect(deploySection).not.toMatch(/<img[^>]+src=["']https?:\/\//i);
 		expect(deploySection).not.toMatch(/!\[[^\]]*\]\(https?:\/\//i);
 		expect(deployBanner).not.toMatch(/(?:href|src)=["']https?:\/\//i);
-		expect(readme).not.toMatch(/\]\(https:\/\/deploy\.workers\.cloudflare\.com\/\?url=/);
-		expect(readme).not.toMatch(/href=["']https:\/\/deploy\.workers\.cloudflare\.com\/\?url=/);
-		expect(readme).toContain('デプロイ完了とメール開通は別です');
+		for (const doc of [readme, guide]) {
+			expect(doc).not.toMatch(/\]\(https:\/\/deploy\.workers\.cloudflare\.com\/\?url=/);
+			expect(doc).not.toMatch(/href=["']https:\/\/deploy\.workers\.cloudflare\.com\/\?url=/);
+		}
+		expect(guide).toContain('デプロイ完了とメール開通は別です');
 	});
 
 	test('documents every post-deploy mail readiness step', () => {
@@ -30,21 +33,21 @@ describe('Cloudflare deployment handoff', () => {
 			'D1マイグレーション',
 			'最初の管理者'
 		]) {
-			expect(readme).toContain(phrase);
+			expect(guide).toContain(phrase);
 		}
 	});
 
 	test('keeps AI, Skill, and future MCP support capabilities distinct', () => {
-		expect(readme).toContain('AIに相談');
-		expect(readme).toContain('権限はありません');
-		expect(readme).toContain('Skill');
-		expect(readme).toContain('MCP');
-		expect(readme).toContain('デプロイ後のResend設定と最初の管理者作成');
-		expect(readme).toContain('Setup Skill（ローカル提供中）');
-		expect(readme).toContain('案内専用。外部設定の作成・保存・変更は行いません');
-		expect(readme).toContain('外部設定を自動変更するSetup MCPは未提供');
-		expect(readme).toContain('導入はBYOK');
-		expect(readme).toContain('APIキー、パスワード、メール本文、DNS値');
-		expect(readme).toContain('提携・公式サポート');
+		expect(guide).toContain('AIに相談');
+		expect(guide).toContain('権限はありません');
+		expect(guide).toContain('Skill');
+		expect(guide).toContain('MCP');
+		expect(guide).toContain('デプロイ後のResend設定と最初の管理者作成');
+		expect(guide).toContain('Setup Skill（ローカル提供中）');
+		expect(guide).toContain('案内専用。外部設定の作成・保存・変更は行いません');
+		expect(guide).toContain('外部設定を自動変更するSetup MCPは未提供');
+		expect(guide).toContain('導入はBYOK');
+		expect(guide).toContain('APIキー、パスワード、メール本文、DNS値');
+		expect(guide).toContain('提携・公式サポート');
 	});
 });

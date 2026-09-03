@@ -11,8 +11,9 @@ import { validateSkillTreeListing } from './package-setup-skill.mjs';
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 const root = fileURLToPath(new URL('..', import.meta.url));
 
-test('README is Japanese-first and documents the supported operating boundary', () => {
-	const readme = read('README.md');
+test('setup guide is Japanese-first and documents the supported operating boundary', () => {
+	const readme = read('docs/setup-and-operations.md');
+	assert.match(read('README.md'), /https:\/\/github\.com\/Chachamaru127\/noroshi/);
 	for (const heading of [
 		'## 構成',
 		'## セットアップ',
@@ -23,7 +24,7 @@ test('README is Japanese-first and documents the supported operating boundary', 
 		'## 復旧とロールバック',
 		'## 更新'
 	]) {
-		assert.ok(readme.includes(heading), `README is missing ${heading}`);
+		assert.ok(readme.includes(heading), `setup guide is missing ${heading}`);
 	}
 	assert.match(readme, /受信[^\n]*Cloudflare Email Routing/);
 	assert.match(readme, /送信[^\n]*Resend/);
@@ -65,7 +66,7 @@ test('package commands stay Bun-only and target the generic D1 name', () => {
 });
 
 test('setup Skill has one canonical source and bounded repo adapters', () => {
-	const readme = read('README.md');
+	const readme = read('docs/setup-and-operations.md');
 	const canonical = read('skills/quickmail-ja-setup/SKILL.md');
 	const codex = read('.agents/skills/quickmail-ja-setup/SKILL.md');
 	const claude = read('.claude/skills/quickmail-ja-setup/SKILL.md');
@@ -294,7 +295,7 @@ test('setup never downloads or executes a Bun installer', () => {
 });
 
 test('QMJ-9 distribution keeps setup secrets out of files and stays on workers.dev', () => {
-	const readme = read('README.md');
+	const readme = read('docs/setup-and-operations.md');
 	const devVars = read('.dev.vars.example');
 	const wrangler = read('wrangler.jsonc');
 	const pkg = JSON.parse(read('package.json'));
@@ -331,7 +332,7 @@ test('release archive keeps and runs the clean-template guard', () => {
 
 test('fresh setup supports Cloudflare inbound and Resend outbound only', () => {
 	const setup = read('scripts/setup.mjs');
-	const readme = read('README.md');
+	const readme = read('docs/setup-and-operations.md');
 	const wrangler = read('wrangler.jsonc');
 	assert.doesNotMatch(setup, /--provider|askProvider|Cloudflare Email（送信）/);
 	assert.match(setup, /Resend（送信）/);
