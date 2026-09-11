@@ -4,7 +4,7 @@ description: Noroshiのセットアップ計画を、QMJ-10の固定契約と利
 metadata:
   short-description: QMJ-10の導入計画を安全に確認
 ---
-<!-- Generated from skills/noroshi-operations/SKILL.md; source-sha256: b7295234218452be008831c1c4f32394612e3779dc01d1f9fd3e72aaeed25ea5 -->
+<!-- Generated from skills/noroshi-operations/SKILL.md; source-sha256: c88016b640c99f615f6f02f78a1158503b610b56e78019e5a27162fc7718e59b -->
 
 # Noroshi セットアップ操作
 
@@ -14,8 +14,7 @@ metadata:
 
 - `setup_inspect`: 利用者が提示した非秘密の状態スナップショットを検査する。プロバイダーへ問い合わせない。
 - `setup_plan`: QMJ-10の許可された capability と operation の組み合わせから、1つの変更計画を作る。
-- `setup_approve`: 計画に対する1回限りの承認記録を作る。
-- `setup_apply`: プロバイダー用アダプターが別途検証・承認されていない限り、常に停止する。
+- `setup_apply`: プロバイダー用アダプターが別途検証されていない限り、常に停止する。モデル向けの承認ツールは公開しない。provider対応ホストは、モデル外の承認UIが発行した署名済み・1回限りのreceiptを検証してから内部Engineを呼ぶ。
 - `setup_readback`: 提示された状態が検証済み計画の前状態または後状態と一致するかを検証する。
 - `setup_verify`: 検証済み計画と読み返しの指紋を照合する。
 
@@ -41,7 +40,7 @@ metadata:
 
 ### 3. 承認と適用
 
-利用者が画面で計画の対象、差分、費用、ロールバック、外部影響を確認してから、その1ステップだけを承認する。このパッケージの適用操作はプロバイダーアダプターを持たないため、実際の書き込みを行わず停止する。将来のアダプターが追加されても、公式サポート範囲と個別承認が無い操作は拒否する。
+利用者がホストの承認画面で計画の対象、差分、費用、ロールバック、外部影響を確認してから、その1ステップだけを承認する。モデルは承認receiptを発行できない。このパッケージの適用操作はプロバイダーアダプターを持たないため、実際の書き込みを行わず停止する。将来のアダプターが追加されても、署名、plan hash、target、capability、operation、cost、expiry、one-use nonceが一致するhost-issued receiptの検証に失敗した操作は拒否する。
 
 ### 4. 読み返しと検証
 

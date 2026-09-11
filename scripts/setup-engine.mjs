@@ -53,7 +53,7 @@ const PROTECTED_RESOURCE_TYPES = new Set([
 	'cloudflare_r2_bucket',
 	'resend_domain'
 ]);
-const EXPLICIT_SAFE_DATA_KEYS = new Set(['secret_broker_reference']);
+const EXPLICIT_SAFE_DATA_KEYS = new Set(['secret_broker_reference', 'test_token']);
 const FORBIDDEN_DATA_KEY_NAMES = new Set([
 	'secret',
 	'secret_value',
@@ -282,6 +282,12 @@ function assertSafeData(value, path = '$', seen = new Set()) {
 						'unsafe_plan_data',
 						`${path}.${key} must be a non-empty opaque secret broker reference`
 					);
+				}
+				continue;
+			}
+			if (normalizedKey === 'test_token') {
+				if (!safeCanaryToken(entry)) {
+					stop('unsafe_plan_data', `${path}.${key} must be a non-secret canary token`);
 				}
 				continue;
 			}
@@ -596,6 +602,105 @@ function assertInboundTopology(target, step, desired) {
 	}
 }
 
+const CONTROLLED_SEND_FIELDS = new Set([
+	'controlled_sender',
+	'controlled_recipient',
+	'subject',
+	'template_id',
+	'content_fingerprint',
+	'test_token',
+	'idempotency_key',
+	'status'
+]);
+
+function safeCanaryToken(value) {
+	return (
+		typeof value === 'string' &&
+		value.length >= 12 &&
+		value.length <= 72 &&
+		/^canary-[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(value) &&
+		!/(?:secret|password|api-key|bearer|token)/u.test(value)
+	);
+}
+
+function controlledSendContentFingerprint(testToken) {
+	return fingerprint({ template_id: 'noroshi-canary-v1', test_token: testToken });
+}
+
+export function createControlledSendState({ target, sender, recipient, testToken }) {
+	const normalizedTarget = normalizeTarget(target);
+	if (
+		normalizedTarget.provider !== 'resend' ||
+		!normalizedTarget.team_id ||
+		!normalizedTarget.domain_id
+	) {
+		stop('invalid_controlled_send', 'controlled send requires one Resend team and domain target');
+	}
+	for (const [label, value] of [
+		['sender', sender],
+		['recipient', recipient]
+	]) {
+		if (typeof value !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(value)) {
+			stop('invalid_controlled_send', `controlled send ${label} must be an email address`);
+		}
+	}
+	if (!safeCanaryToken(testToken)) {
+		stop('invalid_controlled_send', 'controlled send requires a non-secret canary token');
+	}
+	const controlled = {
+		controlled_sender: sender.toLowerCase(),
+		controlled_recipient: recipient.toLowerCase(),
+		subject: `Noroshi test ${testToken}`,
+		template_id: 'noroshi-canary-v1',
+		content_fingerprint: controlledSendContentFingerprint(testToken),
+		test_token: testToken,
+		idempotency_key: '',
+		status: 'planned'
+	};
+	controlled.idempotency_key = fingerprint({
+		target: normalizedTarget,
+		controlled_sender: controlled.controlled_sender,
+		controlled_recipient: controlled.controlled_recipient,
+		test_token: controlled.test_token,
+		template_id: controlled.template_id
+	});
+	return { controlled_send: controlled };
+}
+
+function assertControlledSend(target, step, desired, rollback) {
+	if (step.kind !== 'external_send') return;
+	if (target.provider !== 'resend' || !target.team_id || !target.domain_id) {
+		stop('invalid_controlled_send', 'external send must bind one Resend team and domain');
+	}
+	if (step.cost_class !== 'metered_usage') {
+		stop('invalid_controlled_send', 'external send cost class must be metered_usage');
+	}
+	if (rollback.mode !== 'not_needed') {
+		stop('invalid_controlled_send', 'an external send is not reversible');
+	}
+	const controlled = desired?.controlled_send;
+	if (!controlled || typeof controlled !== 'object' || Array.isArray(controlled)) {
+		stop('invalid_controlled_send', 'external send requires one fixed controlled_send payload');
+	}
+	for (const key of Object.keys(controlled)) {
+		if (!CONTROLLED_SEND_FIELDS.has(key)) {
+			stop('invalid_controlled_send', `controlled send field ${key} is not allowed`);
+		}
+	}
+	const expected = createControlledSendState({
+		target,
+		sender: controlled.controlled_sender,
+		recipient: controlled.controlled_recipient,
+		testToken: controlled.test_token
+	}).controlled_send;
+	if (canonicalJson(controlled) !== canonicalJson(expected)) {
+		stop(
+			'invalid_controlled_send',
+			'controlled send subject, template, content fingerprint, idempotency key, or state changed'
+		);
+	}
+}
+
 function assertAuthoritativeDnsSnapshot(target, step, before) {
 	if (step.kind !== 'dns_change') return;
 	if (!before || before.authoritative !== true) {
@@ -704,6 +809,7 @@ function assertPlanShape(plan) {
 	assertInboundTopology(normalizedTarget, normalizedStep, plan.after);
 	assertAuthoritativeDnsSnapshot(normalizedTarget, normalizedStep, plan.before);
 	assertDnsRollbackInvariants(normalizedStep, normalizedRollback);
+	assertControlledSend(normalizedTarget, normalizedStep, plan.after, normalizedRollback);
 	assertStepCapabilityContract(normalizedStep, normalizedTarget);
 	if (typeof plan.plan_hash !== 'string' || !/^[a-f0-9]{64}$/u.test(plan.plan_hash)) {
 		stop('plan_hash_mismatch', 'plan hash is missing or malformed');
@@ -835,6 +941,7 @@ export function createMutationPlan({
 	assertAuthoritativeDnsSnapshot(normalizedTarget, normalizedStep, before);
 	const normalizedRollback = normalizeRollback(rollback, normalizedTarget);
 	assertDnsRollbackInvariants(normalizedStep, normalizedRollback);
+	assertControlledSend(normalizedTarget, normalizedStep, after, normalizedRollback);
 	const normalizedApproval = normalizeString(approvalId, 'approval_id');
 	const normalizedPlanId = normalizeString(planId, 'plan_id');
 	const expires = ensureFreshExpiry(expiresAt, now);
@@ -1049,6 +1156,152 @@ export class InMemoryApprovalLedger {
 	get(approvalId) {
 		const value = this.#approvals.get(approvalId);
 		return value ? { ...value } : null;
+	}
+}
+
+const HOST_APPROVAL_RECEIPT_SCHEMA_VERSION = 'noroshi.host-approval-receipt.v1';
+const HOST_APPROVAL_RECEIPT_FIELDS = new Set([
+	'schema_version',
+	'issuer',
+	'audience',
+	'plan_id',
+	'plan_hash',
+	'approval_id',
+	'target_fingerprint',
+	'capability_id',
+	'operation',
+	'cost_class',
+	'nonce',
+	'issued_at',
+	'expires_at',
+	'signature'
+]);
+
+export function hostApprovalReceiptClaims(plan, { now = Date.now() } = {}) {
+	const verified = verifyMutationPlan(plan, { now });
+	return {
+		schema_version: HOST_APPROVAL_RECEIPT_SCHEMA_VERSION,
+		audience: 'noroshi.setup',
+		plan_id: verified.plan_id,
+		plan_hash: verified.plan_hash,
+		approval_id: verified.approval_id,
+		target_fingerprint: fingerprint(verified.target),
+		capability_id: verified.step.capability_id,
+		operation: verified.step.operation,
+		cost_class: verified.step.cost_class,
+		expires_at: verified.expires_at
+	};
+}
+
+export async function verifyHostApprovalReceipt({
+	plan,
+	receipt,
+	verifySignature,
+	now = Date.now()
+}) {
+	if (!receipt || typeof receipt !== 'object' || Array.isArray(receipt)) {
+		stop('host_receipt_required', 'a host-issued approval receipt is required');
+	}
+	for (const key of Object.keys(receipt)) {
+		if (!HOST_APPROVAL_RECEIPT_FIELDS.has(key)) {
+			stop('host_receipt_invalid', `host approval receipt field ${key} is not allowed`);
+		}
+	}
+	if (typeof verifySignature !== 'function') {
+		stop('host_receipt_verifier_missing', 'the trusted host approval verifier is unavailable');
+	}
+	const expected = hostApprovalReceiptClaims(plan, { now });
+	const claims = {};
+	for (const [key, expectedValue] of Object.entries(expected)) {
+		if (receipt[key] !== expectedValue) {
+			stop('host_receipt_mismatch', `host approval receipt ${key} does not match the plan`);
+		}
+		claims[key] = receipt[key];
+	}
+	if (typeof receipt.issuer !== 'string' || !receipt.issuer.trim()) {
+		stop('host_receipt_invalid', 'host approval receipt issuer is required');
+	}
+	if (typeof receipt.nonce !== 'string' || !/^[a-zA-Z0-9_-]{16,128}$/u.test(receipt.nonce)) {
+		stop('host_receipt_invalid', 'host approval receipt nonce is malformed');
+	}
+	const issuedAt = Date.parse(receipt.issued_at);
+	const receiptExpiry = Date.parse(receipt.expires_at);
+	if (
+		!Number.isFinite(issuedAt) ||
+		issuedAt > now ||
+		!Number.isFinite(receiptExpiry) ||
+		receiptExpiry <= now
+	) {
+		stop('host_receipt_expired', 'host approval receipt is expired or not yet valid');
+	}
+	if (typeof receipt.signature !== 'string' || !receipt.signature.trim()) {
+		stop('host_receipt_invalid', 'host approval receipt signature is required');
+	}
+	claims.issuer = receipt.issuer;
+	claims.nonce = receipt.nonce;
+	claims.issued_at = new Date(issuedAt).toISOString();
+	const verifiedSignature = await verifySignature({
+		claims: cloneSafe(claims),
+		signature: receipt.signature
+	});
+	if (verifiedSignature !== true) {
+		stop('host_receipt_invalid', 'host approval receipt signature is invalid');
+	}
+	return cloneSafe(claims);
+}
+
+/**
+ * Converts one externally verified host receipt into the engine's internal
+ * one-use apply transition. The verifier and nonce consumer are injected by
+ * the trusted host integration, never selected through the model-facing MCP.
+ */
+export class HostReceiptApprovalLedger {
+	#receipt;
+	#verifySignature;
+	#consumeNonce;
+	#delegate;
+	#verifiedPlanHash = null;
+
+	constructor({ receipt, verifySignature, consumeNonce, delegate } = {}) {
+		this.#receipt = receipt;
+		this.#verifySignature = verifySignature;
+		this.#consumeNonce = consumeNonce;
+		this.#delegate = delegate ?? new InMemoryApprovalLedger();
+	}
+
+	approve() {
+		stop('host_receipt_required', 'the model-facing setup surface cannot approve its own plan');
+	}
+
+	async #authorize(plan, now) {
+		if (this.#verifiedPlanHash === plan.plan_hash) return;
+		if (typeof this.#consumeNonce !== 'function') {
+			stop('host_receipt_verifier_missing', 'the trusted host nonce consumer is unavailable');
+		}
+		const claims = await verifyHostApprovalReceipt({
+			plan,
+			receipt: this.#receipt,
+			verifySignature: this.#verifySignature,
+			now
+		});
+		if ((await this.#consumeNonce(claims.nonce)) !== true) {
+			stop('host_receipt_used', 'host approval receipt was already consumed');
+		}
+		await this.#delegate.approve(plan, { now });
+		this.#verifiedPlanHash = plan.plan_hash;
+	}
+
+	async getApplyState(plan, options = {}) {
+		return this.#delegate.getApplyState(plan, options);
+	}
+
+	async beginApply(plan, options = {}) {
+		await this.#authorize(plan, options.now ?? Date.now());
+		return this.#delegate.beginApply(plan, options);
+	}
+
+	async markReadbackVerified(plan, options = {}) {
+		return this.#delegate.markReadbackVerified(plan, options);
 	}
 }
 

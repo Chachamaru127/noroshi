@@ -8,11 +8,12 @@ import {
 	type ThreadSummary
 } from './client.ts';
 import { clearConfig, loadConfig, saveConfig } from './config.ts';
+import { resolveLoginToken } from './secret-prompt.ts';
 
 const HELP = `noroshi — operate a Noroshi instance from the terminal
 
 Usage:
-  noroshi login --url <https://mail.example.com> --token <nr_live_…>
+  noroshi login --url <https://mail.example.com>
   noroshi logout
   noroshi whoami
 
@@ -38,10 +39,12 @@ Admin:
   noroshi unrouted
 
 MCP:
-  noroshi mcp
+  noroshi mcp --read-only
+  noroshi mcp                 Full mailbox MCP; includes send and reply
 
 Auth is a Settings → API keys bearer token. Set NOROSHI_URL and NOROSHI_TOKEN,
-or run noroshi login. Use --json on mail/admin commands for raw output.
+or run noroshi login and enter the token at the masked prompt. Use --json on
+mail/admin commands for raw output.
 `;
 
 type Flags = Record<string, string | boolean>;
@@ -186,16 +189,13 @@ async function run(argv: string[]): Promise<number> {
 	switch (head) {
 		case 'login': {
 			const url = flagString(flags, 'url');
-			const token =
-				flagString(flags, 'token') ?? process.env.NOROSHI_TOKEN;
 			if (!url) {
 				throw new Error('login requires --url');
 			}
-			if (!token) {
-				throw new Error(
-					'login requires --token or NOROSHI_TOKEN (create a key in Settings → API keys)'
-				);
-			}
+			const token = await resolveLoginToken({
+				argumentToken: flagString(flags, 'token'),
+				environmentToken: process.env.NOROSHI_TOKEN
+			});
 			const client = new NoroshiClient(url, token);
 			const user = await client.whoami();
 			const path = await saveConfig({ url, token });
@@ -356,7 +356,7 @@ async function run(argv: string[]): Promise<number> {
 				}
 				throw error;
 			}
-			await startMcpServer();
+			await startMcpServer({ readOnly: flagBool(flags, 'read-only') });
 			return 0;
 		}
 		default:

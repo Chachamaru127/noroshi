@@ -11,7 +11,7 @@
 このリリースのルートは Agent Plugins 1.0 のportable配布形である。これはOpenAI Codex CLIのネイティブなローカルmarketplace形式とは別の配布面である。Codex CLIの現行公式形式では、プラグイン側に `.codex-plugin/plugin.json` と、必要に応じてルートの `.mcp.json` を置き、marketplace側に `.agents/plugins/marketplace.json` を置く。rootの `plugin.json` と `mcp.json` だけでは、Codex CLIのローカルmarketplaceとして発見されない。このリポジトリでは、native adapterを `.agents/plugins/noroshi-setup/` に同梱し、portable packageと並存させている。
 
 - `plugin.json`: Agent Plugins 1.0の公式マニフェスト。カスタム拡張には capability registry の参照と、メールボックス権限が全て `false` であることだけを記録する。
-- `skills/noroshi-operations/SKILL.md`: QMJ-10 の `inspect → plan → approve → apply → readback → verify` を日本語で案内する正本 operations Skill。
+- `skills/noroshi-operations/SKILL.md`: QMJ-10 の `inspect → plan → host receipt → apply → readback → verify` を日本語で案内する正本 operations Skill。
 - `skills/noroshi-setup/SKILL.md`: QMJ-11A の BYOK・公式画面・手動 fallback を案内する正本 guidance Skill。参照資料とともに Agent Plugin ZIP に同梱するため、プラグインだけを導入しても導入案内を利用できる。
 - `mcp.json`: Agent Plugins 1.0形式の任意コンポーネントとして、ローカルの狭い QMJ-10 操作だけを stdio で公開する。メールボックス MCP とは物理的に別である。OpenAI Codex CLIへnative installする場合は、別形式のルート `.mcp.json` adapterが必要になる。
 - `setup/plugin-capabilities.json`: `setup/capabilities.json` と QMJ-10 の固定 step contract から生成した射影。公開 capability と provider operation は空である。
@@ -20,11 +20,11 @@
 - `.agents/plugins/noroshi-setup/`: Codex native manifest、MCP、operations Skill、BYOK setup Skillと参照資料を含むself-contained adapter。canonical portable sourceから生成・一致検証する。
 - `adapters/openai/`: Codex / ChatGPT の公式サポート面と検証範囲を記録する案内。
 
-MCP のツール一覧は次の6つに固定する。
+MCP のツール一覧は次の7つに固定する。
 
-`setup_inspect`、`setup_plan`、`setup_approve`、`setup_apply`、`setup_readback`、`setup_verify`
+`setup_resume`、`setup_record`、`setup_inspect`、`setup_plan`、`setup_apply`、`setup_readback`、`setup_verify`
 
-`setup_inspect` と読み返しは、利用者が提示した非秘密の状態だけをローカルで扱う。`setup_apply` は provider adapter unavailable で失敗し、provider、DNS、ネットワーク、メール、秘密値への呼び出しを行わない。未知のツール名、未知の capability、未対応 transport、計画の指紋不一致、読み取り失敗は fail-closed で停止する。
+`setup_record`は計画済み、発行済み、readback済み、停止中の非秘密な進捗だけを記録する。`setup_inspect` と読み返しは、利用者が提示した非秘密の状態だけをローカルで扱う。MCPには承認ツールがない。`setup_apply` は provider adapter unavailable で失敗し、provider、DNS、ネットワーク、メール、秘密値への呼び出しを行わない。未知のツール名、未知の capability、未対応 transport、計画の指紋不一致、読み取り失敗は fail-closed で停止する。
 
 リポジトリの `scripts/setup.mjs` は、QMJ-10 の provider-neutral setup-engine contract 外にある別の対話型 CLI である。Agent Plugin の allowlist と Setup MCP からは切り離しており、プラグインの自動実行経路から呼び出さない。必要な公式画面、ログイン、秘密値入力、保存、外部変更は、BYOK guidance Skill の human-only 境界に従う。
 

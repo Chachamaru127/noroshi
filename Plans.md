@@ -407,7 +407,7 @@ Local implementation boundary:
 
 - Root `plugin.json`, narrow stdio `mcp.json`, QMJ-10 operations Skill, canonical BYOK guidance Skill with reviewed references, generated capability projection, Claude native Skill adapter, Codex native `.agents/plugins/marketplace.json`, and Codex native `.codex-plugin/plugin.json` adapter are implemented and checked.
 - Codex native adapter files are generated from the canonical portable Skill and setup runtime; `.agents/plugins` is intentionally outside the Agent Plugin ZIP allowlist.
-- The MCP exposes only `setup_inspect`, `setup_plan`, `setup_approve`, `setup_apply`, `setup_readback`, and `setup_verify`. `setup_apply` is fail-closed because no provider adapter is enabled.
+- The MCP exposes only `setup_resume`, `setup_record`, `setup_inspect`, `setup_plan`, `setup_apply`, `setup_readback`, and `setup_verify`. `setup_record` persists non-secret planned, issued, readback, and blocked journey state but performs no external operation. The MCP exposes no approval tool, so the model cannot approve its own plan. `setup_apply` is fail-closed because no provider adapter is enabled; an enabled host adapter must verify an external one-use approval receipt before calling the engine.
 - The separate interactive `scripts/setup.mjs` CLI is outside the QMJ-10 provider-neutral contract, excluded from the Agent Plugin allowlist, and never invoked by the Setup MCP.
 - Codex CLI clean-profile marketplace add, available discovery, install, enabled state, cached BYOK setup Skill, and MCP initialize are exercised without login or external calls. ChatGPT desktop local marketplace UI discovery is not exercised.
 - Cloudflare/Resend provider adapters, mailbox MCP access, provider email read/send, account login, secrets, DNS, migrations, deployment, and external provider activity are not implemented or exercised here.
@@ -625,6 +625,33 @@ Deleted, not renamed: `bin/quickmail.mjs`, the `quickmail` bin/script entries, `
 Unchanged by design: upstream attribution (`DivinPrince/quickmail`, the `quickmail-upstream` source id and its `QuickMail` display name), `Plans.md` history, dated research documents, git history, and migrations (which contained no product identifier).
 
 Evidence: `bun test` 504/0; `check`, `format:check`, `check:clean` (394 files), `check:codex-native-adapter`, `check:claude-adapter`, `check:setup-skill-knowledge`, `check:agent-plugin`, `test:d1-forwarding`, `test:archive`, `test:live-demo:contracts`, and `build` all pass. `test:live-demo:qa` was not run: it requires Playwright browser binaries and Linux-pinned baselines that this host does not have. Operator consequence: an existing local dev D1 named `quickmail-ja` is no longer the default, so `bun run db:migrate:local` creates a fresh `noroshi` database, and any stored CLI credential under `~/.config/quickmail/config.json` requires `noroshi login` again.
+
+## NOR-4: ChatGPT Work and Codex guided setup journey (2026-09-11)
+
+Purpose: Let a non-engineer start from one copied prompt, resume across days, complete the exact-gated Cloudflare and Resend setup, prove real send and receive, and read the canary through a separate read-only Mailbox MCP.
+Spec delta: `Guided onboarding journey contract` and `Read-only Mailbox MCP contract` in `spec.md`.
+team_validation_mode: subagent (product, architecture, security, and QA gap analysis before implementation; independent integrated review after implementation).
+Formatter policy: use the existing repository Prettier configuration and scoped `bun run format`; do not reformat unrelated tracked files.
+
+| Task | Content | DoD | Depends | Status |
+| --- | --- | --- | --- | --- |
+| NOR-4A | `[lane:gate] [stage:tdd-implementation] [tdd:required]` Add a persisted, non-secret setup session, preflight result model, Noroshi mission renderer, and resume-first action contract. | Atomic mode-`0600` state survives process restart; workspace keys cannot escape the state root; secret-like fields are rejected; all 12 stages render; issued writes resume with readback only; browser/computer, Chrome fallback, Bun, repo-local Wrangler, accounts, domain, current MX, and test recipient are represented as `ready`, `user_action`, or `blocked`. | QMJ-10, QMJ-11B | cc:COMPLETE (local) |
+| NOR-4B | `[lane:gate] [stage:tdd-implementation] [tdd:required]` Add an explicitly read-only Mailbox MCP mode and masked CLI login. Remove raw-token MCP examples and make setup handoff verify identity plus canary readback. | Read-only `tools/list` contains only `whoami`, `list_threads`, `get_thread`, `search_mail`, and `list_attachments`; config is loaded per call; documented login omits `--token`; non-TTY without broker/env fails before echo; MCP manifest contains no token; Codex local stdio and ChatGPT Secure MCP Tunnel are distinguished; focused JSON-RPC and CLI tests pass. | NOR-4A | cc:COMPLETE (local) |
+| NOR-4C | `[lane:fast] [stage:implementation] [tdd:skip:docs-contract]` Replace the four placeholder prompts with one ChatGPT Work/Codex prompt and align the canonical Setup Skill and guide. | Prompt requires explain-then-consent, actual host preflight, Chrome extension only as fallback, official-page opening, copyable commands, human-only actions, exact write/send gates, persisted mission board, real send/reply, and read-only MCP proof; it contains no domain/email/secret placeholder and never directs an assistant to run `scripts/setup.mjs`. | NOR-4A, NOR-4B | cc:COMPLETE (local) |
+| NOR-4D | `[lane:gate] [stage:tdd-implementation] [tdd:required]` Route the assistant-facing companion through bounded Cloudflare/Resend actions with one external operation per host-issued approval receipt and readback. Keep the human CLI as a compatibility fallback until migrated. | FakeProvider covers create, migrate, deploy, secret staging, Resend domain/webhook, Email Routing/DNS, canary send, crash/resume, drift, 429/5xx, and ambiguous results; the model cannot self-approve; no full provider MCP surface is exposed. | NOR-4A | cc:COMPLETE (local) |
+| NOR-4E | `[lane:gate] [stage:verification] [tdd:required]` Run local gates, clean-profile Codex and ChatGPT Work host checks, then an operator-approved isolated real-provider canary and independent review. | Local full suite passes on Bun 1.3.14; each claimed host has dated clean-profile and restart/resume evidence; one outbound, reply inbound, and Mailbox MCP readback correlate; secret canaries occur 0 times in model I/O, argv, env manifests, files, logs, screenshots, and distributable archives; independent reviewers return APPROVE with no P0/P1. | NOR-4B, NOR-4C, NOR-4D | cc:BLOCKED (external accounts, domain, tester recipient, and exact Risk Gate approvals required after local implementation) |
+
+Planning classification:
+
+- Required: one no-edit prompt, explain-then-consent, actual preflight, persisted 12-stage mission, one-operation approvals, real send/reply proof, and a separate read-only Mailbox MCP. Codex may use local stdio; ChatGPT requires the official Secure MCP Tunnel or a reviewed remote HTTPS MCP endpoint because it cannot connect to a local MCP server directly.
+- Recommended: OS secret broker integration when exposed by the host; host-specific upload/install helpers after official support is verified.
+- Reject: mandatory Chrome extension when native browser/computer control exists, a full Cloudflare or Resend MCP, assistant-driven signup/MFA/payment/secret entry, broad `--yes`, automatic retry of an uncertain send, or treating local tests as real-mail proof.
+
+Pre-approval gates:
+
+- No gate is needed for local code, tests, read-only provider inspection, or opening official pages.
+- Separate exact approval is required immediately before each provider write, DNS/MX change, deployment, external send, rollback, cleanup, account creation, payment, secret entry, or publication.
+- The current local implementation phase stops before external state changes. `NOR-4E` remains blocked until the operator supplies the sandbox account/domain/recipient and approves each exact action.
 
 ### Review loops
 

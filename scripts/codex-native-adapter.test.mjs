@@ -88,6 +88,7 @@ test('Codex native distribution keeps one exact generated file allowlist', () =>
 		'.agents/plugins/noroshi-setup/.mcp.json',
 		'.agents/plugins/noroshi-setup/LICENSE.md',
 		'.agents/plugins/noroshi-setup/scripts/setup-engine.mjs',
+		'.agents/plugins/noroshi-setup/scripts/setup-journey.mjs',
 		'.agents/plugins/noroshi-setup/scripts/setup-plugin-mcp.mjs',
 		'.agents/plugins/noroshi-setup/skills/noroshi-operations/SKILL.md',
 		'.agents/plugins/noroshi-setup/skills/noroshi-setup/SKILL.md',
@@ -132,9 +133,10 @@ test('Codex native MCP discovers only setup tools and blocks setup_apply', () =>
 	assert.deepEqual(
 		listed.result.tools.map((tool) => tool.name),
 		[
+			'setup_resume',
+			'setup_record',
 			'setup_inspect',
 			'setup_plan',
-			'setup_approve',
 			'setup_apply',
 			'setup_readback',
 			'setup_verify'

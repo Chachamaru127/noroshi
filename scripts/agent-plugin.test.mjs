@@ -2,7 +2,15 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import {
+	mkdtempSync,
+	mkdirSync,
+	readFileSync,
+	rmSync,
+	statSync,
+	symlinkSync,
+	writeFileSync
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -43,11 +51,12 @@ function regular(path, mode = '100644') {
 	return `${mode} blob ${'0'.repeat(40)}\t${path}\0`;
 }
 
-function rpcLines(lines) {
+function rpcLines(lines, { env = process.env } = {}) {
 	const result = spawnSync(process.execPath, ['scripts/setup-plugin-mcp.mjs'], {
 		cwd: new URL('..', import.meta.url),
 		input: `${lines.map((line) => JSON.stringify(line)).join('\n')}\n`,
-		encoding: 'utf8'
+		encoding: 'utf8',
+		env
 	});
 	assert.equal(result.status, 0, result.stderr);
 	assert.equal(result.stderr, '', 'MCP server must keep stdout/stderr protocol-only');
@@ -154,7 +163,7 @@ test('repository plugin passes the bounded manifest, generated projection, and M
 	assert.match(read('skills/noroshi-setup/SKILL.md'), /公式ドキュメントを実際に開き/u);
 	assert.match(
 		read('skills/noroshi-setup/SKILL.md'),
-		/ログイン、アカウント切替、MFA、CAPTCHA、規約同意、支払い/u
+		/ログイン、アカウント(?:やチームの)?切替、MFA、CAPTCHA、規約同意、支払い/u
 	);
 });
 
@@ -259,6 +268,7 @@ test('MCP tools/list exposes exactly QMJ-10 operations and no mailbox/provider t
 		/validated QMJ-10 plan/u
 	);
 	const toolText = JSON.stringify(listed.result.tools);
+	assert.doesNotMatch(toolText, /setup_approve/u);
 	for (const forbidden of [
 		'list_threads',
 		'get_thread',
@@ -268,6 +278,106 @@ test('MCP tools/list exposes exactly QMJ-10 operations and no mailbox/provider t
 		'admin'
 	]) {
 		assert.doesNotMatch(toolText, new RegExp(`\\b${forbidden}\\b`, 'u'));
+	}
+});
+
+test('MCP setup_resume persists and reloads one workspace mission without secrets', () => {
+	const stateHome = mkdtempSync(join(tmpdir(), 'noroshi-setup-resume-'));
+	const workspaceRoot = join(stateHome, 'workspace');
+	const request = {
+		jsonrpc: '2.0',
+		method: 'tools/call',
+		params: { name: 'setup_resume', arguments: { workspace_root: workspaceRoot } }
+	};
+	try {
+		const [created] = rpcLines([{ ...request, id: 1 }], {
+			env: { ...process.env, XDG_STATE_HOME: stateHome }
+		});
+		const [resumed] = rpcLines([{ ...request, id: 2 }], {
+			env: { ...process.env, XDG_STATE_HOME: stateHome }
+		});
+		const first = JSON.parse(created.result.content[0].text);
+		const second = JSON.parse(resumed.result.content[0].text);
+		assert.equal(first.session.session_id, second.session.session_id);
+		assert.equal(first.session.stages.length, 12);
+		assert.match(second.board, /^🔥 Noroshi 開通ミッション/u);
+		const files = spawnSync('find', [stateHome, '-type', 'f', '-print'], { encoding: 'utf8' });
+		assert.equal(files.status, 0, files.stderr);
+		const stateFiles = files.stdout.trim().split(/\r?\n/u).filter(Boolean);
+		assert.equal(stateFiles.length, 1);
+		assert.equal(statSync(stateFiles[0]).mode & 0o777, 0o600);
+		assert.doesNotMatch(readFileSync(stateFiles[0], 'utf8'), /token|password|api[_-]?key/iu);
+	} finally {
+		rmSync(stateHome, { recursive: true, force: true });
+	}
+});
+
+test('MCP setup_record persists an issued action and resume returns readback-only', () => {
+	const stateHome = mkdtempSync(join(tmpdir(), 'noroshi-setup-record-'));
+	const workspaceRoot = join(stateHome, 'workspace');
+	const env = { ...process.env, XDG_STATE_HOME: stateHome };
+	const action = {
+		id: 'preflight-observation',
+		stage: 'preflight',
+		kind: 'provider_write',
+		executor: 'host.adapter',
+		plan_hash: 'a'.repeat(64),
+		readback: { capability: 'host.preflight' }
+	};
+	try {
+		rpcLines(
+			[
+				{
+					jsonrpc: '2.0',
+					id: 1,
+					method: 'tools/call',
+					params: {
+						name: 'setup_resume',
+						arguments: { workspace_root: workspaceRoot }
+					}
+				}
+			],
+			{ env }
+		);
+		for (const [id, phase] of [
+			[2, 'planned'],
+			[3, 'issued']
+		]) {
+			const [response] = rpcLines(
+				[
+					{
+						jsonrpc: '2.0',
+						id,
+						method: 'tools/call',
+						params: {
+							name: 'setup_record',
+							arguments: { workspace_root: workspaceRoot, phase, action }
+						}
+					}
+				],
+				{ env }
+			);
+			assert.equal(response.result.isError, undefined);
+		}
+		const [resumedResponse] = rpcLines(
+			[
+				{
+					jsonrpc: '2.0',
+					id: 4,
+					method: 'tools/call',
+					params: {
+						name: 'setup_resume',
+						arguments: { workspace_root: workspaceRoot }
+					}
+				}
+			],
+			{ env }
+		);
+		const resumed = JSON.parse(resumedResponse.result.content[0].text);
+		assert.equal(resumed.next_action.kind, 'readback');
+		assert.equal(resumed.next_action.retry, 'readback_only');
+	} finally {
+		rmSync(stateHome, { recursive: true, force: true });
 	}
 });
 
@@ -407,6 +517,7 @@ test('committed Agent Plugin archive passes exact-entry, traversal, symlink, and
 			'noroshi-setup-plugin/plugin.json',
 			'noroshi-setup-plugin/scripts/',
 			'noroshi-setup-plugin/scripts/setup-engine.mjs',
+			'noroshi-setup-plugin/scripts/setup-journey.mjs',
 			'noroshi-setup-plugin/scripts/setup-plugin-mcp.mjs',
 			'noroshi-setup-plugin/setup/',
 			'noroshi-setup-plugin/setup/capabilities.json',

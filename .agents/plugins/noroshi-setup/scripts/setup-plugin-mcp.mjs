@@ -3,7 +3,7 @@
  * QMJ-10 contract MCP for the portable setup plugin.
  *
  * This is intentionally dependency-free and provider-free. It implements the
- * MCP stdio envelope for local inspection/plan/approval/readback/verification
+ * MCP stdio envelope for local journey/inspection/plan/readback/verification
  * of non-secret snapshots. The apply operation is present so a host can show
  * the fixed contract, but it always fails closed until a separately reviewed
  * official-provider adapter is supplied outside this package.
@@ -14,6 +14,7 @@ import {
 	createSetupEngine,
 	verifyMutationReadback
 } from './setup-engine.mjs';
+import { recordSetupAction, recordSetupPreflight, resumeSetupJourney } from './setup-journey.mjs';
 
 const SERVER_NAME = 'noroshi-setup-engine';
 const SERVER_VERSION = '1.0.0';
@@ -21,6 +22,37 @@ const PROTOCOL_VERSION = '2025-06-18';
 const APPLY_BLOCKED_CODE = 'provider_adapter_unavailable';
 
 const toolDefinitions = [
+	{
+		name: 'setup_resume',
+		description:
+			'Resume the non-secret Noroshi setup mission for one workspace. Optionally record host-provided preflight observations. This writes only a local mode-0600 journey file and never contacts a provider.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				workspace_root: { type: 'string' },
+				observations: { type: 'object' }
+			},
+			required: ['workspace_root'],
+			additionalProperties: false
+		}
+	},
+	{
+		name: 'setup_record',
+		description:
+			'Record a non-secret planned, issued, verified, or blocked journey action. Issued provider writes resume as readback-only. This tool does not contact a provider or create an approval.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				workspace_root: { type: 'string' },
+				phase: { type: 'string', enum: ['planned', 'issued', 'verified', 'blocked'] },
+				action: { type: 'object' },
+				evidence: { type: 'object' },
+				stage_complete: { type: 'boolean' }
+			},
+			required: ['workspace_root', 'phase', 'action'],
+			additionalProperties: false
+		}
+	},
 	{
 		name: 'setup_inspect',
 		description:
@@ -53,17 +85,6 @@ const toolDefinitions = [
 				plan_id: { type: 'string' }
 			},
 			required: ['inspection', 'step', 'desired_state', 'rollback', 'approval_id', 'expires_at'],
-			additionalProperties: false
-		}
-	},
-	{
-		name: 'setup_approve',
-		description:
-			'Record one in-memory approval for an already validated QMJ-10 plan. Approval never authorizes mailbox access or an unreviewed provider operation.',
-		inputSchema: {
-			type: 'object',
-			properties: { plan: { type: 'object' } },
-			required: ['plan'],
 			additionalProperties: false
 		}
 	},
@@ -164,6 +185,25 @@ async function callTool(name, args) {
 	if (!isObject(args)) return errorResult('invalid_input', 'Tool arguments must be an object.');
 	try {
 		switch (name) {
+			case 'setup_resume':
+				return result(
+					args.observations === undefined
+						? await resumeSetupJourney({ workspaceRoot: args.workspace_root })
+						: await recordSetupPreflight({
+								workspaceRoot: args.workspace_root,
+								observations: args.observations
+							})
+				);
+			case 'setup_record':
+				return result(
+					await recordSetupAction({
+						workspaceRoot: args.workspace_root,
+						phase: args.phase,
+						action: args.action,
+						evidence: args.evidence,
+						stageComplete: args.stage_complete === true
+					})
+				);
 			case 'setup_inspect':
 				return result(
 					await engine.inspect({
@@ -186,8 +226,6 @@ async function callTool(name, args) {
 						planId: args.plan_id
 					})
 				);
-			case 'setup_approve':
-				return result(engine.approve(args.plan));
 			case 'setup_apply':
 				return errorResult(
 					APPLY_BLOCKED_CODE,

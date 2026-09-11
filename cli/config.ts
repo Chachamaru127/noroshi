@@ -60,7 +60,7 @@ export async function loadConfig(): Promise<CliConfig> {
 		raw = JSON.parse(await readFile(configPath(), 'utf8')) as Partial<CliConfig>;
 	} catch {
 		throw new Error(
-			'Not logged in. Run `noroshi login --url <instance> --token <key>` or set NOROSHI_URL and NOROSHI_TOKEN.'
+			'Not logged in. Run `noroshi login --url <instance>` and enter the token at the masked prompt, or set NOROSHI_URL and NOROSHI_TOKEN through a secret input broker.'
 		);
 	}
 
@@ -68,7 +68,7 @@ export async function loadConfig(): Promise<CliConfig> {
 	const token = raw.token;
 	if (!url || !token) {
 		throw new Error(
-			'Not logged in. Run `noroshi login --url <instance> --token <key>` or set NOROSHI_URL and NOROSHI_TOKEN.'
+			'Not logged in. Run `noroshi login --url <instance>` and enter the token at the masked prompt, or set NOROSHI_URL and NOROSHI_TOKEN through a secret input broker.'
 		);
 	}
 	return { url: normalizeUrl(url), token };

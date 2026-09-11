@@ -27,6 +27,7 @@ export const PLUGIN_PACKAGE_FILES = Object.freeze([
 	'skills/noroshi-setup/references/gmail-byok.md',
 	'skills/noroshi-setup/references/setup-patterns.json',
 	'scripts/setup-engine.mjs',
+	'scripts/setup-journey.mjs',
 	'scripts/setup-plugin-mcp.mjs',
 	'setup/capabilities.json',
 	'setup/plugin-capabilities.json',
@@ -35,16 +36,16 @@ export const PLUGIN_PACKAGE_FILES = Object.freeze([
 export const ENGINE_OPERATIONS = Object.freeze([
 	'inspect',
 	'plan',
-	'approve',
-	'apply',
+	'apply_with_host_receipt',
 	'readback',
 	'verify'
 ]);
 export const MCP_SERVER_NAME = 'noroshi-setup-engine';
 export const MCP_TOOL_NAMES = Object.freeze([
+	'setup_resume',
+	'setup_record',
 	'setup_inspect',
 	'setup_plan',
-	'setup_approve',
 	'setup_apply',
 	'setup_readback',
 	'setup_verify'

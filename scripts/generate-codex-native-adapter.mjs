@@ -29,6 +29,7 @@ const mirrorFiles = Object.freeze([
 		'skills/noroshi-setup/references/setup-patterns.json'
 	],
 	['scripts/setup-engine.mjs', 'scripts/setup-engine.mjs'],
+	['scripts/setup-journey.mjs', 'scripts/setup-journey.mjs'],
 	['scripts/setup-plugin-mcp.mjs', 'scripts/setup-plugin-mcp.mjs'],
 	['LICENSE.md', 'LICENSE.md']
 ]);

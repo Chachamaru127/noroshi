@@ -22,15 +22,16 @@ Cloudflare公式の[Deploy to Cloudflareボタン](https://developers.cloudflare
 6. D1マイグレーションを適用
 7. `/setup`で最初の管理者を作成し、送受信を個別に確認
 
-### 日本語セットアップサポートの3段階
+### 日本語セットアップサポートの4段階
 
 | 導線                          | できること                                                                                | 現在の状態                                                       |
 | ----------------------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| AIに相談（提供中）            | 質問文をChatGPT、Claude、Geminiの新規チャットへ渡し、日本語の説明を受ける                 | Noroshi、Cloudflare、Resendを読む・変更する権限はありません |
-| Setup Skill（ローカル提供中） | BYOKの担当範囲、公式画面、確認項目、人間へ引き渡す操作をAIへ教える再利用可能な手順書      | 案内専用。外部設定の作成・保存・変更は行いません                 |
-| Setup MCP（将来・未提供）     | 許可された確認・設定だけをツールとして実行し、1操作ごとに対象、差分、戻し方を確認する予定 | 公開前の安全強化とクライアント別検証が必要です                   |
+| AIに相談（提供中）            | 質問文をChatGPT、Claude、Geminiの新規チャットへ渡し、日本語の説明を受ける | Noroshi、Cloudflare、Resendを読む・変更する権限はありません |
+| Setup Skill（ローカル提供中） | BYOKの担当範囲、公式画面、確認項目、人間へ引き渡す操作をAIへ教える再利用可能な手順書 | ChatGPT Work/Codex向けの開通ミッションを含みます |
+| Setup MCP（ローカル提供中） | 開通ミッション、非秘密の事前確認、計画、readbackを保存・検証する | provider非接続。外部writeと承認は行いません |
+| Host adapter（ホスト対応時） | 署名済みの1回限りの承認receiptを検証し、固定された1操作だけを実行してreadbackする | 現在の配布物には実provider adapterがありません |
 
-現在利用できるAI相談ドックは、**デプロイ後のResend設定と最初の管理者作成**を支援します。`skills/noroshi-setup`には、Cloudflare、Resend、将来のGmail BYOK設定を公式画面に沿って案内するポータブルSkillがあります。Agent Plugin ZIPにもこのSkillとレビュー済み参照資料を同梱します。外部設定を自動変更するSetup MCPは未提供です。
+現在利用できるAI相談ドックは、**デプロイ後のResend設定と最初の管理者作成**を支援します。`skills/noroshi-setup`には、Cloudflare、Resend、将来のGmail BYOK設定を公式画面に沿って案内するポータブルSkillがあります。Agent Plugin ZIPにはこのSkill、レビュー済み参照資料、日を跨いで再開するprovider非接続のSetup MCPを同梱します。
 
 ### Setup Skillを使う
 
@@ -50,7 +51,7 @@ bun run package:setup-skill
 
 このコマンドは、現在checkoutしているコミットのSkillをパッケージ化します。未コミットの変更は入りません。ChatGPTのPersonal SkillsはデスクトップとWeb/モバイルで個別に追加する必要があります。プラン、組織設定、地域、ブラウザ操作機能によって利用可否が異なります。公式の[ChatGPT Skills案内](https://help.openai.com/en/articles/20001066)と[Claude Skills案内](https://support.claude.com/en/articles/12512180-use-skills-in-claude)を導入時に確認してください。
 
-Skillはブラウザ操作機能そのものを追加しません。利用中のChatGPT/CodexまたはClaudeがブラウザ操作に対応し、利用者が許可した場合だけ、Cloudflare、Resend、Google Cloudの公式画面を開いて必要箇所まで案内します。ログイン、MFA、CAPTCHA、規約同意、支払い、秘密値入力、作成・保存・削除・DNS変更は利用者が行います。ブラウザ操作機能がない場合は、公式URLと手動のメニュー経路を案内します。
+Skillはブラウザ操作機能そのものを追加しません。利用中のChatGPT/CodexまたはClaudeがブラウザ操作に対応し、利用者が許可した場合だけ、Cloudflare、Resend、Google Cloudの公式画面を開いて必要箇所まで案内します。ログイン、MFA、CAPTCHA、規約同意、支払い、秘密値入力、アカウントやチームの切替は利用者が行います。それ以外の外部変更は、対象、差分、費用、戻し方を示した1操作を利用者が承認し、ホストに安全な実行経路がある場合だけAIが実行してreadbackします。実行経路がなければ、公式画面の最終ボタンを利用者へ渡します。
 
 Agent Pluginとして operations Skill と BYOK guidance Skill をまとめて導入する場合は、次を実行します。
 
@@ -108,7 +109,9 @@ AIには、回答するたびに公式ドキュメントを実際に開き、確
 
 初回リリースの送信はResendのみをサポートします。Cloudflare Email Routingは受信専用です。
 
-## セットアップ
+## 人が端末で進めるセットアップ
+
+この節の`bun run setup`は、人が対話端末で操作する互換経路です。ChatGPT WorkまたはCodexへ任せる場合は、READMEの指示文と`noroshi-setup` Skillを使います。AIは`bun run setup`でSetup Engineの1操作承認を迂回しません。
 
 ### 必要なもの
 
@@ -321,30 +324,43 @@ git log --oneline HEAD..upstream/main
 ユーザーは設定画面でAPIキーを作成できます。キーは`mail:read`、`mail:send`、管理権限のスコープを持ちます。生のキーは1回だけ表示され、D1にはSHA-256ハッシュだけを保存します。
 
 ```bash
-bun run noroshi -- login --url https://mail.example.com --token <APIキー>
+bun run noroshi -- login --url https://mail.example.com
 bun run noroshi -- inbox
 bun run noroshi -- send --to recipient@example.net --subject "確認" --body "本文"
 ```
 
-設定は`NOROSHI_URL`、`NOROSHI_TOKEN`、`NOROSHI_CONFIG`の環境変数か、`~/.config/noroshi/config.json`から読み込みます。
+`login`はAPIキーを伏字で入力します。`--token`へ値を書くと、シェル履歴やprocess listへ残るため拒否します。設定は`NOROSHI_URL`、`NOROSHI_TOKEN`、`NOROSHI_CONFIG`の環境変数か、mode `0600`の`~/.config/noroshi/config.json`から読み込みます。MCP設定へ`NOROSHI_TOKEN`を書かないでください。
 
-公開リポジトリURLができるまでは、このソースツリーからCLIとMCPを起動します。
+### Codexで読み取り専用Mailbox MCPを使う
+
+Codexはこのソースツリーのstdio MCPを直接起動できます。先に`mail:read`だけのAPIキーで`login`し、MCP設定には秘密値を含めません。
 
 ```json
 {
 	"mcpServers": {
-		"noroshi": {
+		"noroshi-mailbox-read-only": {
 			"command": "bun",
-			"args": ["run", "noroshi", "--", "mcp"],
-			"cwd": "/path/to/Noroshi",
-			"env": {
-				"NOROSHI_URL": "https://mail.example.com",
-				"NOROSHI_TOKEN": "nr_live_xxxx"
-			}
+			"args": ["run", "noroshi", "--", "mcp", "--read-only"],
+			"cwd": "/path/to/Noroshi"
 		}
 	}
 }
 ```
+
+再起動後、`tools/list`が`whoami`、`list_threads`、`get_thread`、`search_mail`、`list_attachments`の5つだけであることを確認します。`whoami`で利用者を照合し、送受信テストと同じ非秘密canaryを`search_mail`または`get_thread`で読みます。
+
+### ChatGPT Workで読み取り専用Mailbox MCPを使う
+
+ChatGPTはローカルのstdio MCPへ直接接続しません。2026-09-11時点の公式経路は[Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)です。ChatGPT Business、Enterprise、Eduのdeveloper modeと、Platform側のTunnel権限は別に必要です。個人や組織の契約で利用できない場合、ChatGPT Work経路は未対応として止め、Codexのローカルstdio経路を使います。
+
+1. AIが[ChatGPTのdeveloper mode設定](https://help.openai.com/en/articles/12584461-developer-mode-apps-and-full-mcp-connectors-in-chatgpt-beta)と[Platform tunnel settings](https://platform.openai.com/settings/organization/tunnels)を開きます。
+2. 管理者権限の付与、Tunnel作成、runtime API keyの表示と入力は人が行います。秘密値をチャットへ貼りません。
+3. `tunnel-client`にはローカルstdio commandとして`bun run noroshi -- mcp --read-only`を設定します。ダウンロードと設定コマンドは、固定した古い版ではなくTunnel画面と公式`latest`手順を使います。
+4. `tunnel-client doctor --profile <作成したprofile> --explain`が成功し、run中のlocal admin UIがreadyになったことをreadbackします。
+5. ChatGPTのApps作成画面でConnectionにTunnelを選び、Scan Toolsを実行します。5つの読み取りツールだけを確認してからCreateします。
+6. 新しいChatGPT会話でAppを選び、`whoami`と同じcanaryの検索を実行します。
+
+Tunnel作成、権限付与、runtime API keyの発行は外部状態と秘密情報を扱うため、人の操作が必要です。ローカルMCPが動いたことだけではChatGPT接続完了としません。
 
 ## 開発と検証
 

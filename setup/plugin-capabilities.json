@@ -12,8 +12,7 @@
 	"engine_operations": [
 		"inspect",
 		"plan",
-		"approve",
-		"apply",
+		"apply_with_host_receipt",
 		"readback",
 		"verify"
 	],

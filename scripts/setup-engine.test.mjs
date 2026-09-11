@@ -5,14 +5,17 @@ import { join } from 'node:path';
 import { describe, test } from 'node:test';
 import {
 	AtomicApprovalLedger,
+	HostReceiptApprovalLedger,
 	InMemoryApprovalLedger,
 	SetupEngineError,
 	SETUP_ENGINE_SCHEMA_VERSION,
 	applyMutationPlan,
 	createAtomicSetupStateStore,
+	createControlledSendState,
 	createMutationPlan,
 	createSetupEngine,
 	fingerprint,
+	hostApprovalReceiptClaims,
 	inspectSetup,
 	rollbackMutationPlan,
 	verifyMutationPlan,
@@ -196,7 +199,410 @@ function recomputePlanHash(plan) {
 	return recomputed;
 }
 
+function hostReceiptFor(plan, overrides = {}) {
+	const claims = {
+		...hostApprovalReceiptClaims(plan, { now: fixedNow }),
+		issuer: 'test-host',
+		nonce: `nonce-${plan.plan_id.padEnd(16, 'x')}`,
+		issued_at: new Date(fixedNow).toISOString()
+	};
+	return { ...claims, signature: fingerprint(claims), ...overrides };
+}
+
+function hostLedgerFor(
+	plan,
+	{ receipt = hostReceiptFor(plan), usedNonces = new Set(), delegate } = {}
+) {
+	return new HostReceiptApprovalLedger({
+		receipt,
+		verifySignature: ({ claims, signature }) => fingerprint(claims) === signature,
+		consumeNonce: (nonce) => {
+			if (usedNonces.has(nonce)) return false;
+			usedNonces.add(nonce);
+			return true;
+		},
+		delegate
+	});
+}
+
 describe('QMJ-10 provider-neutral setup engine', () => {
+	test('host receipt performs exactly one bounded provider write and then resumes by readback', async () => {
+		const fake = new FakeCloudflare({ version: 1 });
+		const target = cloudflareTarget();
+		const inspection = await inspectSetup({ adapter: fake, target, now: fixedNow });
+		const plan = createMutationPlan(
+			basePlanInput({ inspection, desiredState: { version: 2 }, approvalId: 'host-approved-1' })
+		);
+		const ledger = hostLedgerFor(plan);
+		assert.throws(() => ledger.approve(plan), /cannot approve its own plan/u);
+		const applied = await applyMutationPlan({
+			plan,
+			adapter: fake,
+			approvalLedger: ledger,
+			approvalId: plan.approval_id,
+			now: fixedNow
+		});
+		assert.equal(applied.status, 'applied');
+		assert.equal(fake.applyCalls, 1);
+		const resumed = await applyMutationPlan({
+			plan,
+			adapter: fake,
+			approvalLedger: ledger,
+			approvalId: plan.approval_id,
+			now: fixedNow
+		});
+		assert.equal(resumed.status, 'already_verified');
+		assert.equal(fake.applyCalls, 1);
+	});
+
+	test('missing, forged, mismatched, or replayed host receipts make zero provider writes', async () => {
+		const fake = new FakeCloudflare({ version: 1 });
+		const target = cloudflareTarget();
+		const inspection = await inspectSetup({ adapter: fake, target, now: fixedNow });
+		const plan = createMutationPlan(
+			basePlanInput({ inspection, desiredState: { version: 2 }, approvalId: 'host-approved-2' })
+		);
+		const validReceipt = hostReceiptFor(plan);
+		const usedNonces = new Set([validReceipt.nonce]);
+		for (const ledger of [
+			new HostReceiptApprovalLedger(),
+			hostLedgerFor(plan, { receipt: { ...validReceipt, signature: 'forged' } }),
+			hostLedgerFor(plan, {
+				receipt: { ...validReceipt, capability_id: 'cloudflare.create_d1' }
+			}),
+			hostLedgerFor(plan, {
+				usedNonces,
+				receipt: validReceipt
+			})
+		]) {
+			await assert.rejects(
+				() =>
+					applyMutationPlan({
+						plan,
+						adapter: fake,
+						approvalLedger: ledger,
+						approvalId: plan.approval_id,
+						now: fixedNow
+					}),
+				(error) => error instanceof SetupEngineError
+			);
+		}
+		assert.equal(fake.applyCalls, 0);
+	});
+
+	test('controlled external send binds sender, recipient, fixed content, cost, and idempotency', async () => {
+		const target = {
+			provider: 'resend',
+			adapter_kind: 'resend',
+			resource_type: 'resend_email',
+			team_id: 'team-test',
+			domain_id: 'domain-test',
+			domain: 'example.test'
+		};
+		const fake = new FakeResend({ deliveries: [] });
+		const inspection = await inspectSetup({
+			adapter: fake,
+			target,
+			step: {
+				kind: 'external_send',
+				capability_id: 'resend.send_controlled_test',
+				operation: 'send_controlled_test',
+				cost_class: 'metered_usage'
+			},
+			now: fixedNow
+		});
+		const desiredState = {
+			deliveries: [],
+			...createControlledSendState({
+				target,
+				sender: 'setup@example.test',
+				recipient: 'owner@example.invalid',
+				testToken: 'canary-host-send-01'
+			})
+		};
+		const plan = createMutationPlan(
+			basePlanInput({
+				inspection,
+				target,
+				step: {
+					kind: 'external_send',
+					capability_id: 'resend.send_controlled_test',
+					operation: 'send_controlled_test',
+					cost_class: 'metered_usage'
+				},
+				desiredState,
+				rollback: {
+					mode: 'not_needed',
+					owned_resource_ids: [],
+					description: 'an external send cannot be recalled'
+				},
+				approvalId: 'host-send-approval'
+			})
+		);
+		const applied = await applyMutationPlan({
+			plan,
+			adapter: fake,
+			approvalLedger: hostLedgerFor(plan),
+			approvalId: plan.approval_id,
+			now: fixedNow
+		});
+		assert.equal(applied.status, 'applied');
+		assert.equal(fake.applyCalls, 1);
+		assert.match(plan.after.controlled_send.idempotency_key, /^[a-f0-9]{64}$/u);
+
+		for (const mutation of [
+			{ subject: 'changed subject' },
+			{ controlled_recipient: 'other@example.invalid' },
+			{ content_fingerprint: 'a'.repeat(64) },
+			{ idempotency_key: 'b'.repeat(64) },
+			{ unexpected: 'field' }
+		]) {
+			const changed = clone(plan.after);
+			Object.assign(changed.controlled_send, mutation);
+			assert.throws(
+				() =>
+					createMutationPlan(
+						basePlanInput({
+							inspection,
+							target,
+							step: plan.step,
+							desiredState: changed,
+							rollback: plan.rollback,
+							approvalId: 'changed-send'
+						})
+					),
+				/controlled send/u
+			);
+		}
+	});
+
+	test('host receipt path executes each onboarding capability through one narrow FakeProvider action', async () => {
+		const cloudflareTargetFor = (resourceType, adapterKind = 'cloudflare') => ({
+			provider: 'cloudflare',
+			adapter_kind: adapterKind,
+			resource_type: resourceType,
+			account_id: 'account-test',
+			zone_id: adapterKind === 'dns' ? 'zone-test' : undefined,
+			domain: 'example.test'
+		});
+		const resendTargetFor = (resourceType) => ({
+			provider: 'resend',
+			adapter_kind: 'resend',
+			resource_type: resourceType,
+			team_id: 'team-test',
+			domain_id: 'domain-test',
+			domain: 'example.test'
+		});
+		const cases = [
+			[
+				'create D1',
+				cloudflareTargetFor('cloudflare_d1_database'),
+				'resource_creation',
+				'cloudflare.create_d1',
+				'create_d1_database'
+			],
+			[
+				'create R2',
+				cloudflareTargetFor('cloudflare_r2_bucket'),
+				'resource_creation',
+				'cloudflare.create_r2',
+				'create_r2_bucket'
+			],
+			[
+				'create Worker',
+				cloudflareTargetFor('cloudflare_worker'),
+				'resource_creation',
+				'cloudflare.create_worker',
+				'create_worker'
+			],
+			[
+				'migrate D1',
+				cloudflareTargetFor('cloudflare_d1_database'),
+				'remote_migration',
+				'cloudflare.apply_remote_migration',
+				'apply_d1_migrations'
+			],
+			[
+				'deploy Worker',
+				cloudflareTargetFor('cloudflare_worker'),
+				'deployment',
+				'cloudflare.deploy_worker',
+				'deploy_worker_version'
+			],
+			[
+				'stage Worker secret',
+				cloudflareTargetFor('cloudflare_worker'),
+				'secret_staging',
+				'cloudflare.stage_worker_secret',
+				'put_worker_secret'
+			],
+			[
+				'create Resend domain',
+				resendTargetFor('resend_domain'),
+				'resource_creation',
+				'resend.create_domain',
+				'create_domain'
+			],
+			[
+				'create Resend webhook',
+				resendTargetFor('resend_webhook'),
+				'webhook_creation',
+				'resend.create_webhook',
+				'create_webhook'
+			],
+			[
+				'verify Resend domain',
+				resendTargetFor('resend_domain'),
+				'domain_verification',
+				'resend.verify_domain',
+				'verify_domain'
+			],
+			[
+				'enable Email Routing',
+				cloudflareTargetFor('cloudflare_email_routing'),
+				'email_routing',
+				'cloudflare.enable_email_routing',
+				'enable_email_routing'
+			],
+			[
+				'configure catch-all',
+				cloudflareTargetFor('cloudflare_email_routing'),
+				'email_routing',
+				'cloudflare.configure_catch_all',
+				'create_catch_all_rule'
+			]
+		];
+		for (const [label, target, kind, capabilityId, operation] of cases) {
+			const fake =
+				target.provider === 'resend'
+					? new FakeResend({ version: 1 })
+					: new FakeCloudflare({ version: 1 });
+			const step = { kind, capability_id: capabilityId, operation, cost_class: 'none' };
+			const inspection = await inspectSetup({ adapter: fake, target, step, now: fixedNow });
+			const desiredState =
+				kind === 'secret_staging'
+					? { version: 2, secret_broker_reference: 'broker://host/secret-slot' }
+					: { version: 2 };
+			const plan = createMutationPlan(
+				basePlanInput({
+					inspection,
+					target,
+					step,
+					desiredState,
+					approvalId: `host-${operation}`
+				})
+			);
+			const result = await applyMutationPlan({
+				plan,
+				adapter: fake,
+				approvalLedger: hostLedgerFor(plan),
+				approvalId: plan.approval_id,
+				now: fixedNow
+			});
+			assert.equal(result.status, 'applied', label);
+			assert.equal(fake.applyCalls, 1, label);
+		}
+
+		const dnsTarget = cloudflareTargetFor('cloudflare_dns_record', 'dns');
+		const dnsBefore = { authoritative: true, records: [], routing_rules: [] };
+		const dnsAfter = {
+			authoritative: true,
+			records: [{ id: 'owned-record', type: 'TXT', name: '@', content: 'verified-value' }],
+			routing_rules: []
+		};
+		const dns = new FakeDNS(dnsBefore);
+		const dnsStep = {
+			kind: 'dns_change',
+			capability_id: 'cloudflare.change_dns',
+			operation: 'create_dns_record',
+			cost_class: 'none'
+		};
+		const dnsInspection = await inspectSetup({
+			adapter: dns,
+			target: dnsTarget,
+			step: dnsStep,
+			now: fixedNow
+		});
+		const dnsPlan = createMutationPlan(
+			basePlanInput({
+				inspection: dnsInspection,
+				target: dnsTarget,
+				step: dnsStep,
+				desiredState: dnsAfter,
+				rollback: {
+					mode: 'restore_owned_records',
+					owned_resource_ids: ['owned-record'],
+					description: 'restore only the owned DNS record'
+				},
+				approvalId: 'host-create-dns'
+			})
+		);
+		await applyMutationPlan({
+			plan: dnsPlan,
+			adapter: dns,
+			approvalLedger: hostLedgerFor(dnsPlan),
+			approvalId: dnsPlan.approval_id,
+			now: fixedNow
+		});
+		assert.equal(dns.applyCalls, 1);
+	});
+
+	test('429, 5xx, and ambiguous FakeProvider results never trigger an automatic second write', async () => {
+		for (const mode of ['429', '503', 'ambiguous']) {
+			const fake = new FakeCloudflare({ version: 1 });
+			const target = cloudflareTarget();
+			const inspection = await inspectSetup({ adapter: fake, target, now: fixedNow });
+			const plan = createMutationPlan(
+				basePlanInput({
+					inspection,
+					desiredState: { version: 2 },
+					approvalId: `host-provider-${mode}`
+				})
+			);
+			fake.applyStep = async ({ plan: currentPlan }) => {
+				fake.applyCalls += 1;
+				if (mode === 'ambiguous') fake.state = clone(currentPlan.after);
+				const error = new Error('untrusted provider failure');
+				error.status = Number(mode === 'ambiguous' ? 504 : mode);
+				throw error;
+			};
+			const ledger = hostLedgerFor(plan);
+			await assert.rejects(
+				() =>
+					applyMutationPlan({
+						plan,
+						adapter: fake,
+						approvalLedger: ledger,
+						approvalId: plan.approval_id,
+						now: fixedNow
+					}),
+				(error) => error instanceof SetupEngineError && error.code === 'provider_apply_failed'
+			);
+			if (mode === 'ambiguous') {
+				const recovered = await applyMutationPlan({
+					plan,
+					adapter: fake,
+					approvalLedger: ledger,
+					approvalId: plan.approval_id,
+					now: fixedNow
+				});
+				assert.equal(recovered.status, 'recovered');
+			} else {
+				await assert.rejects(
+					() =>
+						applyMutationPlan({
+							plan,
+							adapter: fake,
+							approvalLedger: ledger,
+							approvalId: plan.approval_id,
+							now: fixedNow
+						}),
+					(error) => error instanceof SetupEngineError && error.code === 'apply_recovery_required'
+				);
+			}
+			assert.equal(fake.applyCalls, 1, mode);
+		}
+	});
 	test('inspect is read-only and provider list failure is not treated as empty', async () => {
 		const fake = new FakeCloudflare({ status: 'ready', resources: [] });
 		const inspection = await inspectSetup({
