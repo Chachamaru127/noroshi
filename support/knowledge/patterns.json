@@ -35,6 +35,24 @@
 				"rollback_to": ["読み取り専用の開始状態へ戻ります。"]
 			},
 			{
+				"id": "provider_login",
+				"title_ja": "CloudflareとResendへのログイン",
+				"ai_reads": [
+					"Cloudflareのアカウント、ゾーンと、Resendのチームについて、ログイン状態と非秘密IDを読みます。"
+				],
+				"human_action": [
+					"アカウント作成、ログイン、MFA、CAPTCHA、規約、支払い、アカウントやチームの切替は利用者が行います。"
+				],
+				"risk_gate": {
+					"required": true,
+					"scope": "アカウント作成、規約同意、支払い、ログイン、MFA、アカウントまたはチーム切替の前"
+				},
+				"completion_evidence": [
+					"CloudflareとResendのログイン状態、対象アカウント、ゾーン、チームの非秘密IDとidentity fingerprintが一致しています。"
+				],
+				"rollback_to": ["事前確認へ戻り、対象アカウント、ゾーン、チームを読み直します。"]
+			},
+			{
 				"id": "resend_authentication",
 				"title_ja": "Resend認証",
 				"ai_reads": ["送信ドメイン状態とResendが示すDNS要件を読みます。"],
@@ -130,7 +148,7 @@
 				"rollback_to": ["不確実な送信結果を再送せず、providerとD1のreadbackへ戻ります。"]
 			},
 			{
-				"id": "reply_receive",
+				"id": "inbound_reply",
 				"title_ja": "返信受信",
 				"ai_reads": ["Cloudflare Activity、Worker、D1、Noroshi UIの同じcanaryを読みます。"],
 				"human_action": ["テスターが受信した制御済みメールへ返信します。"],
@@ -141,20 +159,24 @@
 				"rollback_to": ["Routingを変更せず、Cloudflare ActivityとWorker/D1の失敗点へ戻ります。"]
 			},
 			{
-				"id": "rollback",
-				"title_ja": "rollback",
+				"id": "mailbox_mcp",
+				"title_ja": "読み取り専用Mailbox MCP確認",
 				"ai_reads": [
-					"変更前スナップショット、現在のRouting/DNS/Worker状態、所有リソースを読みます。"
+					"別のread-only Mailbox MCPが公開する5つの読み取りツール、whoamiのidentity、送受信テストと同じ非秘密canaryを読みます。"
 				],
-				"human_action": ["対象と変更差分が固定された復旧操作を利用者が承認します。"],
+				"human_action": [
+					"利用者がmail:readだけのAPIキーを作り、伏字promptまたは秘密入力brokerへ直接入力します。ChatGPTデスクトップのCodexローカルタスクでは共有MCP設定を使います。ホスト型ChatGPT Webを選ぶ場合だけ、権限付与、TunnelとAppの最終作成、runtime API keyの表示と入力も利用者が行います。"
+				],
 				"risk_gate": {
 					"required": true,
-					"scope": "Routing、DNS、deploy、secretを変更前状態へ戻す前"
+					"scope": "mail:read APIキーの作成前。ホスト型ChatGPT Webを選ぶ場合は、権限付与、TunnelまたはAppの最終作成の前"
 				},
 				"completion_evidence": [
-					"メール証拠はCloudflare Email Routing Activity、Worker/D1、Resend、Noroshi UIで一致します。DNS証拠は権威DNSと公開リゾルバで同じドメイン、configuration fingerprint、MX、TXTが一致し、2回目の復旧操作はno-opです。"
+					"tools/listはwhoami、list_threads、get_thread、search_mail、list_attachmentsだけで、whoamiのidentityと同じ非秘密canaryをMCPから読めます。"
 				],
-				"rollback_to": ["復旧結果が不一致なら追加変更せず、最後に確認できた状態へ停止します。"]
+				"rollback_to": [
+					"Mailbox MCPを切断し、発行したmail:read APIキーを利用者が無効化して、Noroshi UIの送受信確認へ戻ります。"
+				]
 			}
 		],
 		"deferred": ["MBOX", "IMAP", "自動返信", "List-Unsubscribe"],

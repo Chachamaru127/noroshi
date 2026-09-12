@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -9,6 +10,7 @@ import {
 	InMemoryApprovalLedger,
 	SetupEngineError,
 	SETUP_ENGINE_SCHEMA_VERSION,
+	SETUP_STEP_CAPABILITY_CONTRACT,
 	applyMutationPlan,
 	createAtomicSetupStateStore,
 	createControlledSendState,
@@ -16,7 +18,9 @@ import {
 	createSetupEngine,
 	fingerprint,
 	hostApprovalReceiptClaims,
+	hostRollbackApprovalReceiptClaims,
 	inspectSetup,
+	providerTargetIdentityFingerprint,
 	rollbackMutationPlan,
 	verifyMutationPlan,
 	verifyMutationReadback
@@ -36,24 +40,45 @@ class FakeBase {
 		this.failApply = false;
 		this.failReadback = false;
 		this.failReadbackAfterApplyCalls = Number.POSITIVE_INFINITY;
+		this.failRollbackReadback = false;
+		this.failRollbackReadbackAfterCalls = Number.POSITIVE_INFINITY;
+		this.partialInspect = false;
+		this.partialInspectAfterApplyCalls = 0;
+		this.observedIdentityFingerprint = null;
+		this.applyResult = null;
 	}
 
 	async inspect() {
 		this.inspectCalls += 1;
 		if (
 			this.failInspect ||
-			(this.failReadback && this.applyCalls >= this.failReadbackAfterApplyCalls)
+			(this.failReadback && this.applyCalls >= this.failReadbackAfterApplyCalls) ||
+			(this.failRollbackReadback && this.rollbackCalls >= this.failRollbackReadbackAfterCalls)
 		) {
 			throw new Error('fake provider read failure');
 		}
-		return { state: clone(this.state), list_complete: true };
+		return {
+			state: clone(this.state),
+			list_complete: true,
+			...(this.partialInspect && this.applyCalls >= this.partialInspectAfterApplyCalls
+				? { partial: true }
+				: {}),
+			...(this.observedIdentityFingerprint
+				? { observed_identity_fingerprint: this.observedIdentityFingerprint }
+				: {})
+		};
 	}
 
 	async applyStep({ plan }) {
 		this.applyCalls += 1;
 		if (this.failApply) throw new Error('fake provider apply failure');
 		this.state = clone(plan.after);
-		return { resource_id: plan.target.resource_id ?? 'created-resource', status: 'accepted' };
+		return clone(
+			this.applyResult ?? {
+				resource_id: plan.target.resource_id ?? 'created-resource',
+				status: 'accepted'
+			}
+		);
 	}
 
 	async rollbackStep({ plan }) {
@@ -114,7 +139,14 @@ class FakeDNS extends FakeBase {
 		this.inspectCalls += 1;
 		if (this.failInspect || this.failReadback)
 			throw new Error('fake authoritative DNS read failure');
-		return { state: clone(this.state), authoritative: true, list_complete: true };
+		return {
+			state: clone(this.state),
+			authoritative: true,
+			list_complete: true,
+			...(this.observedIdentityFingerprint
+				? { observed_identity_fingerprint: this.observedIdentityFingerprint }
+				: {})
+		};
 	}
 
 	async rollbackStep({ plan, owned_resource_ids }) {
@@ -177,7 +209,7 @@ function basePlanInput({
 			kind: 'deployment',
 			capability_id: 'cloudflare.deploy_worker',
 			operation: 'deploy_worker_version',
-			cost_class: 'none',
+			cost_class: 'metered_usage',
 			...step
 		},
 		desiredState,
@@ -209,23 +241,251 @@ function hostReceiptFor(plan, overrides = {}) {
 	return { ...claims, signature: fingerprint(claims), ...overrides };
 }
 
+function rollbackReceiptFor(plan, overrides = {}) {
+	const claims = {
+		...hostRollbackApprovalReceiptClaims(plan, { now: fixedNow }),
+		issuer: 'test-host',
+		nonce: `rollback-${plan.plan_id.padEnd(16, 'x')}`,
+		issued_at: new Date(fixedNow).toISOString()
+	};
+	return { ...claims, signature: fingerprint(claims), ...overrides };
+}
+
+function inMemoryAtomicStateStore() {
+	let state = null;
+	return {
+		async withLock(operation) {
+			return operation();
+		},
+		async load() {
+			return state === null ? null : clone(state);
+		},
+		async save(next) {
+			state = clone(next);
+		}
+	};
+}
+
 function hostLedgerFor(
 	plan,
-	{ receipt = hostReceiptFor(plan), usedNonces = new Set(), delegate } = {}
+	{
+		receipt = hostReceiptFor(plan),
+		rollbackReceipt,
+		usedNonces = new Set(),
+		usedRollbackNonces = new Set(),
+		delegate = new AtomicApprovalLedger({ stateStore: inMemoryAtomicStateStore() })
+	} = {}
 ) {
 	return new HostReceiptApprovalLedger({
 		receipt,
+		rollbackReceipt,
 		verifySignature: ({ claims, signature }) => fingerprint(claims) === signature,
+		verifyRollbackSignature: ({ claims, signature }) => fingerprint(claims) === signature,
 		consumeNonce: (nonce) => {
 			if (usedNonces.has(nonce)) return false;
 			usedNonces.add(nonce);
+			return true;
+		},
+		consumeRollbackNonce: (nonce) => {
+			if (usedRollbackNonces.has(nonce)) return false;
+			usedRollbackNonces.add(nonce);
 			return true;
 		},
 		delegate
 	});
 }
 
+function bindObservedIdentity(fake, target) {
+	fake.observedIdentityFingerprint = providerTargetIdentityFingerprint(target);
+	return fake;
+}
+
 describe('QMJ-10 provider-neutral setup engine', () => {
+	test('provider-enabled engine requires host receipt authorization backed by atomic state', async () => {
+		const directory = await mkdtemp(join(tmpdir(), 'noroshi-qmj10-provider-engine-'));
+		try {
+			const target = cloudflareTarget();
+			const fake = bindObservedIdentity(new FakeCloudflare({ version: 1 }), target);
+			assert.throws(
+				() => createSetupEngine({ mode: 'provider_enabled', adapters: { cloudflare: fake } }),
+				(error) => error instanceof SetupEngineError && error.code === 'provider_approval_required'
+			);
+			assert.throws(
+				() =>
+					createSetupEngine({
+						mode: 'local_snapshot',
+						adapters: { cloudflare: fake },
+						approvalLedger: new InMemoryApprovalLedger()
+					}),
+				(error) => error instanceof SetupEngineError && error.code === 'provider_adapter_forbidden'
+			);
+
+			const inspection = await inspectSetup({ adapter: fake, target, now: fixedNow });
+			const plan = createMutationPlan(
+				basePlanInput({ inspection, desiredState: { version: 2 }, approvalId: 'provider-engine' })
+			);
+			const atomic = new AtomicApprovalLedger({
+				stateStore: createAtomicSetupStateStore(join(directory, 'apply-state.json'))
+			});
+			assert.throws(
+				() =>
+					createSetupEngine({
+						mode: 'provider_enabled',
+						adapters: { cloudflare: fake },
+						approvalLedger: atomic
+					}),
+				(error) => error instanceof SetupEngineError && error.code === 'provider_approval_required'
+			);
+			const engine = createSetupEngine({
+				mode: 'provider_enabled',
+				adapters: { cloudflare: fake },
+				approvalLedger: hostLedgerFor(plan, { delegate: atomic }),
+				clock: () => fixedNow
+			});
+			assert.throws(
+				() => engine.approve(plan),
+				(error) => error instanceof SetupEngineError && error.code === 'host_receipt_required'
+			);
+			assert.equal(fake.applyCalls, 0);
+			assert.throws(
+				() => engine.apply(plan, { adapter: fake }),
+				(error) => error instanceof SetupEngineError && error.code === 'provider_adapter_forbidden'
+			);
+			assert.equal(fake.applyCalls, 0);
+			const applied = await engine.apply(plan);
+			assert.equal(applied.status, 'applied');
+			assert.equal(fake.applyCalls, 1);
+		} finally {
+			await rm(directory, { recursive: true, force: true });
+		}
+	});
+
+	test('local snapshot and low-level APIs cannot default into a provider write', async () => {
+		const fake = new FakeCloudflare({ version: 1 });
+		const target = cloudflareTarget();
+		const inspection = await inspectSetup({ adapter: fake, target, now: fixedNow });
+		const plan = createMutationPlan(basePlanInput({ inspection, desiredState: { version: 2 } }));
+		const local = createSetupEngine({ mode: 'local_snapshot', clock: () => fixedNow });
+		local.approve(plan);
+		assert.throws(
+			() => local.apply(plan, { adapter: fake }),
+			(error) => error instanceof SetupEngineError && error.code === 'provider_adapter_forbidden'
+		);
+		await assert.rejects(
+			() => applyMutationPlan({ plan, adapter: fake, now: fixedNow }),
+			(error) => error instanceof SetupEngineError && error.code === 'approval_mismatch'
+		);
+		const selfApproved = new InMemoryApprovalLedger();
+		selfApproved.approve(plan, { now: fixedNow });
+		await assert.rejects(
+			() =>
+				applyMutationPlan({
+					plan,
+					adapter: fake,
+					approvalLedger: selfApproved,
+					now: fixedNow
+				}),
+			(error) => error instanceof SetupEngineError && error.code === 'provider_approval_required'
+		);
+		await assert.rejects(
+			() =>
+				applyMutationPlan({
+					plan,
+					adapter: fake,
+					approvalLedger: hostLedgerFor(plan, {
+						delegate: new InMemoryApprovalLedger()
+					}),
+					now: fixedNow
+				}),
+			(error) => error instanceof SetupEngineError && error.code === 'provider_approval_required'
+		);
+		assert.equal(fake.applyCalls, 0);
+
+		fake.state = clone(plan.after);
+		selfApproved.approveRollback(plan, { now: fixedNow });
+		await assert.rejects(
+			() =>
+				rollbackMutationPlan({
+					plan,
+					adapter: fake,
+					approvalLedger: selfApproved,
+					rollbackApprovalId: plan.rollback.approval_id,
+					now: fixedNow
+				}),
+			(error) => error instanceof SetupEngineError && error.code === 'provider_approval_required'
+		);
+		assert.equal(fake.rollbackCalls, 0);
+	});
+
+	test('provider-enabled inspection requires the exact observed provider identity', async () => {
+		const directory = await mkdtemp(join(tmpdir(), 'noroshi-qmj10-provider-identity-'));
+		try {
+			const target = cloudflareTarget();
+			const fake = new FakeCloudflare({ version: 1 });
+			const resendTargetValue = resendTarget({
+				domain_id: 'resend-domain-test',
+				domain: 'example.test'
+			});
+			const resend = new FakeResend({ version: 1 });
+			const placeholderAtomic = new AtomicApprovalLedger({
+				stateStore: createAtomicSetupStateStore(join(directory, 'apply-state.json'))
+			});
+			const placeholderHost = new HostReceiptApprovalLedger({ delegate: placeholderAtomic });
+			const engine = createSetupEngine({
+				mode: 'provider_enabled',
+				adapters: { cloudflare: fake, resend },
+				approvalLedger: placeholderHost,
+				clock: () => fixedNow
+			});
+			await assert.rejects(
+				() => engine.inspect({ target }),
+				(error) => error instanceof SetupEngineError && error.code === 'observed_identity_required'
+			);
+			fake.observedIdentityFingerprint = providerTargetIdentityFingerprint({
+				...target,
+				account_id: 'different-account'
+			});
+			await assert.rejects(
+				() => engine.inspect({ target }),
+				(error) => error instanceof SetupEngineError && error.code === 'observed_identity_mismatch'
+			);
+			bindObservedIdentity(fake, target);
+			const inspection = await engine.inspect({ target });
+			assert.equal(
+				inspection.observed_identity_fingerprint,
+				providerTargetIdentityFingerprint(target)
+			);
+			resend.observedIdentityFingerprint = providerTargetIdentityFingerprint({
+				...resendTargetValue,
+				domain_id: 'different-domain'
+			});
+			await assert.rejects(
+				() => engine.inspect({ target: resendTargetValue }),
+				(error) => error instanceof SetupEngineError && error.code === 'observed_identity_mismatch'
+			);
+			bindObservedIdentity(resend, resendTargetValue);
+			assert.equal(
+				(await engine.inspect({ target: resendTargetValue })).observed_identity_fingerprint,
+				providerTargetIdentityFingerprint(resendTargetValue)
+			);
+		} finally {
+			await rm(directory, { recursive: true, force: true });
+		}
+	});
+
+	test('engine capability costs stay fixed to the repository registry', async () => {
+		const registry = JSON.parse(
+			await readFile(new URL('../setup/capabilities.json', import.meta.url), 'utf8')
+		);
+		const registryCosts = new Map(
+			registry.capabilities.map((capability) => [capability.id, capability.cost_class])
+		);
+		for (const entries of Object.values(SETUP_STEP_CAPABILITY_CONTRACT)) {
+			for (const entry of entries) {
+				assert.equal(entry.cost_class, registryCosts.get(entry.capability_id), entry.capability_id);
+			}
+		}
+	});
 	test('host receipt performs exactly one bounded provider write and then resumes by readback', async () => {
 		const fake = new FakeCloudflare({ version: 1 });
 		const target = cloudflareTarget();
@@ -290,6 +550,267 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 		assert.equal(fake.applyCalls, 0);
 	});
 
+	test('provider result allowlist drops credential-shaped values including status', async () => {
+		const fake = new FakeCloudflare({ version: 1 });
+		fake.applyResult = {
+			resource_id: ['re_', '1234567890abcdefghijklmnop'].join(''),
+			status: 'Bearer synthetic-provider-credential-value',
+			request_id: 'request-safe-01',
+			created: true
+		};
+		const target = cloudflareTarget();
+		const inspection = await inspectSetup({ adapter: fake, target, now: fixedNow });
+		const plan = createMutationPlan(basePlanInput({ inspection, desiredState: { version: 2 } }));
+		const result = await applyMutationPlan({
+			plan,
+			adapter: fake,
+			approvalLedger: hostLedgerFor(plan),
+			approvalId: plan.approval_id,
+			now: fixedNow
+		});
+		assert.deepEqual(result.provider_result, { request_id: 'request-safe-01', created: true });
+		assert.equal(JSON.stringify(result).includes('synthetic-provider-credential-value'), false);
+	});
+
+	test('host receipt plus atomic state recovers after restart without consuming or writing twice', async () => {
+		const directory = await mkdtemp(join(tmpdir(), 'noroshi-qmj10-host-restart-'));
+		try {
+			const file = join(directory, 'apply-state.json');
+			const fake = new FakeCloudflare({ version: 1 });
+			const target = cloudflareTarget();
+			const inspection = await inspectSetup({ adapter: fake, target, now: fixedNow });
+			const plan = createMutationPlan(
+				basePlanInput({ inspection, desiredState: { version: 2 }, approvalId: 'host-restart' })
+			);
+			const receipt = hostReceiptFor(plan);
+			const usedNonces = new Set();
+			const firstLedger = hostLedgerFor(plan, {
+				receipt,
+				usedNonces,
+				delegate: new AtomicApprovalLedger({
+					stateStore: createAtomicSetupStateStore(file)
+				})
+			});
+			fake.failReadback = true;
+			fake.failReadbackAfterApplyCalls = 1;
+			await assert.rejects(
+				() =>
+					applyMutationPlan({
+						plan,
+						adapter: fake,
+						approvalLedger: firstLedger,
+						approvalId: plan.approval_id,
+						now: fixedNow
+					}),
+				(error) => error instanceof SetupEngineError && error.code === 'readback_failed'
+			);
+			assert.equal(fake.applyCalls, 1);
+			assert.deepEqual([...usedNonces], [receipt.nonce]);
+
+			fake.failReadback = false;
+			const restartedLedger = hostLedgerFor(plan, {
+				receipt,
+				usedNonces,
+				delegate: new AtomicApprovalLedger({
+					stateStore: createAtomicSetupStateStore(file)
+				})
+			});
+			const recovered = await applyMutationPlan({
+				plan,
+				adapter: fake,
+				approvalLedger: restartedLedger,
+				approvalId: plan.approval_id,
+				now: fixedNow
+			});
+			assert.equal(recovered.status, 'recovered');
+			assert.equal(recovered.writes, 0);
+			assert.equal(fake.applyCalls, 1);
+			assert.deepEqual([...usedNonces], [receipt.nonce]);
+		} finally {
+			await rm(directory, { recursive: true, force: true });
+		}
+	});
+
+	test('provider-enabled rollback requires and consumes a separate host receipt exactly once', async () => {
+		const target = cloudflareTarget();
+		const fake = bindObservedIdentity(new FakeCloudflare({ version: 1 }), target);
+		const inspection = await inspectSetup({
+			adapter: fake,
+			target,
+			requireObservedIdentity: true,
+			now: fixedNow
+		});
+		const plan = createMutationPlan({
+			...basePlanInput({ inspection, desiredState: { version: 2 }, approvalId: 'rollback-host' }),
+			requireObservedIdentity: true
+		});
+		const usedNonces = new Set();
+		const usedRollbackNonces = new Set();
+		const ledger = hostLedgerFor(plan, {
+			rollbackReceipt: rollbackReceiptFor(plan),
+			usedNonces,
+			usedRollbackNonces
+		});
+		const engine = createSetupEngine({
+			mode: 'provider_enabled',
+			adapters: { cloudflare: fake },
+			approvalLedger: ledger,
+			clock: () => fixedNow
+		});
+		await engine.apply(plan);
+		assert.throws(
+			() => engine.approveRollback(plan),
+			(error) =>
+				error instanceof SetupEngineError && error.code === 'host_rollback_receipt_required'
+		);
+		const rolledBack = await engine.rollback(plan);
+		assert.equal(rolledBack.status, 'rolled_back');
+		assert.equal(fake.applyCalls, 1);
+		assert.equal(fake.rollbackCalls, 1);
+		assert.equal(usedNonces.size, 1);
+		assert.equal(usedRollbackNonces.size, 1);
+		const replay = await engine.rollback(plan);
+		assert.equal(replay.status, 'already_verified');
+		assert.equal(replay.writes, 0);
+		assert.equal(fake.rollbackCalls, 1);
+		assert.equal(usedRollbackNonces.size, 1);
+	});
+
+	test('rollback crash recovery performs readback only and never writes a second time', async () => {
+		const directory = await mkdtemp(join(tmpdir(), 'noroshi-qmj10-rollback-restart-'));
+		try {
+			const file = join(directory, 'apply-state.json');
+			const target = cloudflareTarget();
+			const fake = bindObservedIdentity(new FakeCloudflare({ version: 1 }), target);
+			const inspection = await inspectSetup({
+				adapter: fake,
+				target,
+				requireObservedIdentity: true,
+				now: fixedNow
+			});
+			const plan = createMutationPlan({
+				...basePlanInput({
+					inspection,
+					desiredState: { version: 2 },
+					approvalId: 'rollback-restart'
+				}),
+				requireObservedIdentity: true
+			});
+			const usedNonces = new Set();
+			const usedRollbackNonces = new Set();
+			const firstLedger = hostLedgerFor(plan, {
+				rollbackReceipt: rollbackReceiptFor(plan),
+				usedNonces,
+				usedRollbackNonces,
+				delegate: new AtomicApprovalLedger({
+					stateStore: createAtomicSetupStateStore(file)
+				})
+			});
+			const firstEngine = createSetupEngine({
+				mode: 'provider_enabled',
+				adapters: { cloudflare: fake },
+				approvalLedger: firstLedger,
+				clock: () => fixedNow
+			});
+			await firstEngine.apply(plan);
+			fake.failRollbackReadback = true;
+			fake.failRollbackReadbackAfterCalls = 1;
+			await assert.rejects(
+				() => firstEngine.rollback(plan),
+				(error) => error instanceof SetupEngineError && error.code === 'rollback_readback_failed'
+			);
+			assert.equal(fake.rollbackCalls, 1);
+			assert.equal(usedRollbackNonces.size, 1);
+
+			fake.failRollbackReadback = false;
+			const restartedLedger = hostLedgerFor(plan, {
+				rollbackReceipt: rollbackReceiptFor(plan),
+				usedNonces,
+				usedRollbackNonces,
+				delegate: new AtomicApprovalLedger({
+					stateStore: createAtomicSetupStateStore(file)
+				})
+			});
+			const restartedEngine = createSetupEngine({
+				mode: 'provider_enabled',
+				adapters: { cloudflare: fake },
+				approvalLedger: restartedLedger,
+				clock: () => fixedNow
+			});
+			const recovered = await restartedEngine.rollback(plan);
+			assert.equal(recovered.status, 'recovered');
+			assert.equal(recovered.writes, 0);
+			assert.equal(fake.rollbackCalls, 1);
+			assert.equal(usedRollbackNonces.size, 1);
+		} finally {
+			await rm(directory, { recursive: true, force: true });
+		}
+	});
+
+	test('missing, forged, apply-only, or replayed rollback receipts make zero provider writes', async () => {
+		const target = cloudflareTarget();
+		const fake = bindObservedIdentity(new FakeCloudflare({ version: 1 }), target);
+		const inspection = await inspectSetup({
+			adapter: fake,
+			target,
+			requireObservedIdentity: true,
+			now: fixedNow
+		});
+		const plan = createMutationPlan({
+			...basePlanInput({
+				inspection,
+				desiredState: { version: 2 },
+				approvalId: 'rollback-receipts'
+			}),
+			requireObservedIdentity: true
+		});
+		const delegate = new AtomicApprovalLedger({ stateStore: inMemoryAtomicStateStore() });
+		const applyLedger = hostLedgerFor(plan, { delegate });
+		const applyEngine = createSetupEngine({
+			mode: 'provider_enabled',
+			adapters: { cloudflare: fake },
+			approvalLedger: applyLedger,
+			clock: () => fixedNow
+		});
+		await applyEngine.apply(plan);
+		const validRollbackReceipt = rollbackReceiptFor(plan);
+		const cases = [
+			['missing', undefined, new Set(), 'host_rollback_receipt_required'],
+			[
+				'forged',
+				{ ...validRollbackReceipt, signature: 'forged' },
+				new Set(),
+				'host_rollback_receipt_invalid'
+			],
+			['apply-only', hostReceiptFor(plan), new Set(), 'host_rollback_receipt_mismatch'],
+			[
+				'replayed',
+				validRollbackReceipt,
+				new Set([validRollbackReceipt.nonce]),
+				'host_rollback_receipt_used'
+			]
+		];
+		for (const [label, rollbackReceipt, usedRollbackNonces, expectedCode] of cases) {
+			const ledger = hostLedgerFor(plan, {
+				rollbackReceipt,
+				usedRollbackNonces,
+				delegate
+			});
+			const engine = createSetupEngine({
+				mode: 'provider_enabled',
+				adapters: { cloudflare: fake },
+				approvalLedger: ledger,
+				clock: () => fixedNow
+			});
+			await assert.rejects(
+				() => engine.rollback(plan),
+				(error) => error instanceof SetupEngineError && error.code === expectedCode,
+				label
+			);
+			assert.equal(fake.rollbackCalls, 0, label);
+		}
+	});
+
 	test('controlled external send binds sender, recipient, fixed content, cost, and idempotency', async () => {
 		const target = {
 			provider: 'resend',
@@ -349,10 +870,19 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 		assert.equal(applied.status, 'applied');
 		assert.equal(fake.applyCalls, 1);
 		assert.match(plan.after.controlled_send.idempotency_key, /^[a-f0-9]{64}$/u);
+		assert.equal(plan.after.controlled_send.recipient_controlled, true);
+		assert.match(plan.after.controlled_send.body, /canary-host-send-01/u);
+		assert.equal(
+			plan.after.controlled_send.body_hash,
+			createHash('sha256').update(plan.after.controlled_send.body).digest('hex')
+		);
 
 		for (const mutation of [
 			{ subject: 'changed subject' },
 			{ controlled_recipient: 'other@example.invalid' },
+			{ recipient_controlled: false },
+			{ body: 'changed body' },
+			{ body_hash: 'c'.repeat(64) },
 			{ content_fingerprint: 'a'.repeat(64) },
 			{ idempotency_key: 'b'.repeat(64) },
 			{ unexpected: 'field' }
@@ -399,85 +929,96 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 				cloudflareTargetFor('cloudflare_d1_database'),
 				'resource_creation',
 				'cloudflare.create_d1',
-				'create_d1_database'
+				'create_d1_database',
+				'metered_usage'
 			],
 			[
 				'create R2',
 				cloudflareTargetFor('cloudflare_r2_bucket'),
 				'resource_creation',
 				'cloudflare.create_r2',
-				'create_r2_bucket'
+				'create_r2_bucket',
+				'metered_usage'
 			],
 			[
 				'create Worker',
 				cloudflareTargetFor('cloudflare_worker'),
 				'resource_creation',
 				'cloudflare.create_worker',
-				'create_worker'
+				'create_worker',
+				'metered_usage'
 			],
 			[
 				'migrate D1',
 				cloudflareTargetFor('cloudflare_d1_database'),
 				'remote_migration',
 				'cloudflare.apply_remote_migration',
-				'apply_d1_migrations'
+				'apply_d1_migrations',
+				'metered_usage'
 			],
 			[
 				'deploy Worker',
 				cloudflareTargetFor('cloudflare_worker'),
 				'deployment',
 				'cloudflare.deploy_worker',
-				'deploy_worker_version'
+				'deploy_worker_version',
+				'metered_usage'
 			],
 			[
 				'stage Worker secret',
 				cloudflareTargetFor('cloudflare_worker'),
 				'secret_staging',
 				'cloudflare.stage_worker_secret',
-				'put_worker_secret'
+				'put_worker_secret',
+				'none'
 			],
 			[
 				'create Resend domain',
 				resendTargetFor('resend_domain'),
 				'resource_creation',
 				'resend.create_domain',
-				'create_domain'
+				'create_domain',
+				'none'
 			],
 			[
 				'create Resend webhook',
 				resendTargetFor('resend_webhook'),
 				'webhook_creation',
 				'resend.create_webhook',
-				'create_webhook'
+				'create_webhook',
+				'none'
 			],
 			[
 				'verify Resend domain',
 				resendTargetFor('resend_domain'),
 				'domain_verification',
 				'resend.verify_domain',
-				'verify_domain'
+				'verify_domain',
+				'none'
 			],
 			[
 				'enable Email Routing',
 				cloudflareTargetFor('cloudflare_email_routing'),
 				'email_routing',
 				'cloudflare.enable_email_routing',
-				'enable_email_routing'
+				'enable_email_routing',
+				'none'
 			],
 			[
 				'configure catch-all',
 				cloudflareTargetFor('cloudflare_email_routing'),
 				'email_routing',
 				'cloudflare.configure_catch_all',
-				'create_catch_all_rule'
+				'create_catch_all_rule',
+				'none'
 			]
 		];
-		for (const [label, target, kind, capabilityId, operation] of cases) {
+		for (const [label, target, kind, capabilityId, operation, costClass] of cases) {
 			const fake =
 				target.provider === 'resend'
 					? new FakeResend({ version: 1 })
 					: new FakeCloudflare({ version: 1 });
-			const step = { kind, capability_id: capabilityId, operation, cost_class: 'none' };
+			const step = { kind, capability_id: capabilityId, operation, cost_class: costClass };
 			const inspection = await inspectSetup({ adapter: fake, target, step, now: fixedNow });
 			const desiredState =
 				kind === 'secret_staging'
@@ -501,6 +1042,23 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 			});
 			assert.equal(result.status, 'applied', label);
 			assert.equal(fake.applyCalls, 1, label);
+			assert.throws(
+				() =>
+					createMutationPlan(
+						basePlanInput({
+							inspection,
+							target,
+							step: {
+								...step,
+								cost_class: costClass === 'none' ? 'metered_usage' : 'none'
+							},
+							desiredState,
+							approvalId: `wrong-cost-${operation}`
+						})
+					),
+				(error) => error instanceof SetupEngineError && error.code === 'cost_class_mismatch',
+				label
+			);
 		}
 
 		const dnsTarget = cloudflareTargetFor('cloudflare_dns_record', 'dns');
@@ -634,6 +1192,7 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 		);
 		assert.equal(plan.schema_version, SETUP_ENGINE_SCHEMA_VERSION);
 		assert.equal(plan.step.kind, 'deployment');
+		assert.equal(plan.step.cost_class, 'metered_usage');
 		assert.equal(Array.isArray(plan.step), false);
 		assert.deepEqual(plan.target, target);
 		assert.equal(plan.current_state_fingerprint, fingerprint(plan.before));
@@ -656,6 +1215,25 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 					basePlanInput({ inspection, desiredState: { status: 'ready', api_key: 'secret' } })
 				),
 			(error) => error instanceof SetupEngineError && error.code === 'unsafe_plan_data'
+		);
+		for (const credential of [
+			['sk_', 'live_', '1234567890abcdefghijklmnop'].join(''),
+			['re_', '1234567890abcdefghijklmnop'].join(''),
+			'Bearer synthetic-provider-credential-value'
+		]) {
+			assert.throws(
+				() =>
+					createMutationPlan(basePlanInput({ inspection, desiredState: { status: credential } })),
+				(error) => error instanceof SetupEngineError && error.code === 'unsafe_plan_data'
+			);
+		}
+		assert.doesNotThrow(() =>
+			createMutationPlan(
+				basePlanInput({
+					inspection,
+					desiredState: { status: 'ready', resource_id: 'worker-safe-01', digest: 'a'.repeat(64) }
+				})
+			)
 		);
 		assert.throws(
 			() =>
@@ -767,18 +1345,19 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 		);
 	});
 
-	test('duplicate webhook endpoint and event set fail closed', async () => {
+	test('duplicate webhook endpoint with out-of-order event types fails closed', async () => {
 		const target = resendTarget({ resource_type: 'resend_webhook' });
+		const fake = new FakeResend({
+			webhooks: [
+				{
+					id: 'existing-webhook',
+					endpoint: 'https://noroshi.test/hooks/resend',
+					event_types: ['email.sent', 'email.bounced']
+				}
+			]
+		});
 		const inspection = await inspectSetup({
-			adapter: new FakeResend({
-				webhooks: [
-					{
-						id: 'existing-webhook',
-						endpoint: 'https://noroshi.test/hooks/resend',
-						event_types: ['email.sent', 'email.bounced']
-					}
-				]
-			}),
+			adapter: fake,
 			target,
 			now: fixedNow
 		});
@@ -791,7 +1370,8 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 						step: {
 							kind: 'webhook_creation',
 							capability_id: 'resend.create_webhook',
-							operation: 'create_webhook'
+							operation: 'create_webhook',
+							cost_class: 'none'
 						},
 						desiredState: {
 							endpoint: 'https://noroshi.test/hooks/resend',
@@ -801,15 +1381,59 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 				),
 			(error) => error instanceof SetupEngineError && error.code === 'resource_collision'
 		);
+		assert.equal(fake.applyCalls, 0);
+	});
+
+	test('partial provider state stops before a write and partial readback resumes without a second write', async () => {
+		const fake = new FakeCloudflare({ version: 1 });
+		const target = cloudflareTarget();
+		fake.partialInspect = true;
+		await assert.rejects(
+			() => inspectSetup({ adapter: fake, target, now: fixedNow }),
+			(error) => error instanceof SetupEngineError && error.code === 'provider_read_failed'
+		);
+		assert.equal(fake.applyCalls, 0);
+
+		fake.partialInspect = false;
+		const inspection = await inspectSetup({ adapter: fake, target, now: fixedNow });
+		const plan = createMutationPlan(basePlanInput({ inspection, desiredState: { version: 2 } }));
+		const ledger = hostLedgerFor(plan);
+		fake.partialInspect = true;
+		fake.partialInspectAfterApplyCalls = 1;
+		await assert.rejects(
+			() =>
+				applyMutationPlan({
+					plan,
+					adapter: fake,
+					approvalLedger: ledger,
+					approvalId: plan.approval_id,
+					now: fixedNow
+				}),
+			(error) =>
+				error instanceof SetupEngineError &&
+				error.code === 'readback_failed' &&
+				error.details.applied === true
+		);
+		assert.equal(fake.applyCalls, 1);
+		fake.partialInspect = false;
+		const recovered = await applyMutationPlan({
+			plan,
+			adapter: fake,
+			approvalLedger: ledger,
+			approvalId: plan.approval_id,
+			now: fixedNow
+		});
+		assert.equal(recovered.status, 'recovered');
+		assert.equal(recovered.writes, 0);
+		assert.equal(fake.applyCalls, 1);
 	});
 
 	test('target, current fingerprint, hash, expiry, and approval mismatches make zero writes', async () => {
 		const fake = new FakeCloudflare({ version: 1 });
 		const target = cloudflareTarget();
 		const inspection = await inspectSetup({ adapter: fake, target, now: fixedNow });
-		const ledger = new InMemoryApprovalLedger();
 		const plan = createMutationPlan(basePlanInput({ inspection, desiredState: { version: 2 } }));
-		ledger.approve(plan, { now: fixedNow });
+		const ledger = hostLedgerFor(plan);
 
 		await assert.rejects(
 			() =>
@@ -889,7 +1513,7 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 				applyMutationPlan({
 					plan: fresh,
 					adapter: fake,
-					approvalLedger: ledger,
+					approvalLedger: hostLedgerFor(fresh),
 					approvalId: 'wrong-approval',
 					now: fixedNow
 				}),
@@ -988,7 +1612,7 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 			kind: 'resource_creation',
 			capability_id: 'cloudflare.create_worker',
 			operation: 'create_worker',
-			cost_class: 'none'
+			cost_class: 'metered_usage'
 		};
 		await assert.rejects(
 			() =>
@@ -1062,7 +1686,8 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 				step: {
 					kind: 'dns_change',
 					capability_id: 'cloudflare.change_dns',
-					operation: 'create_dns_record'
+					operation: 'create_dns_record',
+					cost_class: 'none'
 				},
 				desiredState: authoritativeAfter,
 				rollback: {
@@ -1109,13 +1734,13 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 				step: {
 					kind: 'webhook_creation',
 					capability_id: 'resend.create_webhook',
-					operation: 'create_webhook'
+					operation: 'create_webhook',
+					cost_class: 'none'
 				},
 				desiredState: { version: 2 }
 			})
 		);
-		const ledger = new InMemoryApprovalLedger();
-		ledger.approve(plan, { now: fixedNow });
+		const ledger = hostLedgerFor(plan);
 		const result = await applyMutationPlan({
 			plan,
 			adapter: fake,
@@ -1144,8 +1769,7 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 		const target = cloudflareTarget();
 		const inspection = await inspectSetup({ adapter: fake, target, now: fixedNow });
 		const plan = createMutationPlan(basePlanInput({ inspection, desiredState: { version: 2 } }));
-		const ledger = new InMemoryApprovalLedger();
-		ledger.approve(plan, { now: fixedNow });
+		const ledger = hostLedgerFor(plan);
 		fake.failApply = true;
 		await assert.rejects(
 			() =>
@@ -1168,8 +1792,7 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 				approvalId: 'approval-readback'
 			})
 		);
-		const secondLedger = new InMemoryApprovalLedger();
-		secondLedger.approve(secondPlan, { now: fixedNow });
+		const secondLedger = hostLedgerFor(secondPlan);
 		fake.failApply = false;
 		fake.failReadback = true;
 		fake.failReadbackAfterApplyCalls = 2;
@@ -1238,7 +1861,8 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 						step: {
 							kind: 'dns_change',
 							capability_id: 'cloudflare.change_dns',
-							operation: 'create_dns_record'
+							operation: 'create_dns_record',
+							cost_class: 'none'
 						},
 						desiredState: { authoritative: true, records: [], routing_rules: [] },
 						rollback
@@ -1255,7 +1879,8 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 						step: {
 							kind: 'dns_change',
 							capability_id: 'cloudflare.change_dns',
-							operation: 'create_dns_record'
+							operation: 'create_dns_record',
+							cost_class: 'none'
 						},
 						desiredState: {
 							authoritative: true,
@@ -1274,7 +1899,8 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 				step: {
 					kind: 'dns_change',
 					capability_id: 'cloudflare.change_dns',
-					operation: 'create_dns_record'
+					operation: 'create_dns_record',
+					cost_class: 'none'
 				},
 				desiredState: {
 					authoritative: true,
@@ -1334,7 +1960,8 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 				step: {
 					kind: 'dns_change',
 					capability_id: 'cloudflare.change_dns',
-					operation: 'create_dns_record'
+					operation: 'create_dns_record',
+					cost_class: 'none'
 				},
 				desiredState: after,
 				rollback: {
@@ -1344,8 +1971,7 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 				}
 			})
 		);
-		const ledger = new InMemoryApprovalLedger();
-		ledger.approve(plan, { now: fixedNow });
+		const ledger = hostLedgerFor(plan, { rollbackReceipt: rollbackReceiptFor(plan) });
 		await applyMutationPlan({
 			plan,
 			adapter: fake,
@@ -1359,7 +1985,6 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 			name: 'mail',
 			content: 'external-change'
 		});
-		ledger.approveRollback(plan, { now: fixedNow });
 		const rollbackResult = await rollbackMutationPlan({
 			plan,
 			adapter: fake,
@@ -1379,7 +2004,7 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 			rollbackApprovalId: plan.rollback.approval_id,
 			now: fixedNow
 		});
-		assert.equal(second.status, 'noop');
+		assert.equal(second.status, 'already_verified');
 		assert.equal(fake.rollbackCalls, 1);
 	});
 
@@ -1423,7 +2048,8 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 							? {
 									kind: 'resource_creation',
 									capability_id: 'resend.create_domain',
-									operation: 'create_domain'
+									operation: 'create_domain',
+									cost_class: 'none'
 								}
 							: undefined,
 					desiredState: { version: 2 },
@@ -1487,46 +2113,52 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 	});
 
 	test('engine registry resolves each narrow fake seam without a generic provider framework', async () => {
-		const cloudflare = new FakeCloudflare({ ready: true });
-		const resend = new FakeResend({ ready: true });
-		const dns = new FakeDNS({ authoritative: true, records: [], routing_rules: [] });
-		const browser = new FakeBrowser({ page: 'official' });
-		const engine = createSetupEngine({
-			adapters: { cloudflare, resend, dns, browser },
-			clock: () => fixedNow
-		});
-		const inspection = await engine.inspect({ target: cloudflareTarget() });
-		assert.equal(inspection.state.ready, true);
-		assert.equal((await engine.inspect({ target: resendTarget() })).state.ready, true);
-		assert.equal(
-			(
-				await engine.inspect({
-					target: {
-						provider: 'cloudflare',
-						adapter_kind: 'dns',
-						resource_type: 'cloudflare_dns_record',
-						account_id: 'cf-account-test',
-						zone_id: 'cf-zone-test',
-						domain: 'example.test'
-					}
-				})
-			).state.authoritative,
-			true
-		);
-		assert.equal(
-			(
-				await engine.inspect({
-					target: {
-						provider: 'cloudflare',
-						adapter_kind: 'browser',
-						resource_type: 'browser_page',
-						account_id: 'cf-account-test',
-						origin: 'https://dash.cloudflare.com/settings'
-					}
-				})
-			).state.page,
-			'official'
-		);
+		const directory = await mkdtemp(join(tmpdir(), 'noroshi-qmj10-registry-'));
+		try {
+			const cloudflareTargetValue = cloudflareTarget();
+			const resendTargetValue = resendTarget();
+			const dnsTarget = {
+				provider: 'cloudflare',
+				adapter_kind: 'dns',
+				resource_type: 'cloudflare_dns_record',
+				account_id: 'cf-account-test',
+				zone_id: 'cf-zone-test',
+				domain: 'example.test'
+			};
+			const browserTarget = {
+				provider: 'cloudflare',
+				adapter_kind: 'browser',
+				resource_type: 'browser_page',
+				account_id: 'cf-account-test',
+				origin: 'https://dash.cloudflare.com/settings'
+			};
+			const cloudflare = bindObservedIdentity(
+				new FakeCloudflare({ ready: true }),
+				cloudflareTargetValue
+			);
+			const resend = bindObservedIdentity(new FakeResend({ ready: true }), resendTargetValue);
+			const dns = bindObservedIdentity(
+				new FakeDNS({ authoritative: true, records: [], routing_rules: [] }),
+				dnsTarget
+			);
+			const browser = bindObservedIdentity(new FakeBrowser({ page: 'official' }), browserTarget);
+			const atomic = new AtomicApprovalLedger({
+				stateStore: createAtomicSetupStateStore(join(directory, 'apply-state.json'))
+			});
+			const engine = createSetupEngine({
+				mode: 'provider_enabled',
+				adapters: { cloudflare, resend, dns, browser },
+				approvalLedger: new HostReceiptApprovalLedger({ delegate: atomic }),
+				clock: () => fixedNow
+			});
+			const inspection = await engine.inspect({ target: cloudflareTargetValue });
+			assert.equal(inspection.state.ready, true);
+			assert.equal((await engine.inspect({ target: resendTargetValue })).state.ready, true);
+			assert.equal((await engine.inspect({ target: dnsTarget })).state.authoritative, true);
+			assert.equal((await engine.inspect({ target: browserTarget })).state.page, 'official');
+		} finally {
+			await rm(directory, { recursive: true, force: true });
+		}
 	});
 
 	test('fake seams remain offline when global fetch is a tripwire', async () => {
@@ -1539,8 +2171,7 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 			const target = cloudflareTarget();
 			const inspection = await inspectSetup({ adapter: fake, target, now: fixedNow });
 			const plan = createMutationPlan(basePlanInput({ inspection, desiredState: { version: 2 } }));
-			const ledger = new InMemoryApprovalLedger();
-			ledger.approve(plan, { now: fixedNow });
+			const ledger = hostLedgerFor(plan);
 			const result = await applyMutationPlan({
 				plan,
 				adapter: fake,
@@ -1591,12 +2222,17 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 	test('atomic approval state resumes by readback after a write/readback crash without a duplicate write', async () => {
 		const directory = await mkdtemp(join(tmpdir(), 'noroshi-qmj10-ledger-'));
 		const store = createAtomicSetupStateStore(join(directory, 'apply-state.json'));
-		const firstLedger = new AtomicApprovalLedger({ stateStore: store });
 		const fake = new FakeCloudflare({ version: 1 });
 		const target = cloudflareTarget();
 		const inspection = await inspectSetup({ adapter: fake, target, now: fixedNow });
 		const plan = createMutationPlan(basePlanInput({ inspection, desiredState: { version: 2 } }));
-		await firstLedger.approve(plan, { now: fixedNow });
+		const receipt = hostReceiptFor(plan);
+		const usedNonces = new Set();
+		const firstLedger = hostLedgerFor(plan, {
+			receipt,
+			usedNonces,
+			delegate: new AtomicApprovalLedger({ stateStore: store })
+		});
 		fake.failReadback = true;
 		fake.failReadbackAfterApplyCalls = 1;
 		await assert.rejects(
@@ -1619,12 +2255,21 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 			approved: true,
 			consumed: true,
 			apply_started: true,
-			readback_verified: false
+			readback_verified: false,
+			rollback_approval_id: plan.rollback.approval_id,
+			rollback_approved: false,
+			rollback_consumed: false,
+			rollback_started: false,
+			rollback_readback_verified: false
 		});
 
 		fake.failReadback = false;
-		const restartedLedger = new AtomicApprovalLedger({
-			stateStore: createAtomicSetupStateStore(join(directory, 'apply-state.json'))
+		const restartedLedger = hostLedgerFor(plan, {
+			receipt,
+			usedNonces,
+			delegate: new AtomicApprovalLedger({
+				stateStore: createAtomicSetupStateStore(join(directory, 'apply-state.json'))
+			})
 		});
 		const recovered = await applyMutationPlan({
 			plan,
@@ -1643,17 +2288,20 @@ describe('QMJ-10 provider-neutral setup engine', () => {
 	test('two approval ledgers sharing a state path permit only one concurrent provider write', async () => {
 		const directory = await mkdtemp(join(tmpdir(), 'noroshi-qmj10-concurrent-'));
 		const file = join(directory, 'apply-state.json');
-		const firstLedger = new AtomicApprovalLedger({
-			stateStore: createAtomicSetupStateStore(file)
-		});
-		const secondLedger = new AtomicApprovalLedger({
-			stateStore: createAtomicSetupStateStore(file)
-		});
 		const fake = new BlockingFakeCloudflare({ version: 1 });
 		const target = cloudflareTarget();
 		const inspection = await inspectSetup({ adapter: fake, target, now: fixedNow });
 		const plan = createMutationPlan(basePlanInput({ inspection, desiredState: { version: 2 } }));
-		await firstLedger.approve(plan, { now: fixedNow });
+		const firstLedger = hostLedgerFor(plan, {
+			delegate: new AtomicApprovalLedger({
+				stateStore: createAtomicSetupStateStore(file)
+			})
+		});
+		const secondLedger = hostLedgerFor(plan, {
+			delegate: new AtomicApprovalLedger({
+				stateStore: createAtomicSetupStateStore(file)
+			})
+		});
 
 		const firstApply = applyMutationPlan({
 			plan,

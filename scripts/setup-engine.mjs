@@ -133,69 +133,144 @@ const SAFE_PROVIDER_RESULT_KEYS = new Set([
  */
 export const SETUP_STEP_CAPABILITY_CONTRACT = Object.freeze({
 	resource_creation: Object.freeze([
-		Object.freeze({ capability_id: 'cloudflare.create_zone', operation: 'create_zone' }),
-		Object.freeze({ capability_id: 'cloudflare.create_d1', operation: 'create_d1_database' }),
-		Object.freeze({ capability_id: 'cloudflare.create_r2', operation: 'create_r2_bucket' }),
-		Object.freeze({ capability_id: 'cloudflare.create_worker', operation: 'create_worker' }),
-		Object.freeze({ capability_id: 'resend.create_domain', operation: 'create_domain' })
+		Object.freeze({
+			capability_id: 'cloudflare.create_zone',
+			operation: 'create_zone',
+			cost_class: 'none'
+		}),
+		Object.freeze({
+			capability_id: 'cloudflare.create_d1',
+			operation: 'create_d1_database',
+			cost_class: 'metered_usage'
+		}),
+		Object.freeze({
+			capability_id: 'cloudflare.create_r2',
+			operation: 'create_r2_bucket',
+			cost_class: 'metered_usage'
+		}),
+		Object.freeze({
+			capability_id: 'cloudflare.create_worker',
+			operation: 'create_worker',
+			cost_class: 'metered_usage'
+		}),
+		Object.freeze({
+			capability_id: 'resend.create_domain',
+			operation: 'create_domain',
+			cost_class: 'none'
+		})
 	]),
 	secret_staging: Object.freeze([
 		Object.freeze({
 			capability_id: 'cloudflare.stage_worker_secret',
-			operation: 'put_worker_secret'
+			operation: 'put_worker_secret',
+			cost_class: 'none'
 		}),
 		Object.freeze({
 			capability_id: 'resend.create_sending_key',
-			operation: 'create_domain_restricted_sending_key'
+			operation: 'create_domain_restricted_sending_key',
+			cost_class: 'none'
 		})
 	]),
 	remote_migration: Object.freeze([
 		Object.freeze({
 			capability_id: 'cloudflare.apply_remote_migration',
-			operation: 'apply_d1_migrations'
+			operation: 'apply_d1_migrations',
+			cost_class: 'metered_usage'
 		})
 	]),
 	deployment: Object.freeze([
-		Object.freeze({ capability_id: 'cloudflare.deploy_worker', operation: 'deploy_worker_version' })
+		Object.freeze({
+			capability_id: 'cloudflare.deploy_worker',
+			operation: 'deploy_worker_version',
+			cost_class: 'metered_usage'
+		})
 	]),
 	webhook_creation: Object.freeze([
-		Object.freeze({ capability_id: 'resend.create_webhook', operation: 'create_webhook' })
+		Object.freeze({
+			capability_id: 'resend.create_webhook',
+			operation: 'create_webhook',
+			cost_class: 'none'
+		})
 	]),
 	email_routing: Object.freeze([
 		Object.freeze({
 			capability_id: 'cloudflare.enable_email_routing',
-			operation: 'enable_email_routing'
+			operation: 'enable_email_routing',
+			cost_class: 'none'
 		}),
 		Object.freeze({
 			capability_id: 'cloudflare.configure_catch_all',
-			operation: 'create_catch_all_rule'
+			operation: 'create_catch_all_rule',
+			cost_class: 'none'
 		}),
 		Object.freeze({
 			capability_id: 'cloudflare.configure_catch_all',
-			operation: 'update_catch_all_rule'
+			operation: 'update_catch_all_rule',
+			cost_class: 'none'
 		})
 	]),
 	dns_change: Object.freeze([
-		Object.freeze({ capability_id: 'cloudflare.change_dns', operation: 'create_dns_record' }),
-		Object.freeze({ capability_id: 'cloudflare.change_dns', operation: 'update_dns_record' }),
-		Object.freeze({ capability_id: 'cloudflare.change_dns', operation: 'delete_owned_dns_record' })
+		Object.freeze({
+			capability_id: 'cloudflare.change_dns',
+			operation: 'create_dns_record',
+			cost_class: 'none'
+		}),
+		Object.freeze({
+			capability_id: 'cloudflare.change_dns',
+			operation: 'update_dns_record',
+			cost_class: 'none'
+		}),
+		Object.freeze({
+			capability_id: 'cloudflare.change_dns',
+			operation: 'delete_owned_dns_record',
+			cost_class: 'none'
+		})
 	]),
 	domain_verification: Object.freeze([
-		Object.freeze({ capability_id: 'resend.verify_domain', operation: 'verify_domain' })
+		Object.freeze({
+			capability_id: 'resend.verify_domain',
+			operation: 'verify_domain',
+			cost_class: 'none'
+		})
 	]),
 	external_send: Object.freeze([
 		Object.freeze({
 			capability_id: 'resend.send_controlled_test',
-			operation: 'send_controlled_test'
+			operation: 'send_controlled_test',
+			cost_class: 'metered_usage'
 		})
 	]),
 	destructive_cleanup: Object.freeze([
-		Object.freeze({ capability_id: 'cloudflare.delete_d1', operation: 'delete_empty_owned_d1' }),
-		Object.freeze({ capability_id: 'cloudflare.delete_r2', operation: 'delete_empty_owned_r2' }),
-		Object.freeze({ capability_id: 'cloudflare.delete_worker', operation: 'delete_owned_worker' }),
-		Object.freeze({ capability_id: 'resend.delete_domain', operation: 'delete_owned_domain' }),
-		Object.freeze({ capability_id: 'resend.delete_webhook', operation: 'delete_owned_webhook' }),
-		Object.freeze({ capability_id: 'resend.revoke_api_key', operation: 'revoke_owned_api_key' })
+		Object.freeze({
+			capability_id: 'cloudflare.delete_d1',
+			operation: 'delete_empty_owned_d1',
+			cost_class: 'none'
+		}),
+		Object.freeze({
+			capability_id: 'cloudflare.delete_r2',
+			operation: 'delete_empty_owned_r2',
+			cost_class: 'none'
+		}),
+		Object.freeze({
+			capability_id: 'cloudflare.delete_worker',
+			operation: 'delete_owned_worker',
+			cost_class: 'none'
+		}),
+		Object.freeze({
+			capability_id: 'resend.delete_domain',
+			operation: 'delete_owned_domain',
+			cost_class: 'none'
+		}),
+		Object.freeze({
+			capability_id: 'resend.delete_webhook',
+			operation: 'delete_owned_webhook',
+			cost_class: 'none'
+		}),
+		Object.freeze({
+			capability_id: 'resend.revoke_api_key',
+			operation: 'revoke_owned_api_key',
+			cost_class: 'none'
+		})
 	])
 });
 
@@ -210,7 +285,12 @@ const APPLY_STATE_FIELDS = new Set([
 	'approved',
 	'consumed',
 	'apply_started',
-	'readback_verified'
+	'readback_verified',
+	'rollback_approval_id',
+	'rollback_approved',
+	'rollback_consumed',
+	'rollback_started',
+	'rollback_readback_verified'
 ]);
 
 function normalizeDataKey(key) {
@@ -239,6 +319,23 @@ function isProtectedResourceType(provider, resourceType) {
 	);
 }
 
+function isKnownCredentialValue(value) {
+	if (typeof value !== 'string') return false;
+	const candidate = value.trim();
+	return [
+		/^Bearer\s+\S{16,}$/iu,
+		/^sk_(?:live|test)_[A-Za-z0-9_-]{16,}$/u,
+		/^re_[A-Za-z0-9_-]{20,}$/u,
+		/^gh[pousr]_[A-Za-z0-9]{20,}$/u,
+		/^xox[baprs]-[A-Za-z0-9-]{16,}$/u,
+		/^AKIA[A-Z0-9]{16}$/u,
+		/^AIza[A-Za-z0-9_-]{30,}$/u,
+		/^eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/u,
+		/^-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/u,
+		/(?:api[ _-]?key|access[ _-]?token|secret|password|bearer)\s*[:=]\s*\S{8,}/iu
+	].some((pattern) => pattern.test(candidate));
+}
+
 export class SetupEngineError extends Error {
 	constructor(code, message, details = {}) {
 		super(message);
@@ -260,7 +357,13 @@ function assertObject(value, label) {
 
 function assertSafeData(value, path = '$', seen = new Set()) {
 	if (value === undefined) return;
-	if (value === null || typeof value === 'string' || typeof value === 'boolean') return;
+	if (value === null || typeof value === 'boolean') return;
+	if (typeof value === 'string') {
+		if (isKnownCredentialValue(value)) {
+			stop('unsafe_plan_data', `${path} resembles a credential and is not permitted`);
+		}
+		return;
+	}
 	if (typeof value === 'number') {
 		if (!Number.isFinite(value)) stop('unsafe_plan_data', `${path} must be finite`);
 		return;
@@ -273,8 +376,21 @@ function assertSafeData(value, path = '$', seen = new Set()) {
 	} else {
 		for (const [key, entry] of Object.entries(value)) {
 			const normalizedKey = normalizeDataKey(key);
-			if (isForbiddenDataKey(key)) {
+			const controlledSendBody = normalizedKey === 'body' && isCanonicalControlledSendBody(entry);
+			if (isForbiddenDataKey(key) && !controlledSendBody) {
+				if (normalizedKey === 'body' && path.endsWith('.controlled_send')) {
+					stop(
+						'invalid_controlled_send',
+						'controlled send body must match the fixed canary template'
+					);
+				}
 				stop('unsafe_plan_data', `${path}.${key} is not permitted in setup state`);
+			}
+			if (controlledSendBody) {
+				if (typeof entry !== 'string' || entry.length > 512) {
+					stop('unsafe_plan_data', `${path}.${key} must be a bounded controlled-send body`);
+				}
+				continue;
 			}
 			if (normalizedKey === 'secret_broker_reference') {
 				if (typeof entry !== 'string' || !entry.trim()) {
@@ -299,14 +415,19 @@ function assertSafeData(value, path = '$', seen = new Set()) {
 
 function canonicalJson(value) {
 	assertSafeData(value);
+	return canonicalJsonUnchecked(value);
+}
+
+function canonicalJsonUnchecked(value) {
 	if (value === undefined) return 'null';
 	if (value === null) return 'null';
 	if (typeof value === 'string' || typeof value === 'boolean') return JSON.stringify(value);
 	if (typeof value === 'number') return JSON.stringify(value);
-	if (Array.isArray(value)) return `[${value.map((entry) => canonicalJson(entry)).join(',')}]`;
+	if (Array.isArray(value))
+		return `[${value.map((entry) => canonicalJsonUnchecked(entry)).join(',')}]`;
 	return `{${Object.keys(value)
 		.sort()
-		.map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`)
+		.map((key) => `${JSON.stringify(key)}:${canonicalJsonUnchecked(value[key])}`)
 		.join(',')}}`;
 }
 
@@ -386,6 +507,44 @@ function normalizeTarget(input) {
 	return target;
 }
 
+function providerTargetIdentity(target) {
+	const normalized = normalizeTarget(target);
+	const identity = { provider: normalized.provider };
+	const fields =
+		normalized.provider === 'cloudflare'
+			? ['account_id', 'zone_id', 'domain']
+			: ['team_id', 'domain_id', 'domain'];
+	for (const field of fields) {
+		if (normalized[field] !== undefined) identity[field] = normalized[field];
+	}
+	return identity;
+}
+
+export function providerTargetIdentityFingerprint(target) {
+	return fingerprint(providerTargetIdentity(target));
+}
+
+function assertObservedProviderIdentity(result, target, { required = false } = {}) {
+	const observed = result?.observed_identity_fingerprint;
+	if (observed === undefined || observed === null) {
+		if (required) {
+			stop(
+				'observed_identity_required',
+				'provider-enabled inspection requires an observed provider identity fingerprint'
+			);
+		}
+		return null;
+	}
+	if (typeof observed !== 'string' || !/^[a-f0-9]{64}$/u.test(observed)) {
+		stop('observed_identity_mismatch', 'observed provider identity fingerprint is malformed');
+	}
+	const expected = providerTargetIdentityFingerprint(target);
+	if (!constantEqual(observed, expected)) {
+		stop('observed_identity_mismatch', 'observed provider identity differs from the target');
+	}
+	return observed;
+}
+
 function stepContractEntry(step) {
 	const entries = SETUP_STEP_CAPABILITY_CONTRACT[step.kind];
 	if (!entries || !SETUP_STEP_CAPABILITY_CONTRACT_KEYS.has(step.kind)) return null;
@@ -410,6 +569,12 @@ function assertStepCapabilityContract(step, target) {
 	}
 	if (step.adapter_kind && step.adapter_kind !== target.adapter_kind) {
 		stop('step_target_mismatch', 'step adapter kind does not match the target adapter kind');
+	}
+	if (step.cost_class !== contractEntry.cost_class) {
+		stop(
+			'cost_class_mismatch',
+			`step cost class must be ${contractEntry.cost_class} for ${step.capability_id}`
+		);
 	}
 	return contractEntry;
 }
@@ -475,7 +640,7 @@ function normalizeRollback(input, target) {
 }
 
 function diffValues(before, after, path = '$', output = []) {
-	if (canonicalJson(before) === canonicalJson(after)) return output;
+	if (canonicalJsonUnchecked(before) === canonicalJsonUnchecked(after)) return output;
 	const beforeObject = before && typeof before === 'object' && !Array.isArray(before);
 	const afterObject = after && typeof after === 'object' && !Array.isArray(after);
 	if (beforeObject && afterObject) {
@@ -605,8 +770,11 @@ function assertInboundTopology(target, step, desired) {
 const CONTROLLED_SEND_FIELDS = new Set([
 	'controlled_sender',
 	'controlled_recipient',
+	'recipient_controlled',
 	'subject',
 	'template_id',
+	'body',
+	'body_hash',
 	'content_fingerprint',
 	'test_token',
 	'idempotency_key',
@@ -623,8 +791,24 @@ function safeCanaryToken(value) {
 	);
 }
 
-function controlledSendContentFingerprint(testToken) {
-	return fingerprint({ template_id: 'noroshi-canary-v1', test_token: testToken });
+function controlledSendBody(testToken) {
+	return `Noroshi setup verification\nCanary: ${testToken}\n`;
+}
+
+function controlledSendBodyHash(body) {
+	return createHash('sha256').update(body).digest('hex');
+}
+
+function isCanonicalControlledSendBody(value) {
+	if (typeof value !== 'string') return false;
+	const match = /^Noroshi setup verification\nCanary: (canary-[a-z0-9]+(?:-[a-z0-9]+)*)\n$/u.exec(
+		value
+	);
+	return Boolean(match && safeCanaryToken(match[1]) && value === controlledSendBody(match[1]));
+}
+
+function controlledSendContentFingerprint(bodyHash) {
+	return fingerprint({ template_id: 'noroshi-canary-v1', body_hash: bodyHash });
 }
 
 export function createControlledSendState({ target, sender, recipient, testToken }) {
@@ -647,12 +831,17 @@ export function createControlledSendState({ target, sender, recipient, testToken
 	if (!safeCanaryToken(testToken)) {
 		stop('invalid_controlled_send', 'controlled send requires a non-secret canary token');
 	}
+	const body = controlledSendBody(testToken);
+	const bodyHash = controlledSendBodyHash(body);
 	const controlled = {
 		controlled_sender: sender.toLowerCase(),
 		controlled_recipient: recipient.toLowerCase(),
+		recipient_controlled: true,
 		subject: `Noroshi test ${testToken}`,
 		template_id: 'noroshi-canary-v1',
-		content_fingerprint: controlledSendContentFingerprint(testToken),
+		body,
+		body_hash: bodyHash,
+		content_fingerprint: controlledSendContentFingerprint(bodyHash),
 		test_token: testToken,
 		idempotency_key: '',
 		status: 'planned'
@@ -661,7 +850,8 @@ export function createControlledSendState({ target, sender, recipient, testToken
 		target: normalizedTarget,
 		controlled_sender: controlled.controlled_sender,
 		controlled_recipient: controlled.controlled_recipient,
-		test_token: controlled.test_token,
+		recipient_controlled: controlled.recipient_controlled,
+		body_hash: controlled.body_hash,
 		template_id: controlled.template_id
 	});
 	return { controlled_send: controlled };
@@ -693,7 +883,9 @@ function assertControlledSend(target, step, desired, rollback) {
 		recipient: controlled.controlled_recipient,
 		testToken: controlled.test_token
 	}).controlled_send;
-	if (canonicalJson(controlled) !== canonicalJson(expected)) {
+	if (
+		canonicalJson({ controlled_send: controlled }) !== canonicalJson({ controlled_send: expected })
+	) {
 		stop(
 			'invalid_controlled_send',
 			'controlled send subject, template, content fingerprint, idempotency key, or state changed'
@@ -801,6 +993,15 @@ function assertPlanShape(plan) {
 	if (canonicalJson(normalizedStep) !== canonicalJson(plan.step)) {
 		stop('invalid_step', 'plan step is not canonical');
 	}
+	if (
+		plan.observed_identity_fingerprint !== undefined &&
+		!constantEqual(
+			plan.observed_identity_fingerprint,
+			providerTargetIdentityFingerprint(normalizedTarget)
+		)
+	) {
+		stop('observed_identity_mismatch', 'plan provider identity differs from the target');
+	}
 	const normalizedRollback = normalizeRollback(plan.rollback, normalizedTarget);
 	if (canonicalJson(normalizedRollback) !== canonicalJson(plan.rollback)) {
 		stop('invalid_rollback', 'plan rollback is not canonical');
@@ -836,7 +1037,7 @@ function normalizeProviderResult(result) {
 	for (const key of SAFE_PROVIDER_RESULT_KEYS) {
 		if (result[key] === undefined) continue;
 		if (
-			typeof result[key] === 'string' ||
+			(typeof result[key] === 'string' && !isKnownCredentialValue(result[key])) ||
 			typeof result[key] === 'boolean' ||
 			typeof result[key] === 'number'
 		) {
@@ -867,6 +1068,7 @@ export async function inspectSetup({
 	target,
 	step,
 	request = null,
+	requireObservedIdentity = false,
 	now = Date.now()
 }) {
 	const normalizedTarget = normalizeTarget(target);
@@ -891,14 +1093,23 @@ export async function inspectSetup({
 		result.error ||
 		result.failed === true ||
 		result.list_failed === true ||
-		result.read_failed === true
+		result.read_failed === true ||
+		result.partial === true ||
+		result.state_partial === true
 	) {
 		stop('provider_read_failed', 'provider inspection failed; an empty result is not safe');
 	}
-	if (result.list_complete === false || result.complete === false) {
+	if (
+		result.list_complete === false ||
+		result.complete === false ||
+		result.readback_complete === false
+	) {
 		stop('provider_read_failed', 'provider list was incomplete; an empty result is not safe');
 	}
 	const state = ensureInspectionState(result.state ?? result.snapshot, 'provider state');
+	const observedIdentityFingerprint = assertObservedProviderIdentity(result, normalizedTarget, {
+		required: requireObservedIdentity
+	});
 	const observedAt = new Date(now).toISOString();
 	return {
 		schema_version: SETUP_ENGINE_SCHEMA_VERSION,
@@ -906,6 +1117,9 @@ export async function inspectSetup({
 		state,
 		current_state_fingerprint: fingerprint(state),
 		observed_at: observedAt,
+		...(observedIdentityFingerprint
+			? { observed_identity_fingerprint: observedIdentityFingerprint }
+			: {}),
 		...(result.authoritative === true ? { authoritative: true } : {}),
 		...(typeof result.resource_count === 'number' ? { resource_count: result.resource_count } : {})
 	};
@@ -919,6 +1133,7 @@ export function createMutationPlan({
 	rollback,
 	approvalId,
 	expiresAt,
+	requireObservedIdentity = false,
 	now = Date.now(),
 	planId = randomUUID()
 }) {
@@ -927,6 +1142,22 @@ export function createMutationPlan({
 	const normalizedTarget = normalizeTarget(target ?? inspectedTarget);
 	if (canonicalJson(inspectedTarget) !== canonicalJson(normalizedTarget)) {
 		stop('target_mismatch', 'plan target differs from inspected target');
+	}
+	const expectedObservedIdentity = providerTargetIdentityFingerprint(normalizedTarget);
+	if (
+		requireObservedIdentity &&
+		!constantEqual(inspection.observed_identity_fingerprint, expectedObservedIdentity)
+	) {
+		stop(
+			'observed_identity_required',
+			'provider-enabled planning requires an observed provider identity fingerprint'
+		);
+	}
+	if (
+		inspection.observed_identity_fingerprint !== undefined &&
+		!constantEqual(inspection.observed_identity_fingerprint, expectedObservedIdentity)
+	) {
+		stop('observed_identity_mismatch', 'inspection provider identity differs from the target');
 	}
 	const normalizedStep = normalizeStep(step);
 	assertStepCapabilityContract(normalizedStep, normalizedTarget);
@@ -959,6 +1190,9 @@ export function createMutationPlan({
 		approval_id: normalizedApproval,
 		expires_at: expires,
 		created_at: new Date(now).toISOString(),
+		...(inspection.observed_identity_fingerprint
+			? { observed_identity_fingerprint: inspection.observed_identity_fingerprint }
+			: {}),
 		plan_hash: ''
 	};
 	plan.rollback.approval_id = normalizeString(
@@ -991,7 +1225,12 @@ function newApplyState(plan) {
 		approved: true,
 		consumed: false,
 		apply_started: false,
-		readback_verified: false
+		readback_verified: false,
+		rollback_approval_id: plan.rollback.approval_id,
+		rollback_approved: false,
+		rollback_consumed: false,
+		rollback_started: false,
+		rollback_readback_verified: false
 	};
 }
 
@@ -1004,7 +1243,7 @@ function assertApplyStateShape(state) {
 	if (state.schema_version !== APPLY_STATE_SCHEMA_VERSION) {
 		stop('state_schema_mismatch', 'apply state schema is not supported');
 	}
-	for (const key of ['plan_id', 'plan_hash', 'approval_id']) {
+	for (const key of ['plan_id', 'plan_hash', 'approval_id', 'rollback_approval_id']) {
 		if (typeof state[key] !== 'string' || !state[key].trim()) {
 			stop('state_schema_mismatch', `apply state ${key} is required`);
 		}
@@ -1012,7 +1251,16 @@ function assertApplyStateShape(state) {
 	if (!/^[a-f0-9]{64}$/u.test(state.plan_hash)) {
 		stop('state_schema_mismatch', 'apply state plan hash is malformed');
 	}
-	for (const key of ['approved', 'consumed', 'apply_started', 'readback_verified']) {
+	for (const key of [
+		'approved',
+		'consumed',
+		'apply_started',
+		'readback_verified',
+		'rollback_approved',
+		'rollback_consumed',
+		'rollback_started',
+		'rollback_readback_verified'
+	]) {
 		if (typeof state[key] !== 'boolean') {
 			stop('state_schema_mismatch', `apply state ${key} must be boolean`);
 		}
@@ -1026,6 +1274,18 @@ function assertApplyStateShape(state) {
 	if (state.apply_started && !state.consumed) {
 		stop('state_schema_mismatch', 'started apply state must have consumed approval');
 	}
+	if (
+		!state.rollback_approved &&
+		(state.rollback_consumed || state.rollback_started || state.rollback_readback_verified)
+	) {
+		stop('state_schema_mismatch', 'unapproved rollback state cannot be in progress');
+	}
+	if (state.rollback_started && !state.rollback_consumed) {
+		stop('state_schema_mismatch', 'started rollback state must have consumed approval');
+	}
+	if (state.rollback_readback_verified && !state.rollback_started) {
+		stop('state_schema_mismatch', 'verified rollback state must have started');
+	}
 	return state;
 }
 
@@ -1034,7 +1294,8 @@ function assertApplyStateForPlan(state, plan) {
 	if (
 		state.plan_id !== plan.plan_id ||
 		state.plan_hash !== plan.plan_hash ||
-		state.approval_id !== plan.approval_id
+		state.approval_id !== plan.approval_id ||
+		state.rollback_approval_id !== plan.rollback.approval_id
 	) {
 		stop('state_mismatch', 'resumable state is bound to another plan or approval');
 	}
@@ -1250,6 +1511,104 @@ export async function verifyHostApprovalReceipt({
 	return cloneSafe(claims);
 }
 
+const HOST_ROLLBACK_APPROVAL_RECEIPT_SCHEMA_VERSION = 'noroshi.host-rollback-approval-receipt.v1';
+const HOST_ROLLBACK_APPROVAL_RECEIPT_FIELDS = new Set([
+	'schema_version',
+	'issuer',
+	'audience',
+	'plan_id',
+	'plan_hash',
+	'approval_id',
+	'target_fingerprint',
+	'capability_id',
+	'operation',
+	'cost_class',
+	'rollback_mode',
+	'owned_resource_ids_fingerprint',
+	'nonce',
+	'issued_at',
+	'expires_at',
+	'signature'
+]);
+
+export function hostRollbackApprovalReceiptClaims(plan, { now = Date.now() } = {}) {
+	const verified = verifyMutationPlan(plan, { now });
+	return {
+		schema_version: HOST_ROLLBACK_APPROVAL_RECEIPT_SCHEMA_VERSION,
+		audience: 'noroshi.setup.rollback',
+		plan_id: verified.plan_id,
+		plan_hash: verified.plan_hash,
+		approval_id: verified.rollback.approval_id,
+		target_fingerprint: fingerprint(verified.target),
+		capability_id: verified.step.capability_id,
+		operation: verified.step.operation,
+		cost_class: verified.step.cost_class,
+		rollback_mode: verified.rollback.mode,
+		owned_resource_ids_fingerprint: fingerprint(verified.rollback.owned_resource_ids),
+		expires_at: verified.expires_at
+	};
+}
+
+export async function verifyHostRollbackApprovalReceipt({
+	plan,
+	receipt,
+	verifySignature,
+	now = Date.now()
+}) {
+	if (!receipt || typeof receipt !== 'object' || Array.isArray(receipt)) {
+		stop('host_rollback_receipt_required', 'a separate host-issued rollback receipt is required');
+	}
+	for (const key of Object.keys(receipt)) {
+		if (!HOST_ROLLBACK_APPROVAL_RECEIPT_FIELDS.has(key)) {
+			stop('host_rollback_receipt_invalid', `host rollback receipt field ${key} is not allowed`);
+		}
+	}
+	if (typeof verifySignature !== 'function') {
+		stop('host_receipt_verifier_missing', 'the trusted host approval verifier is unavailable');
+	}
+	const expected = hostRollbackApprovalReceiptClaims(plan, { now });
+	const claims = {};
+	for (const [key, expectedValue] of Object.entries(expected)) {
+		if (receipt[key] !== expectedValue) {
+			stop(
+				'host_rollback_receipt_mismatch',
+				`host rollback receipt ${key} does not match the plan`
+			);
+		}
+		claims[key] = receipt[key];
+	}
+	if (typeof receipt.issuer !== 'string' || !receipt.issuer.trim()) {
+		stop('host_rollback_receipt_invalid', 'host rollback receipt issuer is required');
+	}
+	if (typeof receipt.nonce !== 'string' || !/^[a-zA-Z0-9_-]{16,128}$/u.test(receipt.nonce)) {
+		stop('host_rollback_receipt_invalid', 'host rollback receipt nonce is malformed');
+	}
+	const issuedAt = Date.parse(receipt.issued_at);
+	const receiptExpiry = Date.parse(receipt.expires_at);
+	if (
+		!Number.isFinite(issuedAt) ||
+		issuedAt > now ||
+		!Number.isFinite(receiptExpiry) ||
+		receiptExpiry <= now
+	) {
+		stop('host_rollback_receipt_expired', 'host rollback receipt is expired or not yet valid');
+	}
+	if (typeof receipt.signature !== 'string' || !receipt.signature.trim()) {
+		stop('host_rollback_receipt_invalid', 'host rollback receipt signature is required');
+	}
+	claims.issuer = receipt.issuer;
+	claims.nonce = receipt.nonce;
+	claims.issued_at = new Date(issuedAt).toISOString();
+	if (
+		(await verifySignature({ claims: cloneSafe(claims), signature: receipt.signature })) !== true
+	) {
+		stop('host_rollback_receipt_invalid', 'host rollback receipt signature is invalid');
+	}
+	return cloneSafe(claims);
+}
+
+const ATOMIC_HOST_RECEIPT_LEDGERS = new WeakSet();
+
 /**
  * Converts one externally verified host receipt into the engine's internal
  * one-use apply transition. The verifier and nonce consumer are injected by
@@ -1257,16 +1616,34 @@ export async function verifyHostApprovalReceipt({
  */
 export class HostReceiptApprovalLedger {
 	#receipt;
+	#rollbackReceipt;
 	#verifySignature;
+	#verifyRollbackSignature;
 	#consumeNonce;
+	#consumeRollbackNonce;
 	#delegate;
 	#verifiedPlanHash = null;
+	#verifiedRollbackPlanHash = null;
 
-	constructor({ receipt, verifySignature, consumeNonce, delegate } = {}) {
+	constructor({
+		receipt,
+		rollbackReceipt,
+		verifySignature,
+		verifyRollbackSignature,
+		consumeNonce,
+		consumeRollbackNonce,
+		delegate
+	} = {}) {
 		this.#receipt = receipt;
+		this.#rollbackReceipt = rollbackReceipt;
 		this.#verifySignature = verifySignature;
+		this.#verifyRollbackSignature = verifyRollbackSignature;
 		this.#consumeNonce = consumeNonce;
+		this.#consumeRollbackNonce = consumeRollbackNonce;
 		this.#delegate = delegate ?? new InMemoryApprovalLedger();
+		if (delegate instanceof AtomicApprovalLedger) {
+			ATOMIC_HOST_RECEIPT_LEDGERS.add(this);
+		}
 	}
 
 	approve() {
@@ -1303,18 +1680,61 @@ export class HostReceiptApprovalLedger {
 	async markReadbackVerified(plan, options = {}) {
 		return this.#delegate.markReadbackVerified(plan, options);
 	}
+
+	approveRollback() {
+		stop(
+			'host_rollback_receipt_required',
+			'the model-facing setup surface cannot approve its own rollback'
+		);
+	}
+
+	async #authorizeRollback(plan, now) {
+		if (this.#verifiedRollbackPlanHash === plan.plan_hash) return;
+		if (typeof this.#consumeRollbackNonce !== 'function') {
+			stop(
+				'host_receipt_verifier_missing',
+				'the trusted host rollback nonce consumer is unavailable'
+			);
+		}
+		const claims = await verifyHostRollbackApprovalReceipt({
+			plan,
+			receipt: this.#rollbackReceipt,
+			verifySignature: this.#verifyRollbackSignature,
+			now
+		});
+		if ((await this.#consumeRollbackNonce(claims.nonce)) !== true) {
+			stop('host_rollback_receipt_used', 'host rollback approval receipt was already consumed');
+		}
+		await this.#delegate.approveRollback(plan, { now });
+		this.#verifiedRollbackPlanHash = plan.plan_hash;
+	}
+
+	async getRollbackState(plan, options = {}) {
+		return this.#delegate.getRollbackState(plan, options);
+	}
+
+	async beginRollback(plan, options = {}) {
+		await this.#authorizeRollback(plan, options.now ?? Date.now());
+		return this.#delegate.beginRollback(plan, options);
+	}
+
+	async markRollbackReadbackVerified(plan, options = {}) {
+		return this.#delegate.markRollbackReadbackVerified(plan, options);
+	}
+
+	async consumeRollback(plan, options = {}) {
+		return this.beginRollback(plan, options);
+	}
 }
 
 /**
  * Approval ledger backed by the QMJ-10 atomic state file. The state contains
- * only one plan's identity and four monotonic apply flags. A restart may
- * inspect/read back an in-flight write, but never starts the provider step a
- * second time. Rollback approvals remain fail-closed in memory; losing one on
- * restart cannot cause a rollback write.
+ * only one plan's identity and monotonic apply/rollback flags. A restart may
+ * inspect/read back an in-flight write, but never starts either provider step
+ * a second time.
  */
 export class AtomicApprovalLedger {
 	#store;
-	#rollbackApprovals = new Map();
 	#tail = Promise.resolve();
 
 	constructor({ stateStore } = {}) {
@@ -1409,41 +1829,61 @@ export class AtomicApprovalLedger {
 			const verified = verifyMutationPlan(plan, { now });
 			const approvalId = verified.rollback?.approval_id;
 			if (!approvalId) stop('approval_mismatch', 'rollback approval ID is missing');
-			const existing = this.#rollbackApprovals.get(approvalId);
-			if (existing && existing.plan_hash !== verified.plan_hash) {
-				stop('approval_mismatch', 'rollback approval ID is already bound to another plan');
+			const state = this.#assertPlanState(await this.#load(), verified);
+			if (!state.readback_verified) {
+				stop('state_mismatch', 'rollback cannot be approved before apply readback is verified');
 			}
-			this.#rollbackApprovals.set(approvalId, {
-				plan_hash: verified.plan_hash,
-				expires_at: verified.expires_at,
-				used_at: existing?.used_at ?? null
-			});
+			if (!state.rollback_approved) {
+				await this.#store.save({ ...state, rollback_approved: true });
+			}
 			return { approval_id: approvalId, plan_hash: verified.plan_hash, kind: 'rollback' };
 		});
 	}
 
-	consumeRollback(plan, { approvalId, now = Date.now() } = {}) {
+	getRollbackState(plan, { now = Date.now() } = {}) {
+		return this.#withLock(async () => {
+			const verified = verifyMutationPlan(plan, { now });
+			const state = await this.#load();
+			if (!state) return null;
+			return cloneSafe(this.#assertPlanState(state, verified));
+		});
+	}
+
+	beginRollback(plan, { approvalId, now = Date.now() } = {}) {
 		return this.#withLock(async () => {
 			const verified = verifyMutationPlan(plan, { now });
 			if (approvalId !== verified.rollback?.approval_id) {
 				stop('approval_mismatch', 'rollback approval ID does not match the plan');
 			}
-			const approval = this.#rollbackApprovals.get(approvalId);
-			if (!approval || approval.plan_hash !== verified.plan_hash) {
-				stop('approval_mismatch', 'rollback approval is missing or bound to another plan');
+			const state = this.#assertPlanState(await this.#load(), verified);
+			if (state.rollback_readback_verified || state.rollback_started) {
+				return { ...cloneSafe(state), resumed: true, started_now: false };
 			}
-			if (approval.used_at)
+			if (!state.rollback_approved || state.rollback_consumed) {
 				stop('approval_used', 'rollback approval is one-use and has already been consumed');
-			this.#rollbackApprovals.set(approvalId, {
-				...approval,
-				used_at: new Date(now).toISOString()
-			});
-			return {
-				approval_id: approvalId,
-				consumed_at: new Date(now).toISOString(),
-				kind: 'rollback'
-			};
+			}
+			const next = { ...state, rollback_consumed: true, rollback_started: true };
+			await this.#store.save(next);
+			return { ...cloneSafe(next), resumed: false, started_now: true };
 		});
+	}
+
+	markRollbackReadbackVerified(plan, { now = Date.now() } = {}) {
+		return this.#withLock(async () => {
+			const verified = verifyMutationPlan(plan, { now });
+			const state = this.#assertPlanState(await this.#load(), verified);
+			if (!state.rollback_started) {
+				stop('state_mismatch', 'rollback state cannot be marked verified before rollback starts');
+			}
+			if (state.rollback_readback_verified) return cloneSafe(state);
+			const next = { ...state, rollback_readback_verified: true };
+			await this.#store.save(next);
+			return cloneSafe(next);
+		});
+	}
+
+	consumeRollback(plan, options = {}) {
+		return this.beginRollback(plan, options);
 	}
 }
 
@@ -1459,6 +1899,18 @@ function assertBrowserReadOnly(target) {
 	}
 }
 
+function assertTrustedProviderApprovalLedger(approvalLedger) {
+	if (
+		!(approvalLedger instanceof HostReceiptApprovalLedger) ||
+		!ATOMIC_HOST_RECEIPT_LEDGERS.has(approvalLedger)
+	) {
+		stop(
+			'provider_approval_required',
+			'provider writes require host receipt authorization backed by atomic state'
+		);
+	}
+}
+
 export async function applyMutationPlan({
 	plan,
 	adapter,
@@ -1466,11 +1918,27 @@ export async function applyMutationPlan({
 	approvalLedger,
 	approvalId,
 	target,
+	requireObservedIdentity = false,
 	now = Date.now()
 }) {
 	const verified = verifyMutationPlan(plan, { now, target });
+	if (
+		requireObservedIdentity &&
+		!constantEqual(
+			verified.observed_identity_fingerprint,
+			providerTargetIdentityFingerprint(verified.target)
+		)
+	) {
+		stop(
+			'observed_identity_required',
+			'provider-enabled apply requires a plan bound to an observed provider identity'
+		);
+	}
 	assertBrowserReadOnly(verified.target);
-	const ledger = approvalLedger ?? new InMemoryApprovalLedger();
+	if (!approvalLedger) {
+		stop('approval_mismatch', 'apply requires an explicit approval ledger');
+	}
+	const ledger = approvalLedger;
 	const selectedAdapter = resolveAdapter(adapters, verified, adapter);
 	let current;
 	try {
@@ -1478,6 +1946,7 @@ export async function applyMutationPlan({
 			adapter: selectedAdapter,
 			target: verified.target,
 			step: verified.step,
+			requireObservedIdentity,
 			now
 		});
 	} catch (error) {
@@ -1507,6 +1976,7 @@ export async function applyMutationPlan({
 	if (!constantEqual(current.current_state_fingerprint, verified.current_state_fingerprint)) {
 		stop('current_state_mismatch', 'provider state changed after planning; no write was made');
 	}
+	assertTrustedProviderApprovalLedger(ledger);
 	const applyTransition =
 		typeof ledger.beginApply === 'function'
 			? await ledger.beginApply(verified, {
@@ -1534,6 +2004,7 @@ export async function applyMutationPlan({
 			adapter: selectedAdapter,
 			target: verified.target,
 			step: verified.step,
+			requireObservedIdentity,
 			now
 		});
 	} catch {
@@ -1579,9 +2050,22 @@ export async function rollbackMutationPlan({
 	approvalLedger,
 	rollbackApprovalId,
 	now = Date.now(),
-	target
+	target,
+	requireObservedIdentity = false
 }) {
 	const verified = verifyMutationPlan(plan, { now, target });
+	if (
+		requireObservedIdentity &&
+		!constantEqual(
+			verified.observed_identity_fingerprint,
+			providerTargetIdentityFingerprint(verified.target)
+		)
+	) {
+		stop(
+			'observed_identity_required',
+			'provider-enabled rollback requires a plan bound to an observed provider identity'
+		);
+	}
 	assertBrowserReadOnly(verified.target);
 	if (isProtectedResourceType(verified.target.provider, verified.target.resource_type)) {
 		return {
@@ -1603,11 +2087,16 @@ export async function rollbackMutationPlan({
 			adapter: selectedAdapter,
 			target: verified.target,
 			step: verified.step,
+			requireObservedIdentity,
 			now
 		});
 	} catch (error) {
 		throw providerReadFailure(error);
 	}
+	const rollbackState =
+		typeof approvalLedger?.getRollbackState === 'function'
+			? await approvalLedger.getRollbackState(verified, { now })
+			: null;
 	if (
 		constantEqual(current.current_state_fingerprint, verified.current_state_fingerprint) ||
 		(verified.step.kind === 'dns_change' &&
@@ -1618,7 +2107,28 @@ export async function rollbackMutationPlan({
 				verified.rollback.owned_resource_ids
 			))
 	) {
+		if (
+			rollbackState?.rollback_started &&
+			!rollbackState.rollback_readback_verified &&
+			typeof approvalLedger.markRollbackReadbackVerified === 'function'
+		) {
+			await approvalLedger.markRollbackReadbackVerified(verified, { now });
+		}
+		if (rollbackState?.rollback_started) {
+			return {
+				status: rollbackState.rollback_readback_verified ? 'already_verified' : 'recovered',
+				writes: 0,
+				verified: true,
+				readback: cloneSafe(current)
+			};
+		}
 		return { status: 'noop', writes: 0, verified: true, readback: cloneSafe(current) };
+	}
+	if (rollbackState?.rollback_started) {
+		stop(
+			'rollback_recovery_required',
+			'rollback was started but readback is not the approved before state; inspect before any new plan'
+		);
 	}
 	const currentMatchesApproved =
 		constantEqual(current.current_state_fingerprint, verified.desired_state_fingerprint) ||
@@ -1629,13 +2139,20 @@ export async function rollbackMutationPlan({
 	if (verified.rollback.mode === 'manual_review' || verified.rollback.mode === 'not_needed') {
 		return { status: 'manual_review_required', writes: 0, reason: 'rollback is not automated' };
 	}
-	if (!approvalLedger || typeof approvalLedger.consumeRollback !== 'function') {
+	assertTrustedProviderApprovalLedger(approvalLedger);
+	if (typeof approvalLedger.beginRollback !== 'function') {
 		stop('approval_mismatch', 'rollback requires a separate one-use approval');
 	}
-	await approvalLedger.consumeRollback(verified, {
+	const rollbackTransition = await approvalLedger.beginRollback(verified, {
 		approvalId: rollbackApprovalId ?? verified.rollback.approval_id,
 		now
 	});
+	if (rollbackTransition?.rollback_started && rollbackTransition.started_now === false) {
+		stop(
+			'rollback_recovery_required',
+			'rollback was started by another attempt; inspect current state before any new write'
+		);
+	}
 	let result;
 	try {
 		result = await selectedAdapter.rollbackStep({
@@ -1652,6 +2169,7 @@ export async function rollbackMutationPlan({
 			adapter: selectedAdapter,
 			target: verified.target,
 			step: verified.step,
+			requireObservedIdentity,
 			now
 		});
 	} catch {
@@ -1669,6 +2187,7 @@ export async function rollbackMutationPlan({
 	if (!rollbackMatchesApproved) {
 		stop('rollback_readback_mismatch', 'rollback readback differs from the original snapshot');
 	}
+	await approvalLedger.markRollbackReadbackVerified(verified, { now });
 	return {
 		status: 'rolled_back',
 		writes: 1,
@@ -1679,7 +2198,36 @@ export async function rollbackMutationPlan({
 }
 
 export class SetupEngine {
-	constructor({ adapters = {}, approvalLedger, stateStore, clock = () => Date.now() } = {}) {
+	constructor({ mode, adapters = {}, approvalLedger, stateStore, clock = () => Date.now() } = {}) {
+		assertObject(adapters, 'adapters');
+		const hasConfiguredAdapters = Object.keys(adapters).length > 0;
+		if (mode === undefined && hasConfiguredAdapters) {
+			stop(
+				'provider_mode_required',
+				'configured provider adapters require explicit provider_enabled mode'
+			);
+		}
+		this.mode = mode ?? 'local_snapshot';
+		if (!['local_snapshot', 'provider_enabled'].includes(this.mode)) {
+			stop('invalid_engine_mode', 'setup engine mode is not supported');
+		}
+		if (this.mode === 'local_snapshot' && hasConfiguredAdapters) {
+			stop('provider_adapter_forbidden', 'local_snapshot mode cannot configure provider adapters');
+		}
+		if (this.mode === 'provider_enabled') {
+			if (!hasConfiguredAdapters) {
+				stop('adapter_missing', 'provider_enabled mode requires a configured provider adapter');
+			}
+			if (
+				!(approvalLedger instanceof HostReceiptApprovalLedger) ||
+				!ATOMIC_HOST_RECEIPT_LEDGERS.has(approvalLedger)
+			) {
+				stop(
+					'provider_approval_required',
+					'provider_enabled mode requires host receipt authorization backed by atomic state'
+				);
+			}
+		}
 		this.adapters = adapters;
 		this.approvalLedger =
 			approvalLedger ??
@@ -1688,11 +2236,26 @@ export class SetupEngine {
 	}
 
 	inspect(input) {
-		return inspectSetup({ ...input, now: input?.now ?? this.clock(), adapters: this.adapters });
+		if (this.mode === 'provider_enabled' && input?.adapter !== undefined) {
+			stop(
+				'provider_adapter_forbidden',
+				'provider_enabled mode uses only its configured adapter registry'
+			);
+		}
+		return inspectSetup({
+			...input,
+			now: input?.now ?? this.clock(),
+			adapters: this.adapters,
+			requireObservedIdentity: this.mode === 'provider_enabled'
+		});
 	}
 
 	plan(input) {
-		return createMutationPlan({ ...input, now: input?.now ?? this.clock() });
+		return createMutationPlan({
+			...input,
+			now: input?.now ?? this.clock(),
+			requireObservedIdentity: this.mode === 'provider_enabled'
+		});
 	}
 
 	approve(plan) {
@@ -1704,6 +2267,15 @@ export class SetupEngine {
 	}
 
 	apply(plan, { adapter, approvalId, target, now = this.clock() } = {}) {
+		if (this.mode !== 'provider_enabled') {
+			stop('provider_adapter_forbidden', 'local_snapshot mode cannot perform provider writes');
+		}
+		if (adapter !== undefined) {
+			stop(
+				'provider_adapter_forbidden',
+				'provider_enabled mode uses only its configured adapter registry'
+			);
+		}
 		return applyMutationPlan({
 			plan,
 			adapter,
@@ -1711,11 +2283,21 @@ export class SetupEngine {
 			approvalLedger: this.approvalLedger,
 			approvalId,
 			target,
+			requireObservedIdentity: true,
 			now
 		});
 	}
 
 	rollback(plan, { adapter, target, rollbackApprovalId, now = this.clock() } = {}) {
+		if (this.mode !== 'provider_enabled') {
+			stop('provider_adapter_forbidden', 'local_snapshot mode cannot perform provider writes');
+		}
+		if (adapter !== undefined) {
+			stop(
+				'provider_adapter_forbidden',
+				'provider_enabled mode uses only its configured adapter registry'
+			);
+		}
 		return rollbackMutationPlan({
 			plan,
 			adapter,
@@ -1723,6 +2305,7 @@ export class SetupEngine {
 			approvalLedger: this.approvalLedger,
 			target,
 			rollbackApprovalId,
+			requireObservedIdentity: true,
 			now
 		});
 	}

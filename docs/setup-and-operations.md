@@ -24,12 +24,12 @@ Cloudflare公式の[Deploy to Cloudflareボタン](https://developers.cloudflare
 
 ### 日本語セットアップサポートの4段階
 
-| 導線                          | できること                                                                                | 現在の状態                                                       |
-| ----------------------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| AIに相談（提供中）            | 質問文をChatGPT、Claude、Geminiの新規チャットへ渡し、日本語の説明を受ける | Noroshi、Cloudflare、Resendを読む・変更する権限はありません |
-| Setup Skill（ローカル提供中） | BYOKの担当範囲、公式画面、確認項目、人間へ引き渡す操作をAIへ教える再利用可能な手順書 | ChatGPT Work/Codex向けの開通ミッションを含みます |
-| Setup MCP（ローカル提供中） | 開通ミッション、非秘密の事前確認、計画、readbackを保存・検証する | provider非接続。外部writeと承認は行いません |
-| Host adapter（ホスト対応時） | 署名済みの1回限りの承認receiptを検証し、固定された1操作だけを実行してreadbackする | 現在の配布物には実provider adapterがありません |
+| 導線                          | できること                                                                           | 現在の状態                                                  |
+| ----------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| AIに相談（提供中）            | 質問文をChatGPT、Claude、Geminiの新規チャットへ渡し、日本語の説明を受ける            | Noroshi、Cloudflare、Resendを読む・変更する権限はありません |
+| Setup Skill（ローカル提供中） | BYOKの担当範囲、公式画面、確認項目、人間へ引き渡す操作をAIへ教える再利用可能な手順書 | ChatGPT Work/Codex向けの開通ミッションを含みます            |
+| Setup MCP（ローカル提供中）   | 開通ミッション、非秘密の事前確認、計画、readbackを保存・検証する                     | provider非接続。外部writeと承認は行いません                 |
+| Host adapter（ホスト対応時）  | 署名済みの1回限りの承認receiptを検証し、固定された1操作だけを実行してreadbackする    | 現在の配布物には実provider adapterがありません              |
 
 現在利用できるAI相談ドックは、**デプロイ後のResend設定と最初の管理者作成**を支援します。`skills/noroshi-setup`には、Cloudflare、Resend、将来のGmail BYOK設定を公式画面に沿って案内するポータブルSkillがあります。Agent Plugin ZIPにはこのSkill、レビュー済み参照資料、日を跨いで再開するprovider非接続のSetup MCPを同梱します。
 
@@ -61,6 +61,8 @@ bun run package:agent-plugin
 
 このZIPに `scripts/setup.mjs` は含まれません。`bun run setup` はリポジトリに残る別の対話型CLIであり、QMJ-10のprovider-neutral setup-engineやSetup MCPから自動実行されません。`setup_apply` は引き続きprovider adapter unavailableで停止します。
 
+1プロンプトのAI導入では、Setup MCPの`setup_resume`がOSのユーザーstate領域へ開通ミッションを保存し、別プロセスから再開できることを最初に確認します。利用できない場合、会話内のTODOだけでprovider設定を続行しません。ChatGPTデスクトップのCodexローカルタスク、Codex CLI、IDE拡張は同じCodexホストのMCP設定を共有します。次のplugin導入後に新しいローカルタスクを開始し、`setup_resume`を呼んでから事前確認へ進みます。ホスト型ChatGPT WebはローカルCodex設定を読みません。Webからprivate MCPを使う場合だけ、Secure MCP Tunnelまたはレビュー済みのremote MCP経路を用意します。
+
 Codex CLIでrepo marketplaceを使う場合は、リポジトリのルートで次を実行します。marketplace登録・インストール先は利用者のCodex設定へ保存されるため、対象アカウントで実行してください。
 
 ```bash
@@ -70,7 +72,7 @@ codex plugin add noroshi-setup@noroshi
 codex plugin list
 ```
 
-インストール後は新しいCodex sessionを開始します。native adapterにもBYOK setup Skillと、provider・メールボックス権限を持たないSetup MCPが含まれます。`setup_apply`はprovider adapter unavailableで停止します。Codex CLIのクリーンプロファイルでこの導線を確認済みです。ChatGPTデスクトップはPlugins Directoryからrepo marketplaceを選択してインストールする別の導線で、UI確認は未実施です。
+インストール後はChatGPTデスクトップのCodexローカルタスクまたはCodex CLIで新しいタスクを開始し、外部設定へ進む前に`setup_resume`を呼びます。native adapterにもBYOK setup Skillと、provider・メールボックス権限を持たないSetup MCPが含まれます。`setup_apply`はprovider adapter unavailableで停止します。現在の配布物には実provider adapterがないため、ホストの安全なブラウザ・Computer Use・terminal経路が使えない外部writeはAIが実行しません。AIは許可済み公式画面まで案内し、最終操作を利用者へ渡します。Codex CLIのクリーンプロファイルではplugin導入、MCP初期化、別プロセスからの再開まで確認済みです。ChatGPTデスクトップから同じCodexホスト設定を使う画面操作は未確認です。
 
 ## AIに質問
 
@@ -109,7 +111,7 @@ AIには、回答するたびに公式ドキュメントを実際に開き、確
 
 初回リリースの送信はResendのみをサポートします。Cloudflare Email Routingは受信専用です。
 
-## 人が端末で進めるセットアップ
+## セットアップ
 
 この節の`bun run setup`は、人が対話端末で操作する互換経路です。ChatGPT WorkまたはCodexへ任せる場合は、READMEの指示文と`noroshi-setup` Skillを使います。AIは`bun run setup`でSetup Engineの1操作承認を迂回しません。
 
@@ -118,7 +120,7 @@ AIには、回答するたびに公式ドキュメントを実際に開き、確
 1. DNSをCloudflareで管理できる独自ドメイン
 2. Cloudflareアカウント
 3. Resendアカウント
-4. [Bun](https://bun.sh) 1.3.14（検証済みの固定バージョン）
+4. [Bun](https://bun.com/docs/installation) 1.3.14（検証済みの固定バージョン）
 
 最短手順は次のとおりです。
 
@@ -133,7 +135,13 @@ Bunを導入済みなら、次の補助スクリプトでバージョンを確�
 bash scripts/setup.sh
 ```
 
-`scripts/setup.sh`はBunをダウンロードしません。Bunがない、または1.3.14以外の場合は停止します。[Bun公式手順](https://bun.sh/docs/installation)で利用者が導入し、再実行してください。依存関係は`bun install --frozen-lockfile`で固定します。
+`scripts/setup.sh`はBunをダウンロードしません。Bunがない、または1.3.14以外の場合は停止します。AIは[Bun公式Installation](https://bun.com/docs/installation)と[Bun 1.3.14公式リリース](https://github.com/oven-sh/bun/releases/tag/bun-v1.3.14)を開きます。`curl ... | bash`や`irm ... | iex`のように、取得したスクリプトをそのまま実行するpipe installerは使いません。AIがOSとCPUを読み取り、公式releaseから該当する通常版assetと`SHASUMS256.txt`を特定します。利用者がassetをダウンロードし、SHA-256を照合してから展開し、既存のBunとは混在しないPATH上へ配置します。AIは確認した環境に対応する操作を1本ずつコピーできるコード枠で示します。新しいterminalを開き、バージョンを確認します。
+
+```bash
+bun --version
+```
+
+出力が完全に`1.3.14`であることを確認します。依存関係は`bun install --frozen-lockfile`で固定します。
 
 ウィザードは次を行います。
 
@@ -331,9 +339,9 @@ bun run noroshi -- send --to recipient@example.net --subject "確認" --body "�
 
 `login`はAPIキーを伏字で入力します。`--token`へ値を書くと、シェル履歴やprocess listへ残るため拒否します。設定は`NOROSHI_URL`、`NOROSHI_TOKEN`、`NOROSHI_CONFIG`の環境変数か、mode `0600`の`~/.config/noroshi/config.json`から読み込みます。MCP設定へ`NOROSHI_TOKEN`を書かないでください。
 
-### Codexで読み取り専用Mailbox MCPを使う
+### ChatGPTデスクトップのCodex / Codex CLIで読み取り専用Mailbox MCPを使う
 
-Codexはこのソースツリーのstdio MCPを直接起動できます。先に`mail:read`だけのAPIキーで`login`し、MCP設定には秘密値を含めません。
+ChatGPTデスクトップ、Codex CLI、IDE拡張は同じCodexホストのMCP設定を共有し、このソースツリーのstdio MCPを直接起動できます。ChatGPTデスクトップではCodexのローカルタスクを選びます。先に`mail:read`だけのAPIキーで`login`し、MCP設定には秘密値を含めません。
 
 ```json
 {
@@ -349,9 +357,9 @@ Codexはこのソースツリーのstdio MCPを直接起動できます。先に
 
 再起動後、`tools/list`が`whoami`、`list_threads`、`get_thread`、`search_mail`、`list_attachments`の5つだけであることを確認します。`whoami`で利用者を照合し、送受信テストと同じ非秘密canaryを`search_mail`または`get_thread`で読みます。
 
-### ChatGPT Workで読み取り専用Mailbox MCPを使う
+### ホスト型ChatGPT Webからprivate Mailbox MCPを使う
 
-ChatGPTはローカルのstdio MCPへ直接接続しません。2026-09-11時点の公式経路は[Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)です。ChatGPT Business、Enterprise、Eduのdeveloper modeと、Platform側のTunnel権限は別に必要です。個人や組織の契約で利用できない場合、ChatGPT Work経路は未対応として止め、Codexのローカルstdio経路を使います。
+ホスト型ChatGPT WebはローカルCodex設定を読みません。private MCPへ接続する選択肢の1つが[Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)です。ChatGPTのdeveloper modeと、Platform側のTunnel権限は別に必要です。利用できない場合はWeb経路を未完了として止め、ChatGPTデスクトップのCodexローカルタスクまたはCodex CLIを使います。
 
 1. AIが[ChatGPTのdeveloper mode設定](https://help.openai.com/en/articles/12584461-developer-mode-apps-and-full-mcp-connectors-in-chatgpt-beta)と[Platform tunnel settings](https://platform.openai.com/settings/organization/tunnels)を開きます。
 2. 管理者権限の付与、Tunnel作成、runtime API keyの表示と入力は人が行います。秘密値をチャットへ貼りません。

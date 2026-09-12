@@ -30,7 +30,7 @@ type ReplyBody = {
 	attachments?: OutboundAttachmentInput[];
 };
 
-export const GET: RequestHandler = async ({ params, locals, platform }) => {
+export const GET: RequestHandler = async ({ params, url, locals, platform }) => {
 	const db = platform?.env.DB;
 	if (!db || !locals.user) {
 		return json({ error: 'Unauthorized' }, { status: 401 });
@@ -41,7 +41,9 @@ export const GET: RequestHandler = async ({ params, locals, platform }) => {
 		return json({ error: 'Not found' }, { status: 404 });
 	}
 
-	await markThreadRead(db, locals.user.id, email);
+	if (url.searchParams.get('markRead') !== 'false') {
+		await markThreadRead(db, locals.user.id, email);
+	}
 	const messages = await listThreadMessages(db, locals.user.id, email);
 
 	return json({

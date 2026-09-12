@@ -39,8 +39,9 @@ Admin:
   noroshi unrouted
 
 MCP:
-  noroshi mcp --read-only
-  noroshi mcp                 Full mailbox MCP; includes send and reply
+  noroshi mcp                 Read-only mailbox MCP (default)
+  noroshi mcp --read-only     Compatibility alias for the read-only default
+  noroshi mcp --read-write    Mailbox MCP with send and reply
 
 Auth is a Settings → API keys bearer token. Set NOROSHI_URL and NOROSHI_TOKEN,
 or run noroshi login and enter the token at the masked prompt. Use --json on
@@ -340,6 +341,11 @@ async function run(argv: string[]): Promise<number> {
 			return 0;
 		}
 		case 'mcp': {
+			const readOnlyAlias = flagBool(flags, 'read-only');
+			const readWrite = flagBool(flags, 'read-write');
+			if (readOnlyAlias && readWrite) {
+				throw new Error('--read-only and --read-write cannot be used together.');
+			}
 			// Lazy-load MCP so mail commands never import @modelcontextprotocol/sdk.
 			let startMcpServer: typeof import('./mcp.ts').startMcpServer;
 			try {
@@ -356,7 +362,7 @@ async function run(argv: string[]): Promise<number> {
 				}
 				throw error;
 			}
-			await startMcpServer({ readOnly: flagBool(flags, 'read-only') });
+			await startMcpServer({ readWrite });
 			return 0;
 		}
 		default:

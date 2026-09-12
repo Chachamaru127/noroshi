@@ -37,15 +37,16 @@ describe('Cloudflare deployment handoff', () => {
 		}
 	});
 
-	test('keeps AI, Skill, and future MCP support capabilities distinct', () => {
+	test('keeps AI, Skill, Setup MCP, and host adapter capabilities distinct', () => {
 		expect(guide).toContain('AIに相談');
 		expect(guide).toContain('権限はありません');
 		expect(guide).toContain('Skill');
 		expect(guide).toContain('MCP');
 		expect(guide).toContain('デプロイ後のResend設定と最初の管理者作成');
 		expect(guide).toContain('Setup Skill（ローカル提供中）');
-		expect(guide).toContain('案内専用。外部設定の作成・保存・変更は行いません');
-		expect(guide).toContain('外部設定を自動変更するSetup MCPは未提供');
+		expect(guide).toContain('Setup MCP（ローカル提供中）');
+		expect(guide).toContain('provider非接続。外部writeと承認は行いません');
+		expect(guide).toContain('現在の配布物には実provider adapterがありません');
 		expect(guide).toContain('導入はBYOK');
 		expect(guide).toContain('APIキー、パスワード、メール本文、DNS値');
 		expect(guide).toContain('提携・公式サポート');

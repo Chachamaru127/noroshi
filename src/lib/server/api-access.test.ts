@@ -1,9 +1,69 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { POST as createForwardingDestination } from '../../routes/api/forwarding/destinations/+server';
+import { GET as getMailThread } from '../../routes/api/mail/[id]/+server';
 import * as legacyForwardingRoute from '../../routes/api/forwarding/+server';
 import { authorizeApiRequest, authorizeMailAction, authorizeManualForward } from './api-access';
 import { parseScopes } from './api-tokens';
+
+function unreadThreadDatabase() {
+	let isRead = 0;
+	const email = {
+		id: 'message-1',
+		user_id: 'user-1',
+		direction: 'inbound',
+		from_addr: 'sender@example.test',
+		from_name: null,
+		to_addr: 'owner@example.test',
+		cc_addr: null,
+		bcc_addr: null,
+		subject: 'Unread subject',
+		body_text: 'Unread body',
+		body_html: null,
+		message_id: null,
+		in_reply_to: null,
+		references_header: null,
+		reply_to_email_id: null,
+		thread_id: 'thread-1',
+		thread_key: 'unread subject',
+		domain_id: 'domain-1',
+		address_id: 'address-1',
+		provider_id: null,
+		status: null,
+		status_at: null,
+		status_detail: null,
+		is_starred: 0,
+		deleted_at: null,
+		created_at: '2026-09-12T00:00:00.000Z'
+	};
+	const db = {
+		prepare(sql: string) {
+			const statement = {
+				bind() {
+					return statement;
+				},
+				async first() {
+					assert.match(sql, /SELECT \* FROM emails/u);
+					return { ...email, is_read: isRead };
+				},
+				async all() {
+					if (/FROM emails e/u.test(sql)) {
+						return { results: [{ ...email, is_read: isRead }] };
+					}
+					assert.match(sql, /FROM email_attachments/u);
+					return { results: [] };
+				},
+				async run() {
+					assert.match(sql, /UPDATE emails SET is_read = 1/u);
+					isRead = 1;
+					return { meta: { changes: 1 } };
+				}
+			};
+			return statement;
+		}
+	};
+	return { db, readState: () => isRead };
+}
 
 describe('API key access', () => {
 	test('manual forward needs both read and send scopes while sessions stay allowed', () => {
@@ -94,6 +154,37 @@ describe('API key access', () => {
 			}),
 			{ ok: true }
 		);
+	});
+
+	test('the MCP no-mark thread read preserves unread state while the existing default marks read', async () => {
+		const fixture = unreadThreadDatabase();
+		const event = (url: string) =>
+			({
+				params: { id: 'message-1' },
+				url: new URL(url),
+				locals: {
+					user: {
+						id: 'user-1',
+						email: 'owner@example.test',
+						name: 'Owner',
+						is_admin: false,
+						created_at: '2026-09-12T00:00:00.000Z'
+					}
+				},
+				platform: { env: { DB: fixture.db } }
+			}) as never;
+
+		const readOnlyResponse = await getMailThread(
+			event('https://mail.example.test/api/mail/message-1?markRead=false')
+		);
+		assert.equal(readOnlyResponse.status, 200);
+		assert.equal(fixture.readState(), 0);
+
+		const defaultResponse = await getMailThread(
+			event('https://mail.example.test/api/mail/message-1')
+		);
+		assert.equal(defaultResponse.status, 200);
+		assert.equal(fixture.readState(), 1);
 	});
 
 	test('admin routes stay off mail keys', () => {

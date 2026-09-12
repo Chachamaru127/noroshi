@@ -29,10 +29,11 @@ NoroshiのBYOK（Bring Your Own Key / Account）導入を支援する。Noroshi�
 8. 自動確認できないCloudflareアカウント、Resendアカウント、ドメイン所有、既存メールの利用状況、本人管理のテスト受信先だけを一度に質問する。秘密値を質問へ含めない。
 9. 読み取り専用の事前確認には承認を求めない。変更操作は、対象、payload、変更前後の完全な差分、rollback、費用、plan hash、有効期限が一致する次の1操作だけを承認対象にする。開始時に将来のgrantをまとめて発行しない。
 10. Setup MCPから承認を作らない。provider writeを実行できるホストでは、モデル外の承認UIが発行した署名済み・1回限りのreceiptをホスト側adapterが検証した場合だけ、その1操作を実行する。この経路がなければ公式画面の最終操作を利用者へ渡す。
+11. Setup MCPの`setup_resume`が利用できない場合は、永続する開通ミッションなしでセットアップを続行しない。ChatGPTデスクトップのCodexローカルタスク、Codex CLI、IDE拡張は同じCodexホストのMCP設定を共有する。リポジトリの`noroshi-setup` pluginを導入し、新しいローカルタスクで`setup_resume`による保存と再開を確認してから事前確認へ進む。ホスト型ChatGPT WebはローカルCodex設定を読まない。Web経路ではSecure MCP Tunnelまたはレビュー済みremote MCPを確認し、利用できなければローカルCodex経路へ切り替える。会話内だけのTODOを日跨ぎ進捗の正本にしない。
 
 ## 導入段階
 
-順序は`事前確認 → Cloudflare/Resendログイン → Resend認証 → D1/R2 → migration → deploy → secrets → Email Routing → 初回管理者 → 送信 → 返信受信 → Mailbox MCP確認`とする。`setup_resume`が使える場合は最初に呼び、OSのユーザーstate領域へ保存された同じworkspaceの状態から再開する。`setup-patterns.json`の`setup_runbook.stages`から現在の段階だけを読み、次を維持する。
+順序は`事前確認 → Cloudflare/Resendログイン → Resend認証 → D1/R2 → migration → deploy → secrets → Email Routing → 初回管理者 → 送信 → 返信受信 → Mailbox MCP確認`とする。`setup_resume`を最初に呼び、OSのユーザーstate領域へ保存された同じworkspaceの状態から再開する。利用できない場合は前節の導入・切替を行い、セットアップ作業へ進まない。`setup-patterns.json`の`setup_runbook.stages`から現在の段階だけを読み、次を維持する。
 
 - `ai_reads`: 秘密値を含まない現在状態。画面、公式資料、terminalのread-only結果を突合する。
 - `human_action`: 利用者が自分で行う操作。ログイン、MFA、CAPTCHA、支払い、秘密値入力は必ず人間が行う。
@@ -81,7 +82,7 @@ NoroshiのBYOK（Bring Your Own Key / Account）導入を支援する。Noroshi�
 5. 受信、送信、Gmail連携は別々に確認する。実メール送信は、利用者がその送信を個別に承認した場合だけ扱う。
 6. 初回疎通のメール証拠は同じ非秘密canaryをCloudflare Email Routing Activity、Worker/D1、Resend、Noroshi UIで突合する。canary tokenは`canary-`で始まる12〜72文字の小文字英数字とハイフンだけとし、secret、password、api-key、bearer、tokenを含む値は証拠へ取り込まない。DNS証拠は同じドメイン、configuration fingerprint、MX、TXTを権威DNSと公開DNSリゾルバで突合する。provider画面1か所だけで完了としない。
 7. 最後に`mail:read`だけのAPIキーを利用者が作り、`noroshi login --url <instance>`の伏字promptまたはホストの秘密入力brokerへ直接入力する。Mailbox MCPは`noroshi mcp --read-only`で起動し、`whoami`でidentityを確認してから同じcanaryを`search_mail`または`get_thread`で読む。
-8. Codexではローカルstdio Mailbox MCPを使う。ChatGPT Workではローカルstdioを接続済みとみなさず、workspaceのdeveloper mode、OpenAI PlatformのTunnel権限、公式Secure MCP Tunnelを確認する。利用できなければChatGPT Work経路は未完了として止め、Codexのローカル経路を案内する。
+8. ChatGPTデスクトップのCodexローカルタスク、Codex CLI、IDE拡張では、同じCodexホスト設定からローカルstdio Mailbox MCPを使う。ホスト型ChatGPT WebはローカルCodex設定を読まない。Webからprivate MCPへ接続する場合だけ、workspaceのdeveloper mode、OpenAI PlatformのTunnel権限、公式Secure MCP Tunnelを確認する。利用できなければWeb経路は未完了として止め、ローカルCodex経路を案内する。
 
 `scripts/setup.mjs`は人間が端末で使う互換経路であり、AI主導の導入では実行しない。Setup MCPの`setup_apply`が`provider_adapter_unavailable`を返す場合、それを回避するために`setup.mjs`を実行しない。公式画面を開き、利用者へ最終操作を渡して進捗を保存する。
 

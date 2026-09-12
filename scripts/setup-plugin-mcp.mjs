@@ -46,8 +46,7 @@ const toolDefinitions = [
 				workspace_root: { type: 'string' },
 				phase: { type: 'string', enum: ['planned', 'issued', 'verified', 'blocked'] },
 				action: { type: 'object' },
-				evidence: { type: 'object' },
-				stage_complete: { type: 'boolean' }
+				evidence: { type: 'object' }
 			},
 			required: ['workspace_root', 'phase', 'action'],
 			additionalProperties: false
@@ -200,8 +199,7 @@ async function callTool(name, args) {
 						workspaceRoot: args.workspace_root,
 						phase: args.phase,
 						action: args.action,
-						evidence: args.evidence,
-						stageComplete: args.stage_complete === true
+						evidence: args.evidence
 					})
 				);
 			case 'setup_inspect':
@@ -253,12 +251,19 @@ function jsonRpcError(id, code, message) {
 	return { jsonrpc: '2.0', id: id ?? null, error: { code, message } };
 }
 
+function isValidJsonRpcId(id) {
+	return id === null || typeof id === 'string' || (typeof id === 'number' && Number.isFinite(id));
+}
+
 async function handleMessage(message) {
 	if (!isObject(message) || message.jsonrpc !== '2.0') {
 		return jsonRpcError(null, -32600, 'Invalid JSON-RPC request.');
 	}
-	if (typeof message.method === 'string' && message.method.startsWith('notifications/')) {
+	if (!Object.hasOwn(message, 'id')) {
 		return null;
+	}
+	if (!isValidJsonRpcId(message.id)) {
+		return jsonRpcError(null, -32600, 'Invalid JSON-RPC request.');
 	}
 	switch (message.method) {
 		case 'initialize':

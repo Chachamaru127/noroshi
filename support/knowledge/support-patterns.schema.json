@@ -44,8 +44,8 @@
 				"dns_evidence": { "type": "string", "minLength": 1 },
 				"stages": {
 					"type": "array",
-					"minItems": 11,
-					"maxItems": 11,
+					"minItems": 12,
+					"maxItems": 12,
 					"items": { "$ref": "#/$defs/setupStage" }
 				},
 				"deferred": { "$ref": "#/$defs/strings" },
@@ -68,6 +68,7 @@
 				"id": {
 					"enum": [
 						"preflight",
+						"provider_login",
 						"resend_authentication",
 						"d1_r2",
 						"migration",
@@ -76,8 +77,8 @@
 						"email_routing",
 						"first_admin",
 						"outbound_send",
-						"reply_receive",
-						"rollback"
+						"inbound_reply",
+						"mailbox_mcp"
 					]
 				},
 				"title_ja": { "type": "string", "minLength": 1 },

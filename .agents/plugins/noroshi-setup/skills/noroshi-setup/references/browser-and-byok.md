@@ -2,7 +2,7 @@
 
 ## 所有関係
 
-| 対象                                      | 所有者 | Noroshiが提供するもの                |
+| 対象                                      | 所有者 | Noroshiが提供するもの                     |
 | ----------------------------------------- | ------ | ----------------------------------------- |
 | Cloudflareアカウント、Worker、D1、R2、DNS | 利用者 | 必要構成と確認方法                        |
 | Resendアカウント、送信ドメイン、APIキー   | 利用者 | 送信連携と状態表示                        |
@@ -16,9 +16,13 @@ BYOKは「秘密値をAIへ渡す」方式ではない。利用者自身のア�
 - Cloudflare: `https://dash.cloudflare.com`, `https://developers.cloudflare.com`
 - Resend: `https://resend.com`
 - Google Cloud / Gmail: `https://console.cloud.google.com`, `https://developers.google.com`, `https://support.google.com`
+- OpenAI / ChatGPT Work: `https://help.openai.com`, `https://developers.openai.com`, `https://platform.openai.com`, `https://chatgpt.com`
+- Bun: `https://bun.com`。直接ダウンロードを使う場合だけ、`https://github.com/oven-sh/bun/releases/tag/bun-v1.3.14`
 - Noroshi: 利用者が対象として確認したデプロイoriginだけ
 
-短縮URL、広告、検索結果のスポンサーリンク、似た綴りのドメインは開かない。予期しないoriginへ移動したら停止する。
+OpenAIのoriginは、ChatGPTデスクトップ/CodexのMCP設定、ホスト型ChatGPT Webのdeveloper mode、Secure MCP Tunnel、ChatGPT Appsの設定と公式資料にだけ使う。ローカルCodex経路ではdeveloper modeやTunnelを要求しない。Web経路で必要になる権限付与、TunnelやAppの最終作成、runtime API keyの表示と秘密値入力は利用者が行う。短縮URL、広告、検索結果のスポンサーリンク、似た綴りのドメインは開かない。予期しないoriginへ移動したら停止する。
+
+Bunが未導入または1.3.14以外の場合、`https://bun.com/docs/installation`と上記のBun 1.3.14公式リリースを開く。`curl ... | bash`、`irm ... | iex`など、取得したスクリプトをそのまま実行するpipe installerはAIが実行しない。AIはOSとCPUを読み取り、公式releaseから該当する通常版assetと`SHASUMS256.txt`を特定する。利用者がassetをダウンロードし、SHA-256を照合してから展開し、既存のBunとは混在しないPATH上へ配置する。AIはその環境に対応する操作を1本ずつコピーできるコード枠で示す。新しいterminalで`bun --version`を実行し、出力が完全に`1.3.14`であることをAIがreadbackするまで依存関係の導入へ進まない。
 
 ## 人間だけが行う操作
 
@@ -31,16 +35,17 @@ BYOKは「秘密値をAIへ渡す」方式ではない。利用者自身のア�
 
 ## ホスト能力の事前確認
 
-| 能力             | 利用できる場合                               | 利用できない場合                         |
-| ---------------- | -------------------------------------------- | ---------------------------------------- |
-| Computer Use     | 許可済み公式originの画面移動とreadbackを行う | 公式URLと手動メニュー経路を示す          |
-| 認証済みブラウザ | 現在の非秘密な状態を読み取る                 | 利用者がログイン後、状態名を確認する     |
-| terminal         | read-only確認と承認済みコマンドを分ける      | そのまま実行できる手動コマンドを示す     |
-| 秘密入力経路     | 秘密入力brokerがある場合だけそこへ引き渡す   | 利用者が画面またはterminalへ直接入力する |
-| Setup MCP        | 保存済みミッションを`setup_resume`で再開する | 同じ12段階を会話に表示し、手動経路を示す |
-| Mailbox MCP      | 読み取り専用で最後のcanaryを確認する         | 対象ホストの公式追加画面を案内する        |
+| 能力             | 利用できる場合                               | 利用できない場合                                                                                                                                                                                                            |
+| ---------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Computer Use     | 許可済み公式originの画面移動とreadbackを行う | 公式URLと手動メニュー経路を示す                                                                                                                                                                                             |
+| 認証済みブラウザ | 現在の非秘密な状態を読み取る                 | 利用者がログイン後、状態名を確認する                                                                                                                                                                                        |
+| terminal         | read-only確認と承認済みコマンドを分ける      | そのまま実行できる手動コマンドを示す                                                                                                                                                                                        |
+| 秘密入力経路     | 秘密入力brokerがある場合だけそこへ引き渡す   | 利用者が画面またはterminalへ直接入力する                                                                                                                                                                                    |
+| Setup MCP        | 保存済みミッションを`setup_resume`で再開する | 永続状態なしで続けず、ChatGPTデスクトップのCodexローカルタスクまたはCodex CLIでplugin導入後の新しいタスクへ切り替える。ホスト型ChatGPT Webはローカル設定を読まないため、Tunnel/remote MCPがなければローカル経路へ切り替える |
+| Mailbox MCP      | 読み取り専用で最後のcanaryを確認する         | 対象ホストの公式追加画面を案内する                                                                                                                                                                                          |
 
 Computer UseはAIホスト側の能力であり、このSkillが追加するものではない。
+会話内だけの12段階表示は進捗の正本ではない。`setup_resume`でOSのユーザーstate領域に保存・再開できることを確認するまで、provider設定へ進まない。
 
 ## 承認の再利用
 

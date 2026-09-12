@@ -316,16 +316,43 @@ test('MCP setup_record persists an issued action and resume returns readback-onl
 	const stateHome = mkdtempSync(join(tmpdir(), 'noroshi-setup-record-'));
 	const workspaceRoot = join(stateHome, 'workspace');
 	const env = { ...process.env, XDG_STATE_HOME: stateHome };
+	const identity = {
+		cloudflare_fingerprint: 'c'.repeat(64),
+		resend_fingerprint: 'd'.repeat(64)
+	};
+	const observations = {
+		target_host: 'codex',
+		browser: 'ready',
+		computer: 'ready',
+		terminal: 'ready',
+		bun: { available: true, version: '1.3.14', required: '1.3.14' },
+		wrangler: { available: true, source: 'repo' },
+		cloudflare: { account: 'present', login: 'ready' },
+		resend: { account: 'present', login: 'ready' },
+		domain: { value: 'example.test', ownership: 'confirmed' },
+		dns: { authoritative_nameservers: 'observed', dnssec: 'observed', ttl: 'observed' },
+		current_mx: { status: 'observed', records: [] },
+		test_recipient: { value: 'tester@example.net', controlled_by_user: true },
+		mailbox_mcp: 'available',
+		existing_mail: 'none',
+		identity
+	};
+	const loginAction = {
+		id: 'provider-login-readback',
+		stage: 'provider_login',
+		kind: 'human_action',
+		executor: 'human'
+	};
 	const action = {
-		id: 'preflight-observation',
-		stage: 'preflight',
+		id: 'resend-authentication-write',
+		stage: 'resend_authentication',
 		kind: 'provider_write',
 		executor: 'host.adapter',
 		plan_hash: 'a'.repeat(64),
-		readback: { capability: 'host.preflight' }
+		readback: { capability: 'resend.verify_domain', plan_hash: 'a'.repeat(64) }
 	};
 	try {
-		rpcLines(
+		const [preflight] = rpcLines(
 			[
 				{
 					jsonrpc: '2.0',
@@ -333,15 +360,51 @@ test('MCP setup_record persists an issued action and resume returns readback-onl
 					method: 'tools/call',
 					params: {
 						name: 'setup_resume',
-						arguments: { workspace_root: workspaceRoot }
+						arguments: { workspace_root: workspaceRoot, observations }
 					}
 				}
 			],
 			{ env }
 		);
+		assert.equal(preflight.result.isError, undefined);
+		for (const [id, phase, evidence] of [
+			[2, 'planned', undefined],
+			[
+				3,
+				'verified',
+				{
+					kind: 'provider_identity',
+					status: 'verified',
+					observed_at: '2026-09-11T10:00:00.000Z',
+					cloudflare_identity_fingerprint: identity.cloudflare_fingerprint,
+					resend_identity_fingerprint: identity.resend_fingerprint
+				}
+			]
+		]) {
+			const [response] = rpcLines(
+				[
+					{
+						jsonrpc: '2.0',
+						id,
+						method: 'tools/call',
+						params: {
+							name: 'setup_record',
+							arguments: {
+								workspace_root: workspaceRoot,
+								phase,
+								action: loginAction,
+								...(evidence ? { evidence } : {})
+							}
+						}
+					}
+				],
+				{ env }
+			);
+			assert.equal(response.result.isError, undefined);
+		}
 		for (const [id, phase] of [
-			[2, 'planned'],
-			[3, 'issued']
+			[4, 'planned'],
+			[5, 'issued']
 		]) {
 			const [response] = rpcLines(
 				[
@@ -363,7 +426,7 @@ test('MCP setup_record persists an issued action and resume returns readback-onl
 			[
 				{
 					jsonrpc: '2.0',
-					id: 4,
+					id: 6,
 					method: 'tools/call',
 					params: {
 						name: 'setup_resume',
@@ -381,14 +444,36 @@ test('MCP setup_record persists an issued action and resume returns readback-onl
 	}
 });
 
-test('MCP notifications produce no response, including unknown notification names', () => {
+test('MCP correlates requests by id and never responds to idless notifications', () => {
 	assert.deepEqual(
 		rpcLines([
-			{ jsonrpc: '2.0', id: 10, method: 'notifications/initialized' },
+			{ jsonrpc: '2.0', method: 'ping' },
 			{ jsonrpc: '2.0', method: 'notifications/custom', params: { ignored: true } },
-			{ jsonrpc: '2.0', id: 11, method: 'notifications/cancelled' }
+			{ jsonrpc: '2.0', id: 10, method: 'notifications/initialized' },
+			{ jsonrpc: '2.0', id: 'ping-string', method: 'ping' },
+			{ jsonrpc: '2.0', id: null, method: 'ping' },
+			{ jsonrpc: '2.0', id: true, method: 'ping' },
+			{ jsonrpc: '2.0', id: { invalid: true }, method: 'ping' }
 		]),
-		[]
+		[
+			{
+				jsonrpc: '2.0',
+				id: 10,
+				error: { code: -32601, message: 'Method not found.' }
+			},
+			{ jsonrpc: '2.0', id: 'ping-string', result: {} },
+			{ jsonrpc: '2.0', id: null, result: {} },
+			{
+				jsonrpc: '2.0',
+				id: null,
+				error: { code: -32600, message: 'Invalid JSON-RPC request.' }
+			},
+			{
+				jsonrpc: '2.0',
+				id: null,
+				error: { code: -32600, message: 'Invalid JSON-RPC request.' }
+			}
+		]
 	);
 });
 

@@ -179,6 +179,7 @@ test('setup runbook defines every stage with state, action, gate, evidence and r
 		knowledge.setup_runbook.stages.map(({ id }) => id),
 		[
 			'preflight',
+			'provider_login',
 			'resend_authentication',
 			'd1_r2',
 			'migration',
@@ -187,8 +188,8 @@ test('setup runbook defines every stage with state, action, gate, evidence and r
 			'email_routing',
 			'first_admin',
 			'outbound_send',
-			'reply_receive',
-			'rollback'
+			'inbound_reply',
+			'mailbox_mcp'
 		]
 	);
 	for (const stage of knowledge.setup_runbook.stages) {

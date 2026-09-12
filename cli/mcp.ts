@@ -33,7 +33,7 @@ function fail(error: unknown) {
 	return textResult(error instanceof Error ? error.message : 'Request failed', true);
 }
 
-export async function startMcpServer({ readOnly = false }: { readOnly?: boolean } = {}): Promise<void> {
+export async function startMcpServer({ readWrite = false }: { readWrite?: boolean } = {}): Promise<void> {
 	const server = new McpServer({ name: 'noroshi', version: '1.0.0' });
 
 	server.registerTool(
@@ -89,7 +89,7 @@ export async function startMcpServer({ readOnly = false }: { readOnly?: boolean 
 		},
 		async ({ id }) => {
 			try {
-				return textResult(await (await loadCurrentClient()).getThread(id));
+				return textResult(await (await loadCurrentClient()).getThread(id, { markRead: readWrite }));
 			} catch (error) {
 				return fail(error);
 			}
@@ -119,7 +119,7 @@ export async function startMcpServer({ readOnly = false }: { readOnly?: boolean 
 		}
 	);
 
-	if (!readOnly) {
+	if (readWrite) {
 		server.registerTool(
 			'send_message',
 			{
@@ -180,7 +180,7 @@ export async function startMcpServer({ readOnly = false }: { readOnly?: boolean 
 		},
 		async ({ id }) => {
 			try {
-				const thread = await (await loadCurrentClient()).getThread(id);
+				const thread = await (await loadCurrentClient()).getThread(id, { markRead: readWrite });
 				const attachments = thread.messages.flatMap((message) =>
 					message.attachments.map((attachment) => ({
 						...attachment,

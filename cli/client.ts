@@ -152,8 +152,12 @@ export class NoroshiClient {
 		return this.request<MailboxPage>(`/api/mail${suffix}`);
 	}
 
-	async getThread(id: string): Promise<{ threadId: string; subject: string; messages: ThreadMessage[] }> {
-		return this.request(`/api/mail/${encodeURIComponent(id)}`);
+	async getThread(
+		id: string,
+		{ markRead = true }: { markRead?: boolean } = {}
+	): Promise<{ threadId: string; subject: string; messages: ThreadMessage[] }> {
+		const suffix = markRead ? '' : '?markRead=false';
+		return this.request(`/api/mail/${encodeURIComponent(id)}${suffix}`);
 	}
 
 	async sendMessage(input: {

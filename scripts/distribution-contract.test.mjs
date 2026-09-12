@@ -79,14 +79,44 @@ test('setup Skill has one canonical source and bounded repo adapters', () => {
 	assert.equal(codexNative.skills, './skills/');
 	assert.equal(codexNative.mcpServers, './.mcp.json');
 	assert.doesNotMatch(readme, /Setup Skill（準備中・未提供）/);
-	assert.match(canonical, /事前確認 → Resend認証 → D1\/R2 → migration → deploy → secrets/u);
+	assert.match(
+		canonical,
+		/事前確認 → Cloudflare\/Resendログイン → Resend認証 → D1\/R2 → migration → deploy → secrets/u
+	);
 	assert.match(canonical, /Computer Use[\s\S]*Skillが追加する機能ではない/u);
-	assert.match(canonical, /完全一致する1回限りのgrant[\s\S]*必要数/u);
+	assert.match(canonical, /1回限りの承認範囲[\s\S]*grantの必要数/u);
 	assert.match(canonical, /クリップボードが分離[\s\S]*秘密入力broker/u);
 	assert.match(
 		canonical,
 		/Cloudflare Email Routing Activity、Worker\/D1、Resend、Noroshi UI[\s\S]*configuration fingerprint、MX、TXT[\s\S]*権威DNSと公開DNSリゾルバ/u
 	);
+});
+
+test('one-prompt setup persists before work and permits the required OpenAI origins', () => {
+	const readme = read('README.md');
+	const canonical = read('skills/noroshi-setup/SKILL.md');
+	const browserGuide = read('skills/noroshi-setup/references/browser-and-byok.md');
+
+	assert.match(
+		readme,
+		/setup_resume[\s\S]*利用できない[\s\S]*永続[\s\S]*セットアップを続行しない/u
+	);
+	assert.match(readme, /Codex[\s\S]*plugin[\s\S]*新しいタスク[\s\S]*setup_resume/u);
+	assert.match(readme, /ChatGPTデスクトップ[\s\S]*Codexローカルタスク[\s\S]*setup_resume/u);
+	assert.match(readme, /ホスト型ChatGPT Web[\s\S]*ローカルCodex設定を読/u);
+	assert.match(
+		canonical,
+		/Setup MCP[\s\S]*利用できない[\s\S]*永続[\s\S]*セットアップを続行しない/u
+	);
+	for (const origin of [
+		'https://help.openai.com',
+		'https://developers.openai.com',
+		'https://platform.openai.com',
+		'https://chatgpt.com'
+	]) {
+		assert.ok(browserGuide.includes(`\`${origin}\``), `missing browser origin: ${origin}`);
+	}
+	assert.match(browserGuide, /権限[\s\S]*秘密値[\s\S]*利用者/u);
 });
 
 test('QMJ-15 records the bounded Codex pilot without claiming cross-host completion', () => {
@@ -255,9 +285,9 @@ test('clean-template accepts only the tracked Codex native distribution paths', 
 
 test('clean scanner checks every match and scans the text Bun lockfile', () => {
 	const fakeKey = ['re', 'A'.repeat(24)].join('_');
-	const contents = `RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxxxxx\nRESEND_API_KEY=${fakeKey}`;
+	const contents = `RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxxxxx\nresend_identity_fingerprint\nRESEND_API_KEY=${fakeKey}`;
 	const findings = findForbiddenFindings(contents);
-	assert.deepEqual(findings, [{ label: 'Resend API key', line: 2 }]);
+	assert.deepEqual(findings, [{ label: 'Resend API key', line: 3 }]);
 	assert.doesNotMatch(JSON.stringify(findings), new RegExp(fakeKey));
 	const clean = read('scripts/check-template-clean.mjs');
 	assert.doesNotMatch(clean, /pdf\|zip\|lock/);

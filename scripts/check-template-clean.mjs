@@ -9,7 +9,7 @@ import { nativePackageFiles } from './generate-codex-native-adapter.mjs';
 const root = fileURLToPath(new URL('..', import.meta.url));
 
 const FORBIDDEN = [
-	{ label: 'Resend API key', pattern: /re_[A-Za-z0-9_-]{20,}/ },
+	{ label: 'Resend API key', pattern: /\bre_[A-Za-z0-9_-]{20,}/ },
 	{ label: 'Webhook signing secret', pattern: /whsec_[A-Za-z0-9+/=_-]{16,}/ },
 	{
 		label: 'GitHub token',
