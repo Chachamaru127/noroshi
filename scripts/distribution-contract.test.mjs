@@ -62,15 +62,19 @@ test('package commands stay Bun-only and target the generic D1 name', () => {
 test('setup Skill has one canonical source and bounded repo adapters', () => {
 	const readme = read('docs/setup-and-operations.md');
 	const canonical = read('skills/noroshi-setup/SKILL.md');
+	const repoInstructions = read('AGENTS.md');
 	const codex = read('.agents/skills/noroshi-setup/SKILL.md');
 	const claude = read('.claude/skills/noroshi-setup/SKILL.md');
 	const codexNative = JSON.parse(read('.agents/plugins/noroshi-setup/.codex-plugin/plugin.json'));
 	assert.match(canonical, /^name: noroshi-setup$/m);
+	assert.match(repoInstructions, /skills\/noroshi-setup\/SKILL\.md/u);
+	assert.match(repoInstructions, /docs\/setup-and-operations\.md/u);
+	assert.doesNotMatch(repoInstructions, /## ブラウザ案内|## Provider別の参照/u);
 	for (const adapter of [codex, claude]) {
 		assert.match(adapter, /\.\.\/\.\.\/\.\.\/skills\/noroshi-setup\/SKILL\.md/);
 		assert.doesNotMatch(adapter, /## ブラウザ案内|## Provider別の参照/);
 	}
-	assert.match(readme, /ChatGPTでは、cloneだけではインストールされません/);
+	assert.match(readme, /ChatGPTのアカウント[\s\S]*cloneだけではインストールされません/u);
 	assert.match(readme, /Claude Desktop／Webでも、cloneだけではインストールされません/);
 	assert.match(readme, /Codex CLI向けには、公式native形式/);
 	assert.match(readme, /Claude Code/);
@@ -96,18 +100,24 @@ test('one-prompt setup persists before work and permits the required OpenAI orig
 	const readme = read('README.md');
 	const canonical = read('skills/noroshi-setup/SKILL.md');
 	const browserGuide = read('skills/noroshi-setup/references/browser-and-byok.md');
+	const prompt = readme.match(/### ChatGPT Workから始める[\s\S]*?```text\n([\s\S]*?)\n```/u)?.[1];
 
-	assert.match(
-		readme,
-		/setup_resume[\s\S]*利用できない[\s\S]*永続[\s\S]*セットアップを続行しない/u
-	);
-	assert.match(readme, /Codex[\s\S]*plugin[\s\S]*新しいタスク[\s\S]*setup_resume/u);
-	assert.match(readme, /ChatGPTデスクトップ[\s\S]*Codexローカルタスク[\s\S]*setup_resume/u);
-	assert.match(readme, /ホスト型ChatGPT Web[\s\S]*ローカルCodex設定を読/u);
-	assert.match(
-		canonical,
-		/Setup MCP[\s\S]*利用できない[\s\S]*永続[\s\S]*セットアップを続行しない/u
-	);
+	assert.ok(prompt, 'README must expose one ChatGPT Work launch prompt');
+	assert.ok(prompt.length <= 360, `launch prompt is too long: ${prompt.length}`);
+	assert.match(prompt, /このWorkのフォルダ/u);
+	assert.match(prompt, /https:\/\/github\.com\/Chachamaru127\/noroshi/u);
+	assert.match(prompt, /AGENTS\.md/u);
+	assert.match(prompt, /説明しながら/u);
+	assert.match(prompt, /私にしかできない操作/u);
+	assert.doesNotMatch(prompt, /setup_resume|Wrangler|Bun|MCP|DNSSEC|configuration fingerprint/u);
+	assert.match(readme, /通常のChatではなく/u);
+	assert.match(readme, /Work locally/u);
+	assert.match(readme, /空の`Noroshi`フォルダ/u);
+	assert.match(readme, /主フォルダ/u);
+	assert.match(readme, /Cloudではなく/u);
+	assert.match(canonical, /開始文そのものを、ローカル準備と読み取り確認の依頼として扱/u);
+	assert.doesNotMatch(canonical, /「セットアップを始めますか？」と聞いて停止/u);
+	assert.match(canonical, /Setup MCP[\s\S]*利用できない[\s\S]*永続[\s\S]*外部設定を続行しない/u);
 	for (const origin of [
 		'https://help.openai.com',
 		'https://developers.openai.com',

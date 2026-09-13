@@ -165,11 +165,11 @@
 					"別のread-only Mailbox MCPが公開する5つの読み取りツール、whoamiのidentity、送受信テストと同じ非秘密canaryを読みます。"
 				],
 				"human_action": [
-					"利用者がmail:readだけのAPIキーを作り、伏字promptまたは秘密入力brokerへ直接入力します。ChatGPTデスクトップのCodexローカルタスクでは共有MCP設定を使います。ホスト型ChatGPT Webを選ぶ場合だけ、権限付与、TunnelとAppの最終作成、runtime API keyの表示と入力も利用者が行います。"
+					"利用者がmail:readだけのAPIキーを作り、伏字promptまたは秘密入力brokerへ直接入力します。ChatGPT Workローカルタスクでは共有MCP設定を使います。Work Cloudまたはホスト型ChatGPT Webを選ぶ場合だけ、権限付与、TunnelとAppの最終作成、runtime API keyの表示と入力も利用者が行います。"
 				],
 				"risk_gate": {
 					"required": true,
-					"scope": "mail:read APIキーの作成前。ホスト型ChatGPT Webを選ぶ場合は、権限付与、TunnelまたはAppの最終作成の前"
+					"scope": "mail:read APIキーの作成前。Work Cloudまたはホスト型ChatGPT Webを選ぶ場合は、権限付与、TunnelまたはAppの最終作成の前"
 				},
 				"completion_evidence": [
 					"tools/listはwhoami、list_threads、get_thread、search_mail、list_attachmentsだけで、whoamiのidentityと同じ非秘密canaryをMCPから読めます。"

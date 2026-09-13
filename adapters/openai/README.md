@@ -17,7 +17,7 @@ Codex CLI 0.149.1の一時クリーンプロファイルで、次を実測した
 - インストール済みcacheの同じMCPコマンドでstdio initializeとtools/listを確認し、`setup_apply` は `provider_adapter_unavailable` で停止した。provider、DNS、メール、秘密値、外部送信は扱っていない。
 - 一時 `HOME` / `CODEX_HOME`だけを使い、既存のglobal configはハッシュが変わらないことを確認した。
 
-QMJ-11BのCodex CLI discovery gateは「portable rootをmarketplaceとして直接扱う: 不可」「リポジトリnative adapter: PASS」「一時クリーンプロファイルのinstall/enabled/MCP smoke: PASS」である。Codex CLIでは、marketplace登録後に新しいsessionを開始する。ChatGPTデスクトップのlocal marketplaceは、公式のPlugins Directoryでmarketplaceを選択し、再起動後にインストールする別のUI確認が必要である。MCPが利用できない場合は、portable Skillを公式のアップロード導線で登録し、ブラウザレスの手動チェックリストを使う。
+QMJ-11BのCodex CLI discovery gateは「portable rootをmarketplaceとして直接扱う: 不可」「リポジトリnative adapter: PASS」「一時クリーンプロファイルのinstall/enabled/MCP smoke: PASS」である。Codex CLIでは、marketplace登録後に新しいsessionを開始する。ChatGPT Workローカルタスクのlocal marketplaceは、公式のPlugins Directoryでmarketplaceを選択し、再起動後にインストールする別のUI確認が必要である。MCPが利用できない場合は、portable Skillを公式のアップロード導線で登録し、ブラウザレスの手動チェックリストを使う。
 
 native adapterのSkillとSetup MCPランタイムは、canonical portable sourceから `bun run generate:codex-native-adapter` で同期し、`bun run check:codex-native-adapter` で一致を検証する。同期スクリプトはローカルファイルを生成するだけで、インストール、更新daemon、認証、外部通信を行わない。`.agents/plugins/` のnative marketplace metadataはAgent Plugin ZIPのallowlistに含めない。
 

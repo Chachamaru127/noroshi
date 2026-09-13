@@ -58,7 +58,13 @@ const ACTION_READBACK_FIELDS = new Set([
 const EVIDENCE_COMMON_FIELDS = new Set(['kind', 'status', 'observed_at']);
 const FINGERPRINT_PATTERN = /^[a-f0-9]{64}$/u;
 const EXISTING_MAIL_VALUES = new Set(['none', 'active', 'unknown']);
-const HOST_VALUES = new Set(['codex', 'chatgpt_desktop', 'chatgpt_work']);
+const HOST_VALUES = new Set([
+	'codex',
+	'chatgpt_desktop',
+	'chatgpt_work',
+	'chatgpt_work_local',
+	'chatgpt_work_cloud'
+]);
 const MAILBOX_HANDOFF_STATUSES = new Set([
 	'pending',
 	'outbound_verified',
@@ -345,7 +351,7 @@ export function assessSetupPreflight(input = {}) {
 		typeof input.test_recipient?.value === 'string' &&
 		/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(input.test_recipient.value) &&
 		input.test_recipient.controlled_by_user === true;
-	const hostedChatGptWeb = input.target_host === 'chatgpt_work';
+	const hostedChatGptWeb = ['chatgpt_work', 'chatgpt_work_cloud'].includes(input.target_host);
 	const cloudflareIdentityReady = FINGERPRINT_PATTERN.test(
 		input.identity?.cloudflare_fingerprint ?? ''
 	);

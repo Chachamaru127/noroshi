@@ -180,10 +180,10 @@ test('a ready Chrome fallback replaces unavailable native controls', () => {
 	assert.equal(statuses.chrome_extension, 'ready');
 });
 
-test('hosted ChatGPT Web preflight requires developer mode and Secure MCP Tunnel', () => {
+test('ChatGPT Work cloud preflight requires developer mode and Secure MCP Tunnel', () => {
 	const result = assessSetupPreflight({
 		...readyPreflight(),
-		target_host: 'chatgpt_work',
+		target_host: 'chatgpt_work_cloud',
 		chatgpt_developer_mode: 'unknown',
 		secure_mcp_tunnel: 'unavailable'
 	});
@@ -197,10 +197,20 @@ test('hosted ChatGPT Web preflight requires developer mode and Secure MCP Tunnel
 	);
 });
 
-test('ChatGPT desktop uses the shared local stdio configuration without a tunnel', () => {
+test('legacy chatgpt_work host remains a cloud alias for saved journeys', () => {
 	const result = assessSetupPreflight({
 		...readyPreflight(),
-		target_host: 'chatgpt_desktop',
+		target_host: 'chatgpt_work',
+		chatgpt_developer_mode: 'unknown',
+		secure_mcp_tunnel: 'unavailable'
+	});
+	assert.equal(result.status, 'user_action');
+});
+
+test('ChatGPT Work local uses the shared local stdio configuration without a tunnel', () => {
+	const result = assessSetupPreflight({
+		...readyPreflight(),
+		target_host: 'chatgpt_work_local',
 		chatgpt_developer_mode: 'unavailable',
 		secure_mcp_tunnel: 'unavailable'
 	});
@@ -282,7 +292,7 @@ test('preflight cannot replace a bound host, domain, recipient, or provider iden
 	try {
 		await recordSetupPreflight({ workspaceRoot, stateRoot, observations: readyPreflight(), now });
 		const replacements = [
-			{ target_host: 'chatgpt_work' },
+			{ target_host: 'chatgpt_work_cloud' },
 			{ domain: { value: 'other.example', ownership: 'confirmed' } },
 			{ test_recipient: { value: 'other@example.net', controlled_by_user: true } },
 			{ identity: { cloudflare_fingerprint: 'e'.repeat(64) } },

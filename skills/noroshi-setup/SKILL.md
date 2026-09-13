@@ -13,7 +13,14 @@ NoroshiのBYOK（Bring Your Own Key / Account）導入を支援する。Noroshi�
 
 1. Noroshiを「Cloudflare Email Routingで受信し、Resendで送信する、利用者自身のCloudflare上の日本語Webメール」と2〜3文で説明する。
 2. AIが行う操作と、人間だけが行う操作を短く示す。
-3. 「セットアップを始めますか？」と聞いて停止する。同意前はリポジトリ取得、読み取り専用の能力確認、外部変更を行わない。
+3. READMEの開始文そのものを、ローカル準備と読み取り確認の依頼として扱う。同じ開始確認や長い手順の再貼り付けを求めず、12項目の開通ミッションを表示して事前確認へ進む。
+
+## ChatGPT Workの入口
+
+1. 第一経路はChatGPTデスクトップのWorkローカルタスクである。Noroshiリポジトリのあるフォルダがローカルプロジェクトの主フォルダであり、実行場所が`Work locally`であることを確認する。Setup MCPへ保存する`target_host`は`chatgpt_work_local`とし、Cloudの場合だけ`chatgpt_work_cloud`とする。
+2. 通常のChat、ChatGPT Work Cloud、ホスト型Webでは、ローカルのフォルダ、ターミナル、アプリ、ログイン済みブラウザを同じ条件で使えない。入口が違う場合は外部設定を始めず、ローカルプロジェクトへフォルダを追加して`Work locally`で新しいタスクを開始する1操作だけを案内する。
+3. リポジトリの取得、依存関係と能力の読み取り確認、Setup SkillとSetup MCPの導入準備はAIが行う。ターミナルやコンピュータ操作が使えるのに、利用者へコマンド実行や長文のコピーを渡さない。
+4. ログイン、MFA、CAPTCHA、規約同意、支払い、秘密値入力と、個別の外部変更・送信の承認だけを利用者へ返す。
 
 ## 最初に確認すること
 
@@ -23,13 +30,13 @@ NoroshiのBYOK（Bring Your Own Key / Account）導入を支援する。Noroshi�
 2. 利用者が各サービスのアカウント、ドメイン、料金、保存データを所有・管理することを説明する。
 3. 回答時点の公式ドキュメントを実際に開き、確認日とURLを示す。記憶だけで画面名や値を断定しない。
 4. [references/setup-patterns.json](references/setup-patterns.json)から該当段階だけを読む。このファイルはリポジトリのレビュー済みKnowledge Packから生成された、導入・疎通確認用の限定版である。Patternの`review_by`を過ぎていたら具体的な変更手順に使わない。リポジトリ内で`support/knowledge/patterns.json`も読める場合は、版と確認期限の差を照合し、新しい正本があればそちらの該当Patternを使う。
-5. 同意後、ホスト側のComputer Use、認証済みブラウザ、terminal、秘密入力経路、Setup MCP、Mailbox MCPの可否を実際のtool surfaceと安全な試行で確認する。これらはSkillが追加する機能ではない。
+5. 開始文を受けたら、ホスト側のComputer Use、認証済みブラウザ、terminal、秘密入力経路、Setup MCP、Mailbox MCPの可否を実際のtool surfaceと安全な試行で確認する。これらはSkillが追加する機能ではない。
 6. Bunは`package.json`どおり1.3.14か確認する。Wranglerはグローバル版ではなく、依存導入後のリポジトリ内`wrangler`を確認する。CloudflareとResendのログイン状態、権威NS、DNSSEC、TTL、既存MXを質問より先に読み取る。
 7. ブラウザとComputer Useが両方使える場合、Chrome拡張は不要であり質問しない。どちらも使えない場合だけ、ホストが対応するChatGPT Chrome拡張の導入・ログイン状態をfallbackとして確認する。
 8. 自動確認できないCloudflareアカウント、Resendアカウント、ドメイン所有、既存メールの利用状況、本人管理のテスト受信先だけを一度に質問する。秘密値を質問へ含めない。
 9. 読み取り専用の事前確認には承認を求めない。変更操作は、対象、payload、変更前後の完全な差分、rollback、費用、plan hash、有効期限が一致する次の1操作だけを承認対象にする。開始時に将来のgrantをまとめて発行しない。
 10. Setup MCPから承認を作らない。provider writeを実行できるホストでは、モデル外の承認UIが発行した署名済み・1回限りのreceiptをホスト側adapterが検証した場合だけ、その1操作を実行する。この経路がなければ公式画面の最終操作を利用者へ渡す。
-11. Setup MCPの`setup_resume`が利用できない場合は、永続する開通ミッションなしでセットアップを続行しない。ChatGPTデスクトップのCodexローカルタスク、Codex CLI、IDE拡張は同じCodexホストのMCP設定を共有する。リポジトリの`noroshi-setup` pluginを導入し、新しいローカルタスクで`setup_resume`による保存と再開を確認してから事前確認へ進む。ホスト型ChatGPT WebはローカルCodex設定を読まない。Web経路ではSecure MCP Tunnelまたはレビュー済みremote MCPを確認し、利用できなければローカルCodex経路へ切り替える。会話内だけのTODOを日跨ぎ進捗の正本にしない。
+11. Setup MCPの`setup_resume`が利用できない場合は、永続する開通ミッションなしで外部設定を続行しない。ChatGPT Workローカルタスク、Codex CLI、IDE拡張は同じローカルプロジェクトを使える。AIがリポジトリの`noroshi-setup` plugin導入を進め、ツール一覧の更新に新しいタスクが必要な場合だけ、その1操作を利用者へ案内する。新しいローカルタスクで`setup_resume`による保存と再開を確認してから外部設定へ進む。Work Cloudとホスト型ChatGPT Webはローカル設定を読まない。Cloud経路ではSecure MCP Tunnelまたはレビュー済みremote MCPを確認し、利用できなければWorkローカル経路へ切り替える。会話内だけのTODOを日跨ぎ進捗の正本にしない。
 
 ## 導入段階
 
@@ -82,7 +89,7 @@ NoroshiのBYOK（Bring Your Own Key / Account）導入を支援する。Noroshi�
 5. 受信、送信、Gmail連携は別々に確認する。実メール送信は、利用者がその送信を個別に承認した場合だけ扱う。
 6. 初回疎通のメール証拠は同じ非秘密canaryをCloudflare Email Routing Activity、Worker/D1、Resend、Noroshi UIで突合する。canary tokenは`canary-`で始まる12〜72文字の小文字英数字とハイフンだけとし、secret、password、api-key、bearer、tokenを含む値は証拠へ取り込まない。DNS証拠は同じドメイン、configuration fingerprint、MX、TXTを権威DNSと公開DNSリゾルバで突合する。provider画面1か所だけで完了としない。
 7. 最後に`mail:read`だけのAPIキーを利用者が作り、`noroshi login --url <instance>`の伏字promptまたはホストの秘密入力brokerへ直接入力する。Mailbox MCPは`noroshi mcp --read-only`で起動し、`whoami`でidentityを確認してから同じcanaryを`search_mail`または`get_thread`で読む。
-8. ChatGPTデスクトップのCodexローカルタスク、Codex CLI、IDE拡張では、同じCodexホスト設定からローカルstdio Mailbox MCPを使う。ホスト型ChatGPT WebはローカルCodex設定を読まない。Webからprivate MCPへ接続する場合だけ、workspaceのdeveloper mode、OpenAI PlatformのTunnel権限、公式Secure MCP Tunnelを確認する。利用できなければWeb経路は未完了として止め、ローカルCodex経路を案内する。
+8. ChatGPT Workローカルタスク、Codex CLI、IDE拡張では、同じローカルホスト設定からstdio Mailbox MCPを使う。Work Cloudとホスト型ChatGPT Webはローカル設定を読まない。Cloudからprivate MCPへ接続する場合だけ、workspaceのdeveloper mode、OpenAI PlatformのTunnel権限、公式Secure MCP Tunnelを確認する。利用できなければCloud経路は未完了として止め、Workローカル経路を案内する。
 
 `scripts/setup.mjs`は人間が端末で使う互換経路であり、AI主導の導入では実行しない。Setup MCPの`setup_apply`が`provider_adapter_unavailable`を返す場合、それを回避するために`setup.mjs`を実行しない。公式画面を開き、利用者へ最終操作を渡して進捗を保存する。
 

@@ -631,7 +631,7 @@ test('committed Agent Plugin archive passes exact-entry, traversal, symlink, and
 		const contents = spawnSync('unzip', ['-p', output], { encoding: 'utf8' });
 		assert.equal(contents.status, 0, contents.stderr);
 		assert.doesNotMatch(contents.stdout, /secret-canary-do-not-include/u);
-		assert.doesNotMatch(contents.stdout, /re_[A-Za-z0-9_-]{20,}/u);
+		assert.doesNotMatch(contents.stdout, /\bre_[A-Za-z0-9_-]{20,}/u);
 	} finally {
 		rmSync(output, { force: true });
 		rmSync(canary, { force: true });

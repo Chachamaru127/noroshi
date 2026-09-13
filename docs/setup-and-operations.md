@@ -1,6 +1,6 @@
 # Noroshi 導入と運用ガイド
 
-READMEに書いていない導入と運用の詳細です。AIに導入させる場合は、`skills/noroshi-setup/SKILL.md`と合わせてAIに読ませてください。
+READMEに書いていない導入と運用の詳細です。ChatGPT Workはリポジトリの`AGENTS.md`を入口にして、`skills/noroshi-setup/SKILL.md`とこのガイドを読みます。利用者が長い手順をコピーする必要はありません。
 
 **導入はBYOK（利用者自身のアカウントと認証情報を使う方式）です。** Cloudflare、Resend、将来提供するGmailコネクターのGoogle Cloudは、利用者自身のアカウントと認証情報を使います。Noroshi共通のAPIキーやOAuth Clientは配布しません。アカウント、利用料金、保存データ、認証情報は利用者が管理します。
 
@@ -33,14 +33,16 @@ Cloudflare公式の[Deploy to Cloudflareボタン](https://developers.cloudflare
 
 現在利用できるAI相談ドックは、**デプロイ後のResend設定と最初の管理者作成**を支援します。`skills/noroshi-setup`には、Cloudflare、Resend、将来のGmail BYOK設定を公式画面に沿って案内するポータブルSkillがあります。Agent Plugin ZIPにはこのSkill、レビュー済み参照資料、日を跨いで再開するprovider非接続のSetup MCPを同梱します。
 
-### Setup Skillを使う
+### ChatGPT WorkからSetup Skillを使う
 
 正本は[`skills/noroshi-setup`](./skills/noroshi-setup/)の1か所です。`.agents/skills/noroshi-setup`と`.claude/skills/noroshi-setup`は正本を読むだけの薄いアダプターで、手順を複製しません。
+
+ChatGPTデスクトップでは、空の`Noroshi`フォルダをローカルプロジェクトへ追加して主フォルダに設定します。新しいタスクをWorkへ切り替え、`Work locally`を選んでからREADMEの短い開始文を貼ります。通常のChat、Work Cloud、ホスト型ChatGPT Webから始めません。ローカルプロジェクトの主フォルダは、Git操作、`AGENTS.md`、Skill、設定の検出基準です。
 
 - Codex CLI向けには、公式native形式のrepo marketplace（`.agents/plugins/marketplace.json`）と、`.codex-plugin/plugin.json`を持つadapterを同梱しています。新しいクライアントプロファイルでmarketplace追加、発見、インストール、有効化、MCP initializeまで確認済みです。portable Agent Plugins 1.0形式とは別の配布経路です。
 - `.agents/skills`はCodexのrepo-scoped Skill fallbackとして残しています。IDE拡張はプラグイン非対応のため、Skillの手動導入または通常のリポジトリ運用を使います。
 - Claude Code向けの正しいリポジトリ配置として`.claude/skills`アダプターを同梱しています。こちらも新しいクライアントプロファイルでの発見確認はQMJ-15まで未完了です。
-- ChatGPTでは、cloneだけではインストールされません。利用可能なプラン・ワークスペースで「Plugins → Skills → Create → Upload」から、下記のZIPをアップロードします。
+- ChatGPTのアカウントへSkillとして常設する場合、cloneだけではインストールされません。利用可能なプラン・ワークスペースで「Plugins → Skills → Create → Upload」から、下記のZIPをアップロードします。Workローカルタスクの初回導入では、リポジトリの`AGENTS.md`から正本Skillを読み、Setup MCPの導入までAIが案内します。
 - Claude Desktop／Webでも、cloneだけではインストールされません。「Customize → Skills → Create skill → Upload a skill」から同じZIPをアップロードします。コード実行や利用者作成Skillが組織設定で無効な場合は利用できません。
 
 リポジトリのルートで次を実行すると、macOSの補助ファイルやクライアント別アダプターを含まないアップロード用ZIPを`out/noroshi-setup.zip`へ作成できます。
@@ -61,7 +63,7 @@ bun run package:agent-plugin
 
 このZIPに `scripts/setup.mjs` は含まれません。`bun run setup` はリポジトリに残る別の対話型CLIであり、QMJ-10のprovider-neutral setup-engineやSetup MCPから自動実行されません。`setup_apply` は引き続きprovider adapter unavailableで停止します。
 
-1プロンプトのAI導入では、Setup MCPの`setup_resume`がOSのユーザーstate領域へ開通ミッションを保存し、別プロセスから再開できることを最初に確認します。利用できない場合、会話内のTODOだけでprovider設定を続行しません。ChatGPTデスクトップのCodexローカルタスク、Codex CLI、IDE拡張は同じCodexホストのMCP設定を共有します。次のplugin導入後に新しいローカルタスクを開始し、`setup_resume`を呼んでから事前確認へ進みます。ホスト型ChatGPT WebはローカルCodex設定を読みません。Webからprivate MCPを使う場合だけ、Secure MCP Tunnelまたはレビュー済みのremote MCP経路を用意します。
+1プロンプトのAI導入では、Setup MCPの`setup_resume`がOSのユーザーstate領域へ開通ミッションを保存し、別プロセスから再開できることを最初に確認します。利用できない場合、会話内のTODOだけでprovider設定を続行しません。ChatGPT Workローカルタスク、Codex CLI、IDE拡張は同じローカルプロジェクトとホスト設定を使えます。plugin導入後にツール一覧の更新が必要な場合だけ、新しいWorkローカルタスクを開始し、`setup_resume`を呼んでから外部設定へ進みます。Work Cloudとホスト型ChatGPT Webはローカル設定を読みません。Cloudからprivate MCPを使う場合だけ、Secure MCP Tunnelまたはレビュー済みのremote MCP経路を用意します。
 
 Codex CLIでrepo marketplaceを使う場合は、リポジトリのルートで次を実行します。marketplace登録・インストール先は利用者のCodex設定へ保存されるため、対象アカウントで実行してください。
 
@@ -72,7 +74,7 @@ codex plugin add noroshi-setup@noroshi
 codex plugin list
 ```
 
-インストール後はChatGPTデスクトップのCodexローカルタスクまたはCodex CLIで新しいタスクを開始し、外部設定へ進む前に`setup_resume`を呼びます。native adapterにもBYOK setup Skillと、provider・メールボックス権限を持たないSetup MCPが含まれます。`setup_apply`はprovider adapter unavailableで停止します。現在の配布物には実provider adapterがないため、ホストの安全なブラウザ・Computer Use・terminal経路が使えない外部writeはAIが実行しません。AIは許可済み公式画面まで案内し、最終操作を利用者へ渡します。Codex CLIのクリーンプロファイルではplugin導入、MCP初期化、別プロセスからの再開まで確認済みです。ChatGPTデスクトップから同じCodexホスト設定を使う画面操作は未確認です。
+インストール後はChatGPT WorkローカルタスクまたはCodex CLIで新しいタスクを開始し、外部設定へ進む前に`setup_resume`を呼びます。native adapterにもBYOK setup Skillと、provider・メールボックス権限を持たないSetup MCPが含まれます。`setup_apply`はprovider adapter unavailableで停止します。現在の配布物には実provider adapterがないため、ホストの安全なブラウザ・Computer Use・terminal経路が使えない外部writeはAIが実行しません。AIは許可済み公式画面まで案内し、最終操作を利用者へ渡します。Codex CLIのクリーンプロファイルではplugin導入、MCP初期化、別プロセスからの再開まで確認済みです。ChatGPT Workローカルタスクからのplugin発見と`setup_resume`実行は、本多くんの初回テストで確認する未完了gateです。
 
 ## AIに質問
 
@@ -339,9 +341,9 @@ bun run noroshi -- send --to recipient@example.net --subject "確認" --body "�
 
 `login`はAPIキーを伏字で入力します。`--token`へ値を書くと、シェル履歴やprocess listへ残るため拒否します。設定は`NOROSHI_URL`、`NOROSHI_TOKEN`、`NOROSHI_CONFIG`の環境変数か、mode `0600`の`~/.config/noroshi/config.json`から読み込みます。MCP設定へ`NOROSHI_TOKEN`を書かないでください。
 
-### ChatGPTデスクトップのCodex / Codex CLIで読み取り専用Mailbox MCPを使う
+### ChatGPT Workローカルタスク / Codex CLIで読み取り専用Mailbox MCPを使う
 
-ChatGPTデスクトップ、Codex CLI、IDE拡張は同じCodexホストのMCP設定を共有し、このソースツリーのstdio MCPを直接起動できます。ChatGPTデスクトップではCodexのローカルタスクを選びます。先に`mail:read`だけのAPIキーで`login`し、MCP設定には秘密値を含めません。
+ChatGPT Workローカルタスク、Codex CLI、IDE拡張は同じローカルホストのMCP設定を使い、このソースツリーのstdio MCPを直接起動できます。ChatGPTデスクトップではWorkの`Work locally`を選びます。先に`mail:read`だけのAPIキーで`login`し、MCP設定には秘密値を含めません。
 
 ```json
 {
@@ -357,9 +359,9 @@ ChatGPTデスクトップ、Codex CLI、IDE拡張は同じCodexホストのMCP�
 
 再起動後、`tools/list`が`whoami`、`list_threads`、`get_thread`、`search_mail`、`list_attachments`の5つだけであることを確認します。`whoami`で利用者を照合し、送受信テストと同じ非秘密canaryを`search_mail`または`get_thread`で読みます。
 
-### ホスト型ChatGPT Webからprivate Mailbox MCPを使う
+### ChatGPT Work Cloud / ホスト型ChatGPT Webからprivate Mailbox MCPを使う
 
-ホスト型ChatGPT WebはローカルCodex設定を読みません。private MCPへ接続する選択肢の1つが[Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)です。ChatGPTのdeveloper modeと、Platform側のTunnel権限は別に必要です。利用できない場合はWeb経路を未完了として止め、ChatGPTデスクトップのCodexローカルタスクまたはCodex CLIを使います。
+Work Cloudとホスト型ChatGPT Webはローカルホスト設定を読みません。private MCPへ接続する選択肢の1つが[Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)です。ChatGPTのdeveloper modeと、Platform側のTunnel権限は別に必要です。利用できない場合はCloud経路を未完了として止め、ChatGPT Workの`Work locally`またはCodex CLIを使います。
 
 1. AIが[ChatGPTのdeveloper mode設定](https://help.openai.com/en/articles/12584461-developer-mode-apps-and-full-mcp-connectors-in-chatgpt-beta)と[Platform tunnel settings](https://platform.openai.com/settings/organization/tunnels)を開きます。
 2. 管理者権限の付与、Tunnel作成、runtime API keyの表示と入力は人が行います。秘密値をチャットへ貼りません。

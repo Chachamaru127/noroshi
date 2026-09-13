@@ -72,29 +72,20 @@ Noroshi自体は無料です。独自ドメインの取得と更新費、無料�
 3. Resendアカウント（無料プランで可）
 4. ターミナルまたはブラウザを操作できるAI
 
-### ChatGPTデスクトップのCodex / Codex CLIに渡す指示文
+### ChatGPT Workから始める
 
-コード枠の右上にあるコピーボタンを押し、ChatGPTデスクトップのCodexローカルタスクまたはCodex CLIへそのまま貼り付けます。ドメインやメールアドレスを先に書き換える必要はありません。
+通常のChatではなく、ChatGPTデスクトップの**Work**を使います。空の`Noroshi`フォルダを作り、ChatGPTのローカルプロジェクトへ追加して主フォルダに設定します。新しいタスクの入力欄で**Work**へ切り替え、実行場所は**Work locally**を選びます。**Cloudではなくローカル**です。
+
+そのWorkに、次の文章をそのまま貼ります。ドメイン、メールアドレス、APIキーを書き足す必要はありません。
 
 ```text
-Noroshiのセットアップを始めてください。
-
-最初に、Noroshiが「Cloudflare Email Routingで受信し、Resendで送信する、自分のCloudflare上の日本語Webメール」であることを2〜3文で説明してください。人が行う操作と、あなたが行う操作も短く示してください。その後、「セットアップを始めますか？」と聞き、私が同意するまで外部変更をしないでください。
-
-同意後は、https://github.com/Chachamaru127/noroshi を取得し、skills/noroshi-setup/SKILL.md と docs/setup-and-operations.md を読んでください。最初にSetup MCPのsetup_resumeを実測してください。利用できない場合は、永続するNoroshi開通ミッションがないままセットアップを続行しないでください。docs/setup-and-operations.mdの手順でnoroshi-setup pluginを導入し、ChatGPTデスクトップのCodexローカルタスクまたはCodex CLIで新しいタスクを開始してください。setup_resumeによる保存と再開を最初に確認してください。ホスト型ChatGPT WebはローカルCodex設定を読みません。Webからprivate MCPを使う場合だけ、公式Secure MCP Tunnelまたはレビュー済みのremote MCP経路を別途確認してください。会話内だけのTODOを日跨ぎ進捗の正本にしないでください。scripts/setup.mjsをAIのセットアップ経路として実行しないでください。
-
-質問より先に、あなた自身が使えるブラウザ、コンピュータ操作、ターミナル、秘密入力経路、Mailbox MCPを実測してください。Bun 1.3.14、リポジトリ内のWrangler、CloudflareとResendのログイン状態、ドメインの権威DNS・DNSSEC・TTL・既存MXも、安全な読み取りで確認してください。ブラウザとコンピュータ操作が使える場合、Chrome拡張の確認は不要です。自動確認できなかったCloudflare/Resendアカウント、ドメイン、既存メールの利用状況、本人が管理するテスト受信先だけを、一度に質問してください。
-
-不足があれば、説明だけで終わらせないでください。ブラウザ操作が使える場合はCloudflare、Resend、Noroshiの許可済み公式画面を必要な場所まで実際に開いてください。Bunが未導入または1.3.14以外の場合は、https://bun.com/docs/installation と https://github.com/oven-sh/bun/releases/tag/bun-v1.3.14 の必要な場所を開いてください。`curl ... | bash`や`irm ... | iex`のようなpipe installerは実行しないでください。OSとCPUを読み取り、公式releaseから該当する通常版assetとSHASUMS256.txtを特定してください。私がassetをダウンロードし、SHA-256を照合してから展開し、既存のBunとは混在しないPATH上へ配置します。人がコマンドを実行する必要がある場合は、確認した環境に対応する操作を1本ずつコピーできるコード枠で出してください。新しいterminalで`bun --version`が完全に`1.3.14`を返すまで次へ進まないでください。
-
-ログイン、MFA、CAPTCHA、規約同意、支払い、アカウントやチームの切替、ドメイン購入、秘密値の表示・入力は私が行います。それ以外は、利用可能なブラウザ、コンピュータ操作、ターミナルを使って、できるだけあなたが進めてください。外部変更と送信は、対象、変更前後、費用、戻し方を示し、私が承認した1操作だけを実行してください。実行後は同じ画面またはAPIを読み返してください。現在のホストに安全な実行経路がない操作は、公式画面を開いて最終ボタンだけ私へ渡してください。
-
-開始時に12項目の「🔥 Noroshi 開通ミッション」を表示し、秘密を含まない進捗を日を跨いで再開できる状態へ保存してください。途中で止まった操作は同じwriteや送信を繰り返さず、最初にreadbackしてください。
-
-完了条件は、本人管理の宛先へテストメールが1通届くこと、その返信をCloudflare Email RoutingとNoroshiで受信できること、mail:read専用キーを使う別のread-only Mailbox MCPがChatGPT WorkまたはCodexに接続され、whoamiと同じ確認メールをMCPから読めることです。APIキー、パスワード、メール本文をチャット、コマンド引数、MCP設定、進捗ファイル、ログ、スクリーンショットへ残さないでください。
+NoroshiをこのWorkのフォルダへセットアップしてください。私は手順を知りません。
+https://github.com/Chachamaru127/noroshi をこの空のフォルダ直下に取得し、ルートのAGENTS.mdを読んでください。何をするか日本語で説明しながら、使えるターミナル、ブラウザ、コンピュータ操作で進めてください。私にしかできない操作の直前だけ止めて、画面上で教えてください。外部サービスの変更やメール送信は、内容を見せて私が承認してから実行してください。
 ```
 
-OpenAI公式の[MCP資料](https://learn.chatgpt.com/docs/extend/mcp)では、ChatGPTデスクトップ、Codex CLI、IDE拡張は同じCodexホストのMCP設定を共有し、ローカルstdio（標準入出力）MCPを直接起動できます。ChatGPTデスクトップでは、必ずローカルタスクを選びます。ホスト型ChatGPT WebはローカルCodex設定を読みません。[Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)は、Webなどのホスト型画面からprivate MCPへ接続する場合だけ使います。
+ChatGPT公式資料では、ローカルプロジェクトの主フォルダが新しいタスクの作業場所になります。`AGENTS.md`とSkillは、この開始文で明示的に読ませます。ChatGPT Workがローカルファイルやアプリを使う作業では、デスクトップアプリで`Work locally`を選びます。WebまたはCloudのWorkをデスクトップで開いてもローカルタスクにはなりません。詳しくは[Projects and chats](https://learn.chatgpt.com/docs/projects)、[Get started with ChatGPT Work](https://learn.chatgpt.com/docs/get-started-with-work)、[ChatGPT Work local security](https://learn.chatgpt.com/docs/enterprise/chatgpt-work-local-security)を参照してください。
+
+Codex CLIを使う場合は、空の`Noroshi`フォルダでCodexを起動し、同じ文章を貼ります。
 
 自分で進める場合は、[導入と運用ガイド](docs/setup-and-operations.md)の手順で`bun run setup`を実行します。
 
