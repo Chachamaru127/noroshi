@@ -39,7 +39,7 @@
 		// Comma-separated domains onboarded in Email Service / Email Routing.
 		"CLOUDFLARE_MAIL_DOMAINS": "mail.canai.jp,ai-sdr.app",
 		// Domains explicitly verified for Resend sending during setup.
-		"RESEND_SEND_DOMAINS": ""
+		"RESEND_SEND_DOMAINS": "mail.canai.jp"
 	},
 
 	"d1_databases": [
