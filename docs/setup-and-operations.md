@@ -186,6 +186,8 @@ D1作成時に表示された`database_id`を`wrangler.jsonc`の`REPLACE_WITH_YO
 }
 ```
 
+運用中の導入では、自分のドメインなどの本番の値を追跡対象の`wrangler.jsonc`へ書かないでください。追跡しない`wrangler.deploy.jsonc`（`.gitignore`済み）に置いて`bunx wrangler deploy -c wrangler.deploy.jsonc`で配備するか、`bunx wrangler deploy --var CLOUDFLARE_MAIL_DOMAINS:example.com --var RESEND_SEND_DOMAINS:example.com`のように配備のたびに渡します。Cloudflareのダッシュボードで変数を変えた場合も、次の配備で同じ値を渡さないと設定ファイルの値で上書きされます。`CLOUDFLARE_MAIL_DOMAINS`が空になるとすべての受信を拒否し、`RESEND_SEND_DOMAINS`が空になるとすべての送信と自動転送が止まります。
+
 続いてCloudflareのネイティブな非表示プロンプトからシークレットを入力します。値をチャット、コマンド引数、ファイル、ログへ書かないでください。Workerへ渡すResendキーは対象ドメインに限定した送信専用キーです。Resend公式画面またはAPIで送信ドメインが`verified`になったことを確認した後だけ、`RESEND_SEND_DOMAINS`へ同じドメインを設定します。未確認の間は空欄のままにしてください。ドメイン確認やWebhook作成に使った一時的なフルアクセスキーはWorkerへ配備せず、設定後に失効させます。
 
 ```bash
