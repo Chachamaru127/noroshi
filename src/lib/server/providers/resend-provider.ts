@@ -20,7 +20,7 @@ export function createResendProvider(
 	const usesCloudflareInbound = cloudflareInboundDomains !== undefined;
 	const inboundDomains = new Set(parseMailDomains(cloudflareInboundDomains));
 	const configuredSendDomains = parseMailDomains(resendSendDomains);
-	const sendDomains = new Set(configuredSendDomains.length === 1 ? configuredSendDomains : []);
+	const sendDomains = new Set(configuredSendDomains);
 	const configuredDomains = [...inboundDomains].map((name) => ({
 		id: name,
 		name,
