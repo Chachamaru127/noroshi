@@ -313,7 +313,7 @@ APIキー、Resendキー、Webhook署名、セットアップキーなどのシ�
 1. 現行コミットID、Workerデプロイ、D1/R2バックアップを記録
 2. 新旧ソースの差分とマイグレーションを確認
 3. `bun install --frozen-lockfile`
-4. 既存導入ではResend公式画面で、現在のWorker送信用キーが対象ドメインだけに制限されていることを確認する。その後、`bun run upgrade:qmj9-security -- --resend-send-domain example.com --confirm-domain-restricted-resend-key`を実行する。QMJ-9はCloudflareで複数ドメインを受信できますが、Resend送信はドメイン制限キー1個・送信ドメイン1件です。`AUTH_RATE_LIMIT_SECRET`の登録とreadback、明示した`RESEND_SEND_DOMAINS`、既存`RESEND_API_KEY`の存在を確認できなければデプロイを停止します。秘密値は表示・保存されません。
+4. 既存導入ではResend公式画面で、現在のWorker送信用キーが対象ドメインだけに制限されていることを確認する。その後、`bun run upgrade:qmj9-security -- --resend-send-domain example.com --confirm-domain-restricted-resend-key`を実行する。QMJ-9はCloudflareで複数ドメインを受信できますが、Resend送信はドメイン制限キー1個・送信ドメイン1件です。暫定で`RESEND_SEND_DOMAINS`に複数ドメインを列挙して送信を許す運用を認めています（列挙外のドメインと、空の設定は拒否）。複数にする間はキーが名乗れるドメインも増えるため、1件へ戻す条件は運用者が決めます。`AUTH_RATE_LIMIT_SECRET`の登録とreadback、明示した`RESEND_SEND_DOMAINS`、既存`RESEND_API_KEY`の存在を確認できなければデプロイを停止します。秘密値は表示・保存されません。
 5. `bun test`、`bun run test:d1-forwarding`、`bun run check`、`bun run format:check`、`bun run check:clean`、`bun run build`、`bun run test:archive`
 6. 先に検証環境へ反映
 7. リモートD1マイグレーションを適用してデプロイ

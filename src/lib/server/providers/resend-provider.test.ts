@@ -140,20 +140,59 @@ describe('Resend provider with Cloudflare inbound', () => {
 		assert.equal(fetchCalls, 0);
 	});
 
-	test('rejects every send when zero or multiple Resend send domains are configured', async () => {
+	test('rejects every send when no Resend send domain is configured', async () => {
 		let fetchCalls = 0;
 		globalThis.fetch = (async () => {
 			fetchCalls += 1;
 			return new Response('{}');
 		}) as typeof fetch;
-		for (const configured of ['', 'one.example,two.example']) {
-			const provider = createResendProvider('re_test', undefined, configured);
-			await assert.rejects(
-				provider.send({ from: { domain_name: 'one.example' } } as never),
-				/configured/i
-			);
-		}
+		const provider = createResendProvider('re_test', undefined, '');
+		await assert.rejects(
+			provider.send({ from: { domain_name: 'one.example' } } as never),
+			/configured/i
+		);
 		assert.equal(fetchCalls, 0);
+	});
+
+	test('allows only the listed domains when multiple Resend send domains are configured', async () => {
+		let fetchCalls = 0;
+		globalThis.fetch = (async () => {
+			fetchCalls += 1;
+			return new Response('{}');
+		}) as typeof fetch;
+		const provider = createResendProvider('re_test', undefined, 'one.example,two.example');
+		await assert.rejects(
+			provider.send({ from: { domain_name: 'three.example' } } as never),
+			/configured/i
+		);
+		assert.equal(fetchCalls, 0);
+		for (const domain of ['one.example', 'two.example']) {
+			await provider
+				.send({
+					from: { domain_name: domain, address: `a@${domain}` },
+					senderName: 'A',
+					to: ['b@other.example'],
+					subject: 's',
+					text: 't',
+					html: '<p>t</p>'
+				} as never)
+				.catch(() => undefined);
+		}
+		assert.equal(fetchCalls, 2);
+	});
+
+	test('reports every listed send domain as sendable when Email Routing owns inbound', async () => {
+		globalThis.fetch = (async () => new Response('{}')) as typeof fetch;
+		const provider = createResendProvider(
+			're_test',
+			'one.example,two.example,three.example',
+			'one.example,two.example'
+		);
+		const domains = await provider.listDomains();
+		const byName = new Map(domains.map((d) => [d.name, d.sendingEnabled]));
+		assert.equal(byName.get('one.example'), true);
+		assert.equal(byName.get('two.example'), true);
+		assert.equal(byName.get('three.example'), false);
 	});
 
 	test('reports a send-only Resend domain as receivable when Email Routing owns inbound', async () => {
